@@ -1,0 +1,4 @@
+string device_name          # Name of the device to check
+float64 last_callback_time  # Timestamp of the last audio callback
+---
+bool success                # Whether the device is connected and audio active

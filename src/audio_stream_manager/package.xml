@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>audio_stream_manager</name>
+  <version>0.0.0</version>
+  <description>Audio stream manager ROS 2 node</description>
+  <maintainer email="joan.omedes@eurecat.org">root</maintainer>
+  <license>Apache-2.0</license>
+
+  <!-- Build tool -->
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <!-- ROS dependencies -->
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+
+  <!-- Optional testing dependencies -->
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
