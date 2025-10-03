@@ -21,7 +21,7 @@ setup(
         "console_scripts": [
             "audio_capturing_node = audio_stream_manager.audio_capturing:main",
             "audio_device_monitor_node = audio_stream_manager.audio_device_monitor:main",
-            "audio_capturing_pick_device_node = audio_stream_manager.audio_capturing_pick_device:main",
+            "audio_capturing_select_device_node = audio_stream_manager.audio_capturing_select_device:main",
         ],
     },
 )
