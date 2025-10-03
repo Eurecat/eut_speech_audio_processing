@@ -1,0 +1,45 @@
+name: coghri_audio_dev
+
+services:
+  eut_audio_dev:
+    container_name: "eut_audio_dev"
+    network_mode: host 
+    ipc: host
+    shm_size: 1gb
+    # runtime: nvidia
+    # user: "coghri"
+    image: ${BUILT_IMAGE}
+    privileged: true
+    # user: "coghri"  # User will be created in the entrypoint script
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ~/.xauth_docker/share/:/tmp/xauth/
+      - ./.vscode:/workspace/.vscode
+      # ADD VOLUME MOUNTS FOR AUDIO PROCESSING NODES IF NEEDED
+      # - ./deps/eut_yolo/src/eut_yolo_core:/workspace/src/eut_yolo_core
+      - ../src:/workspace/src/
+      - /run/user/1000/pulse:/run/user/1000/pulse:rw
+    tty: true
+    stdin_open: true
+    environment:
+      # - USER_ID=${USER_ID}
+      # - GROUP_ID=${GROUP_ID}
+      # - USERNAME=${USERNAME}
+      # - NVIDIA_VISIBLE_DEVICES=all 
+      - DISPLAY=$DISPLAY
+      - QT_X11_NO_MITSHM=1
+      - XAUTHORITY=/tmp/xauth/.docker.xauth     
+      - PULSE_SERVER=unix:/run/user/1000/pulse/native
+      # - PULSE_COOKIE=/home/coghri/.config/pulse/cookie
+      # - ALSA_CARD=${ALSA_CARD}  # Set to the card number for your speaker
+    devices:
+      - /dev/dri:/dev/dri
+      - /dev/snd:/dev/snd
+      - /dev/bus/usb:/dev/bus/usb
+    # cap_add:
+    #   - NET_RAW
+    #   - NET_ADMIN
+    # security_opt:
+    #   - seccomp:unconfined
+    command: bash -c "source /workspace/install/setup.bash && /bin/bash"
+    entrypoint: ["/entrypoint.sh"]

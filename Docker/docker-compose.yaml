@@ -1,0 +1,85 @@
+name: coghri_audio
+
+services:
+  eut_audio:
+    container_name: "eut_audio"
+    network_mode: host 
+    ipc: host
+    shm_size: 1gb
+    # runtime: nvidia
+    image: ${BUILT_IMAGE}
+    privileged: true
+    # user: "root"  # User
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ~/.xauth_docker/share/:/tmp/xauth/
+      - ./.vscode:/workspace/.vscode
+    tty: true
+    stdin_open: true
+    environment:
+      # - USER_ID=${USER_ID}
+      # - GROUP_ID=${GROUP_ID}
+      # - USERNAME=${USERNAME}
+      # - NVIDIA_VISIBLE_DEVICES=all 
+      - DISPLAY=$DISPLAY
+      - QT_X11_NO_MITSHM=1
+      - XAUTHORITY=/tmp/xauth/.docker.xauth     
+      # - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}  
+      # - PULSE_SERVER=unix:/run/user/${USER_ID}/pulse/native
+      # - PULSE_COOKIE=/home/coghri/.config/pulse/cookie
+      # - ALSA_CARD=${ALSA_CARD}  # Set to the card number for your speaker
+    devices:
+      - /dev/dri:/dev/dri
+      - /dev/snd:/dev/snd
+      - /dev/bus/usb:/dev/bus/usb
+    # cap_add:
+    #   - NET_RAW
+    #   - NET_ADMIN
+    # security_opt:
+    #   - seccomp:unconfined
+
+    # TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    # CHANGE COMMAND TO LAUNCH AUDIO PROCESSING NODE
+    # command: bash -c "source /workspace/install/setup.bash && ros2 run eut_yolo_core camera_publisher_node"
+  eut_audio_dev:
+    container_name: "eut_audio_dev"
+    network_mode: host 
+    ipc: host
+    shm_size: 1gb
+    # runtime: nvidia
+    image: ${BUILT_IMAGE}
+    privileged: true
+    # user: "root"  # User
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ~/.xauth_docker/share/:/tmp/xauth/
+      - ./.vscode:/workspace/.vscode
+      # ADD VOLUME MOUNTS FOR AUDIO PROCESSING NODES IF NEEDED
+      - ../src:/workspace/src/
+      # - ./deps/eut_yolo/src/eut_yolo_core:/workspace/src/eut_yolo_core
+      # - ./deps/eut_yolo/src/eut_yolo_interfaces:/workspace/src/eut_yolo_interfaces
+    tty: true
+    stdin_open: true
+    environment:
+      # - USER_ID=${USER_ID}
+      # - GROUP_ID=${GROUP_ID}
+      # - USERNAME=${USERNAME}
+      # - NVIDIA_VISIBLE_DEVICES=all 
+      - DISPLAY=$DISPLAY
+      - QT_X11_NO_MITSHM=1
+      - XAUTHORITY=/tmp/xauth/.docker.xauth     
+      # - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}  
+      # - PULSE_SERVER=unix:/run/user/${USER_ID}/pulse/native
+      # - PULSE_COOKIE=/home/coghri/.config/pulse/cookie
+      # - ALSA_CARD=${ALSA_CARD}  # Set to the card number for your speaker
+    devices:
+      - /dev/dri:/dev/dri
+      - /dev/snd:/dev/snd
+      - /dev/bus/usb:/dev/bus/usb
+    # cap_add:
+    #   - NET_RAW
+    #   - NET_ADMIN
+    # security_opt:
+    #   - seccomp:unconfined
+    # command: bash -c "source /workspace/install/setup.bash && ros2 launch eut_yolo_core perception.launch.py use_camera_info_camera_calibration:=false depth_channel_available:=false detected_objects_topic:=/entities/detected"
+    command: bash -c "source /workspace/install/setup.bash && /bin/bash"

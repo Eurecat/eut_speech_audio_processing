@@ -1,0 +1,35 @@
+{
+    "name": "eut_audio",
+    "dockerComposeFile": "../../dev-docker-compose.yaml",
+    "service": "eut_audio",
+    // "remoteUser": "coghri",
+    "workspaceFolder": "/workspace",
+    "shutdownAction": "stopCompose",
+    "overrideCommand": false,
+    // "postStartCommand": "bash -c \"cd /workspace && source ./install/setup.bash && colcon build --event-handlers console_direct+ --symlink-install; source ./install/setup.bash && /bin/bash\"",
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "terminal.integrated.shell.linux": "/bin/bash",
+                "editor.fontSize": 14,
+                "editor.formatOnSave": false,
+                "workbench.colorTheme": "Default Dark+",
+                "editor.tokenColorCustomizations": {
+                    "comments": "#616060",
+                    "variables": "#fa2359",
+                    "types": "#cc00ff",
+                    "keywords": "#eeff00",
+                    "numbers": "#da5000"
+                },
+                "C_Cpp.clang_format_style": "file",
+                "C_Cpp.default.cStandard": "c11"
+            },
+            "extensions": [
+                "ms-python.python",
+                "ms-vscode.cpptools",
+                "redhat.vscode-yaml",
+                "vscode-icons-team.vscode-icons"
+            ]
+        }
+    }
+}
