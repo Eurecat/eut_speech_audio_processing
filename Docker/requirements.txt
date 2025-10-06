@@ -1,5 +1,13 @@
 # Numpy -----------------------------------
-numpy>=1.24.0
+numpy
+
+# Torch -----------------------------------
+# Let pyannote.audio manage torchaudio version for compatibility
 
 # Audio -----------------------------------
-sounddevice>=0.5.2
+sounddevice
+diart
+pyannote.audio
+
+# HuggingFace ---------------------------
+huggingface_hub

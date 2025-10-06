@@ -2,14 +2,16 @@ import time as T
 import threading
 
 import numpy as np
+
 import rclpy
 import sounddevice as sd
 from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray, Bool
+from audio_stream_manager_interfaces.msg import AudioDeviceInfo
 
 DTYPE = "float32"
 CHANNELS = 1
-CHUNK = 256
+CHUNK = 512
 DISCONNECTION_TIMEOUT = 5  # seconds
 DISCONNECTION_CHECK_INTERVAL = 1  # seconds
 TEST_STREAM_DURATION = 0.1  # seconds
@@ -23,6 +25,9 @@ class AudioCapturingNode(Node):
         self.audio_pub = self.create_publisher(Float32MultiArray, "audio", 10)
         self.device_disconnected_pub = self.create_publisher(
             Bool, "device_disconnected", 10
+        )
+        self.device_info_pub = self.create_publisher(
+            AudioDeviceInfo, "audio_device_info", 10
         )
 
         # Subscriber
@@ -60,7 +65,8 @@ class AudioCapturingNode(Node):
 
     def get_device_parameters(self, device_index):
         """Extract device parameters for a given device index."""
-        self.device = self.devices[device_index]
+        self.device_index = int(device_index)  # Ensure it's an integer
+        self.device = self.devices[self.device_index]
         self.device_samplerate = int(self.device["default_samplerate"])
         self.device_channels = min(self.device["max_input_channels"], CHANNELS)
 
@@ -91,6 +97,15 @@ class AudioCapturingNode(Node):
         """Create and start an audio input stream for the given device."""
         try:
             self.get_device_parameters(device_index)
+
+            # Publish device information
+            device_info_msg = AudioDeviceInfo()
+            device_info_msg.device_name = self.device["name"]
+            device_info_msg.device_id = self.device_index
+            device_info_msg.device_samplerate = float(
+                self.device_samplerate
+            )  # Ensure it's a float
+            self.device_info_pub.publish(device_info_msg)
 
             self.get_logger().info(
                 f"Selected device: {self.device['name']}; Samplerate: {self.device_samplerate}; Channels: {self.device_channels}"

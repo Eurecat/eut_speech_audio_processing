@@ -36,6 +36,10 @@ services:
       - /dev/dri:/dev/dri
       - /dev/snd:/dev/snd
       - /dev/bus/usb:/dev/bus/usb
+    device_cgroup_rules:
+      - 'c 180:* rwm'  # 180 is usb
+      - 'c 189:* rwm' # 189 is usb_device
+
     # cap_add:
     #   - NET_RAW
     #   - NET_ADMIN

@@ -16,6 +16,7 @@
         "reportOperatorIssue": "none",
         "reportCallIssue": "none",
         "reportOptionalSubscript": "none",
+        "reportGeneralTypeIssues": "none",
     },
     "files.associations": {
         "vector": "cpp",
@@ -108,7 +109,8 @@
         "format": "cpp",
         "stdfloat": "cpp"
     },
-    "C_Cpp.errorSquiggles": "disabled"
+    "C_Cpp.errorSquiggles": "disabled",
+    "cmake.sourceDirectory": "/workspace/src/audio_stream_manager_interfaces"
 
 
 }

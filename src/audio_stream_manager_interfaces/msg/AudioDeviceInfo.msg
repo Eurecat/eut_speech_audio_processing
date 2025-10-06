@@ -1,0 +1,3 @@
+string device_name
+int32 device_id
+float32 device_samplerate
