@@ -6,7 +6,7 @@ services:
     network_mode: host 
     ipc: host
     shm_size: 1gb
-    # runtime: nvidia
+    runtime: nvidia
     # user: "coghri"
     image: ${BUILT_IMAGE}
     privileged: true
@@ -19,13 +19,14 @@ services:
       # - ./deps/eut_yolo/src/eut_yolo_core:/workspace/src/eut_yolo_core
       - ../src:/workspace/src/
       - /run/user/1000/pulse:/run/user/1000/pulse:rw
+      - /dev:/dev
     tty: true
     stdin_open: true
     environment:
       # - USER_ID=${USER_ID}
       # - GROUP_ID=${GROUP_ID}
       # - USERNAME=${USERNAME}
-      # - NVIDIA_VISIBLE_DEVICES=all 
+      - NVIDIA_VISIBLE_DEVICES=all 
       - DISPLAY=$DISPLAY
       - QT_X11_NO_MITSHM=1
       - XAUTHORITY=/tmp/xauth/.docker.xauth     
