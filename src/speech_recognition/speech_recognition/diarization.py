@@ -8,13 +8,13 @@ import rclpy
 import torch
 from diart import SpeakerDiarization, SpeakerDiarizationConfig
 from diart.inference import StreamingInference
-from .ros_audio_source import ROSAudioSource
 from pyannote.core import Annotation
 from rclpy.node import Node
 from rx.core.observer.observer import Observer
-from std_msgs.msg import Float32MultiArray
 
-from audio_stream_manager_interfaces.msg import AudioDeviceInfo, Diarization
+from audio_stream_manager_interfaces.msg import AudioAndDeviceInfo, Diarization
+
+from .ros_audio_source import ROSAudioSource
 
 # Suppress specific warnings about model versions
 warnings.filterwarnings("ignore", message="Model was trained with.*")
@@ -55,6 +55,7 @@ class DiarizationObserver(Observer):
 
     def on_next(self, value):
         """Process new diarization result and publish speaker status"""
+
         prediction = self._extract_prediction(value)
         if prediction is None:
             self.node.get_logger().warn(
@@ -63,12 +64,9 @@ class DiarizationObserver(Observer):
             return
 
         current_time = time.time()
-        if current_time - self.last_process_time < 1.0:
-            return  # Limit processing to once per second
+        if current_time - self.last_process_time < 0.5:
+            return  # Limit processing to once per 0.5 seconds
         self.last_process_time = current_time
-
-        # Log raw prediction for debugging
-        self.node.get_logger().debug(f"Raw prediction: {prediction}")
 
         # Extract current active speakers from the annotation
         active_speakers = set()
@@ -78,6 +76,11 @@ class DiarizationObserver(Observer):
                 segment, track, speaker = track_tuple
                 self.node.get_logger().debug(
                     f"Found speaker: {speaker} in segment: {segment}"
+                )
+                # Print que hay en la tupla
+                self.node.get_logger().debug(f"Track tuple contents: {track_tuple}")
+                self.node.get_logger().debug(
+                    f"Segment: {segment}, Track: {track}, Speaker: {speaker}"
                 )
             elif len(track_tuple) == 2:
                 segment, track = track_tuple
@@ -103,7 +106,7 @@ class DiarizationObserver(Observer):
         # Publish diarization result if a speaker is active
         if active_speakers:
             diarization_msg = Diarization()
-            diarization_msg.timestamp = self.node.get_clock().now().to_msg()
+            diarization_msg.header.stamp = self.node.get_clock().now().to_msg()
             diarization_msg.current_speaker = (
                 f"speaker{self.speaker_mapping[list(active_speakers)[0]]}"
             )
@@ -137,13 +140,12 @@ class DiarizationNode(Node):
         self.device_info_received = False
         self.diarization_started = False
 
-        # Subscribers - NOW WE SUBSCRIBE TO AUDIO TOPIC
-        self.audio_sub = self.create_subscription(
-            Float32MultiArray, "audio", self.audio_callback, 10
-        )
-
-        self.device_info_sub = self.create_subscription(
-            AudioDeviceInfo, "audio_device_info", self.device_info_callback, 10
+        # Subscribers
+        self.audio_and_device_info_sub = self.create_subscription(
+            AudioAndDeviceInfo,
+            "audio_and_device_info",
+            self.audio_and_device_info_callback,
+            10,
         )
 
         # Publishers
@@ -163,93 +165,98 @@ class DiarizationNode(Node):
             "Diarization node initialized, waiting for device info..."
         )
 
-    def audio_callback(self, msg):
-        """Callback for audio data from ROS topic"""
-        if self.source is not None and self.device_info_received:
-            # Convert message data to numpy array
-            audio_data = np.array(msg.data, dtype=np.float32)
-
-            # Feed the audio to our custom source
-            self.source.add_audio_chunk(audio_data)
-
-    def device_info_callback(self, msg):
+    def audio_and_device_info_callback(self, msg):
         """Callback for audio device info updates"""
 
         # Only initialize once
-        if self.device_info_received:
-            self.get_logger().debug("Device info already received, skipping")
-            return
+        if not self.device_info_received:
+            self.get_logger().info("Received audio and device info message")
 
-        # Get device info from message
-        self.device_name = msg.device_name
-        self.device_id = msg.device_id
-        self.device_samplerate = msg.device_samplerate
+            # Get device info from message
+            self.device_name = msg.device_name
+            self.device_id = msg.device_id
+            self.device_samplerate = msg.device_samplerate
 
-        # Validate that we have all required information
-        if self.device_samplerate is None or self.device_samplerate <= 0:
-            self.get_logger().error(
-                f"Invalid or missing sample rate: {self.device_samplerate}"
-            )
-            return
-
-        self.get_logger().info(
-            f"Device info received: {self.device_name} (ID: {self.device_id}, Sample rate: {self.device_samplerate})"
-        )
-
-        try:
-            self.chunk_size = int(self.device_samplerate * CHUNK_DURATION)
-            self.overlap_size = int(self.device_samplerate * OVERLAP_DURATION)
-
-            segmentation = m.SegmentationModel.from_pretrained(SEGMENTATION_MODEL_NAME)
-            embedding = m.EmbeddingModel.from_pretrained(EMBEDDING_MODEL_NAME)
-
-            self.config = SpeakerDiarizationConfig(
-                segmentation=segmentation,
-                embedding=embedding,
-                device=self.device,
-                sample_rate=int(self.device_samplerate),
-                duration=CHUNK_DURATION,
-                step=0.5,  # Step size for sliding window
-                tau_active=0.7,  # Lower threshold for speaker activity detection
-                delta_new=0.83,  # Lower threshold for new speaker detection
-                # gamma=3.0,  # Scale for speaker change detection
-                # beta=10.0,  # Beta parameter for speaker change
-                max_speakers=10,  # Maximum number of speakers
-            )
-
-            # Load pre-trained diarization model
-            self.model = SpeakerDiarization(self.config)
-
-            # Create custom ROS audio source instead of microphone
-            try:
-                self.source = ROSAudioSource(
-                    sample_rate=int(self.device_samplerate),
-                    block_duration=0.5,
-                )
-                # Start reading from the source (starts the internal thread)
-                self.source.read()
-                self.get_logger().info(
-                    f"Using ROS audio source with sample rate: {self.device_samplerate}"
-                )
-            except Exception as audio_error:
+            # Validate that we have all required information
+            if self.device_samplerate is None or self.device_samplerate <= 0:
                 self.get_logger().error(
-                    f"Failed to initialize ROS audio source: {audio_error}"
+                    f"Invalid or missing sample rate: {self.device_samplerate}"
                 )
                 return
 
-            # Mark device info as received
-            self.device_info_received = True
+            self.get_logger().info(
+                f"Device info received: {self.device_name} (ID: {self.device_id}, Sample rate: {self.device_samplerate})"
+            )
 
-            # Start diarization in a separate thread
-            self.diarization_procedure = threading.Thread(target=self.run_diarization)
-            self.diarization_procedure.daemon = True
-            self.diarization_procedure.start()
+            try:
+                self.chunk_size = int(self.device_samplerate * CHUNK_DURATION)
+                self.overlap_size = int(self.device_samplerate * OVERLAP_DURATION)
 
-            self.get_logger().info("Diarization system initialized and started")
+                segmentation = m.SegmentationModel.from_pretrained(
+                    SEGMENTATION_MODEL_NAME
+                )
+                embedding = m.EmbeddingModel.from_pretrained(EMBEDDING_MODEL_NAME)
 
-        except Exception as e:
-            self.get_logger().error(f"Failed to initialize diarization: {e}")
-            self.device_info_received = False
+                # Calculate step size to align with block duration
+                step_duration = 0.5  # Match with ROSAudioSource block_duration
+
+                self.config = SpeakerDiarizationConfig(
+                    segmentation=segmentation,
+                    embedding=embedding,
+                    device=self.device,
+                    sample_rate=int(self.device_samplerate),
+                    duration=CHUNK_DURATION,
+                    step=step_duration,  # Align with audio source block duration
+                    tau_active=0.7,  # Lower threshold for speaker activity detection
+                    delta_new=0.83,  # Lower threshold for new speaker detection
+                    # gamma=3.0,  # Scale for speaker change detection
+                    # beta=10.0,  # Beta parameter for speaker change
+                    max_speakers=10,  # Maximum number of speakers
+                )
+
+                # Load pre-trained diarization model
+                self.model = SpeakerDiarization(self.config)
+
+                # Create custom ROS audio source with aligned block duration
+                try:
+                    # Use step_duration to ensure alignment
+                    self.source = ROSAudioSource(
+                        sample_rate=int(self.device_samplerate),
+                        block_duration=step_duration,  # Match step size
+                    )
+                    # Start reading from the source (starts the internal thread)
+                    self.source.read()
+                    self.get_logger().info(
+                        f"Using ROS audio source with sample rate: {self.device_samplerate}"
+                    )
+                except Exception as audio_error:
+                    self.get_logger().error(
+                        f"Failed to initialize ROS audio source: {audio_error}"
+                    )
+                    return
+
+                # Mark device info as received
+                self.device_info_received = True
+
+                # Start diarization in a separate thread
+                self.diarization_procedure = threading.Thread(
+                    target=self.run_diarization
+                )
+                self.diarization_procedure.daemon = True
+                self.diarization_procedure.start()
+
+                self.get_logger().info("Diarization system initialized and started")
+
+            except Exception as e:
+                self.get_logger().error(f"Failed to initialize diarization: {e}")
+                self.device_info_received = False
+
+        if self.source is not None and self.device_info_received:
+            # Convert message data to numpy array (just in case)
+            audio_data = np.array(msg.audio, dtype=np.float32)
+
+            # Feed the audio to our custom source
+            self.source.add_audio_chunk(audio_data)
 
     def run_diarization(self):
         """Run diarization in a separate thread"""

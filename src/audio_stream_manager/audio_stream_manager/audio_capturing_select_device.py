@@ -1,13 +1,13 @@
-import time as T
 import threading
+import time as T
 
 import numpy as np
-
 import rclpy
 import sounddevice as sd
 from rclpy.node import Node
-from std_msgs.msg import Float32MultiArray, Bool
-from audio_stream_manager_interfaces.msg import AudioDeviceInfo
+from std_msgs.msg import Bool
+
+from audio_stream_manager_interfaces.msg import AudioAndDeviceInfo
 
 DTYPE = "float32"
 CHANNELS = 1
@@ -22,12 +22,11 @@ class AudioCapturingNode(Node):
         super().__init__("audio_capturing_node")
 
         # Publishers
-        self.audio_pub = self.create_publisher(Float32MultiArray, "audio", 10)
         self.device_disconnected_pub = self.create_publisher(
             Bool, "device_disconnected", 10
         )
-        self.device_info_pub = self.create_publisher(
-            AudioDeviceInfo, "audio_device_info", 10
+        self.audio_and_device_info_pub = self.create_publisher(
+            AudioAndDeviceInfo, "audio_and_device_info", 10
         )
 
         # Subscriber
@@ -97,15 +96,6 @@ class AudioCapturingNode(Node):
         """Create and start an audio input stream for the given device."""
         try:
             self.get_device_parameters(device_index)
-
-            # Publish device information
-            device_info_msg = AudioDeviceInfo()
-            device_info_msg.device_name = self.device["name"]
-            device_info_msg.device_id = self.device_index
-            device_info_msg.device_samplerate = float(
-                self.device_samplerate
-            )  # Ensure it's a float
-            self.device_info_pub.publish(device_info_msg)
 
             self.get_logger().info(
                 f"Selected device: {self.device['name']}; Samplerate: {self.device_samplerate}; Channels: {self.device_channels}"
@@ -203,9 +193,14 @@ class AudioCapturingNode(Node):
 
         if rms >= 0:
             # Create and publish the message
-            msg = Float32MultiArray()
-            msg.data = audio_data
-            self.audio_pub.publish(msg)
+            audio_msg = AudioAndDeviceInfo()
+            audio_msg.header.stamp = self.get_clock().now().to_msg()
+            audio_msg.audio = audio_data
+            audio_msg.device_name = self.device["name"]
+            audio_msg.device_id = self.device_index
+            audio_msg.device_samplerate = float(self.device_samplerate)
+
+            self.audio_and_device_info_pub.publish(audio_msg)
 
             if rms == 0:
                 self.get_logger().warn("RMS is zero, probably the device is muted")
