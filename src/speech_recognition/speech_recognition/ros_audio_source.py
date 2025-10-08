@@ -5,11 +5,6 @@ import threading
 from typing import Optional, Text
 
 
-######################################################################################
-################################# NEW AUDIO SOURCE ###################################
-######################################################################################
-
-
 class ROSAudioSource(AudioSource):
     """Custom audio source that reads from ROS2 topics instead of hardware.
 
@@ -108,8 +103,8 @@ class ROSAudioSource(AudioSource):
                     block = self.audio_buffer[: self.block_size]
                     self.audio_buffer = self.audio_buffer[self.block_size :]
 
-                    # CORRECCIÓN: Reshape to (1, samples) as expected by diart
-                    block = block.reshape(1, -1)  # CAMBIO: De (-1, 1) a (1, -1)
+                    # Reshape to (1, block_size) for consistency
+                    block = block.reshape(1, -1)
 
                     # Emit through the reactive stream
                     self.stream.on_next(block)

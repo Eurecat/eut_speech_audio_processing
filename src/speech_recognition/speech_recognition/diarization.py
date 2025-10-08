@@ -8,7 +8,7 @@ import rclpy
 import torch
 from diart import SpeakerDiarization, SpeakerDiarizationConfig
 from diart.inference import StreamingInference
-from diart.sources import ROSAudioSource
+from .ros_audio_source import ROSAudioSource
 from pyannote.core import Annotation
 from rclpy.node import Node
 from rx.core.observer.observer import Observer
@@ -225,7 +225,7 @@ class DiarizationNode(Node):
             try:
                 self.source = ROSAudioSource(
                     sample_rate=int(self.device_samplerate),
-                    block_duration=0.5,  # Match the step size
+                    block_duration=0.5,
                 )
                 # Start reading from the source (starts the internal thread)
                 self.source.read()
