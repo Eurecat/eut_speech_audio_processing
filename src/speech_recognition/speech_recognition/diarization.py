@@ -100,19 +100,18 @@ class DiarizationObserver(Observer):
         # Log detected speakers
         self.node.get_logger().debug(f"Active speakers detected: {active_speakers}")
 
-        # Publish diarization result using new message format
-        diarization_msg = Diarization()
-        diarization_msg.timestamp = self.node.get_clock().now().to_msg()
-        diarization_msg.current_speaker = (
-            f"speaker{self.speaker_mapping[list(active_speakers)[0]]}"
-            if active_speakers
-            else "unknown"
-        )
-        diarization_msg.active_speakers = [
-            f"speaker{self.speaker_mapping[speaker]}" for speaker in active_speakers
-        ]
+        # Publish diarization result if a speaker is active
+        if active_speakers:
+            diarization_msg = Diarization()
+            diarization_msg.timestamp = self.node.get_clock().now().to_msg()
+            diarization_msg.current_speaker = (
+                f"speaker{self.speaker_mapping[list(active_speakers)[0]]}"
+            )
+            diarization_msg.active_speakers = [
+                f"speaker{self.speaker_mapping[speaker]}" for speaker in active_speakers
+            ]
 
-        self.node.diarization_pub.publish(diarization_msg)
+            self.node.diarization_pub.publish(diarization_msg)
 
     def on_error(self, error: Exception):
         self.node.get_logger().error(f"DiarizationObserver error: {error}")
