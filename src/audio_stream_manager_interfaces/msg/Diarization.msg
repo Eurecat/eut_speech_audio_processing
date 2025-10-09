@@ -1,9 +1,15 @@
-# Diarization message containing speaker information
-# Timestamp when this diarization was performed
-builtin_interfaces/Time timestamp
+# This message contains speaker diarization results for audio stream analysis.
+# The message provides real-time information about who is speaking and when
 
-# Current active speaker (e.g., "speaker1", "speaker2", etc.)
+std_msgs/Header header
+
+# Primary speaker currently active in the audio stream
+# Format: "speaker1", "speaker2", "speaker3", etc.
 string current_speaker
 
-# List of all speakers detected in this audio segment
+# Confidence score for the current speaker
+# float64 current_speaker_confidence
+
+# List of all speakers detected as active in the current audio segment
+# Format: ["speaker1", "speaker2"] for multiple simultaneous speakers
 string[] active_speakers

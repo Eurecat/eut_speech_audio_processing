@@ -24,8 +24,9 @@ if(BUILD_TESTING)
 endif()
 
 rosidl_generate_interfaces(${PROJECT_NAME}
-  "msg/AudioDeviceInfo.msg"
+  "msg/AudioAndDeviceInfo.msg"
   "msg/Diarization.msg"
+  "msg/Vad.msg"
   "srv/CheckAudioDevice.srv" 
   DEPENDENCIES std_msgs builtin_interfaces
 )
