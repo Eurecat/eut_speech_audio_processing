@@ -8,7 +8,7 @@ std_msgs/Header header
 string current_speaker
 
 # Confidence score for the current speaker
-float64 current_speaker_confidence
+# float64 current_speaker_confidence
 
 # List of all speakers detected as active in the current audio segment
 # Format: ["speaker1", "speaker2"] for multiple simultaneous speakers

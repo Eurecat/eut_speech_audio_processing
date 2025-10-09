@@ -12,7 +12,7 @@ from audio_stream_manager_interfaces.msg import AudioAndDeviceInfo
 DTYPE = "float32"
 CHANNELS = 1
 CHUNK = 512
-DISCONNECTION_TIMEOUT = 5  # seconds
+DISCONNECTION_TIMEOUT = 3  # seconds
 DISCONNECTION_CHECK_INTERVAL = 1  # seconds
 TEST_STREAM_DURATION = 0.1  # seconds
 
