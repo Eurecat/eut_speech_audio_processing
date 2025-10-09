@@ -32,6 +32,7 @@ fi
 BASE_IMAGE="eut_ros_torch:jazzy"
 # Check if --clean-rebuild is among the arguments
 REBUILD=false
+NO_VCS=false
 for arg in "$@"; do
     if [ "$arg" == "--clean-rebuild" ]; then
         REBUILD=true
@@ -39,17 +40,28 @@ for arg in "$@"; do
     if [ "$arg" == "--vulcanexus" ]; then
         BASE_IMAGE="eut_ros_vulcanexus_torch:jazzy"
     fi
+    if [ "$arg" == "--no-vcs" ]; then
+        NO_VCS=true
+    fi
 done
 
-# if $REBUILD; then
-#     echo "Rebuilding: cleaning up dependencies..."
-#     rm -rf $DEPS_DIR/*
-# fi
+if $REBUILD; then
+    echo "Rebuilding: cleaning up dependencies..."
+    rm -rf $DEPS_DIR/*
+fi
 
-# Import/update entity_detection repository using VCS tools
-# echo "Importing/updating entity_detection repository using VCS..."
-# vcs import ${DEPS_DIR} < entity_detection.repos
-# vcs pull ${DEPS_DIR}
+# # Import/update dependencies repository using VCS tools (currently empty)
+if ! $NO_VCS; then
+    echo "Importing/updating dependencies repository using VCS..."
+    if [ -s deps.repos ]; then
+        vcs import ${DEPS_DIR} < deps.repos
+        vcs pull ${DEPS_DIR}
+    else
+        echo "No external dependencies defined in deps.repos"
+    fi
+else
+    echo "Skipping VCS operations..."
+fi
 
 # Set image name based on the base image choice
 if [[ "${BASE_IMAGE}" == *"vulcanexus"* ]]; then
