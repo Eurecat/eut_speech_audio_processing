@@ -208,7 +208,7 @@ class DiarizationNode(Node):
                     duration=CHUNK_DURATION,
                     step=step_duration,  # Align with audio source block duration
                     tau_active=0.7,  # Lower threshold for speaker activity detection
-                    delta_new=0.83,  # Lower threshold for new speaker detection
+                    delta_new=0.85,  # Lower threshold for new speaker detection
                     # gamma=3.0,  # Scale for speaker change detection
                     # beta=10.0,  # Beta parameter for speaker change
                     max_speakers=10,  # Maximum number of speakers
