@@ -17,7 +17,9 @@ services:
       - ./.vscode:/workspace/.vscode
       # ADD VOLUME MOUNTS FOR AUDIO PROCESSING NODES IF NEEDED
       # - ./deps/eut_yolo/src/eut_yolo_core:/workspace/src/eut_yolo_core
-      - ../src:/workspace/src/
+      - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
+      - ../src/audio_stream_manager_interfaces:/workspace/src/audio_stream_manager_interfaces
+      - ../src/speech_recognition:/workspace/src/speech_recognition
       - /run/user/1000/pulse:/run/user/1000/pulse:rw
       - /dev:/dev
     tty: true
@@ -31,6 +33,9 @@ services:
       - QT_X11_NO_MITSHM=1
       - XAUTHORITY=/tmp/xauth/.docker.xauth     
       - PULSE_SERVER=unix:/run/user/1000/pulse/native
+      - HF_TOKEN=${HF_TOKEN}      
+      # This is just something to for development, ideally we would not need to set this here
+      - PYTHONPATH=/opt/ros_python_env/lib/python3.12/site-packages:${PYTHONPATH:-} 
       # - PULSE_COOKIE=/home/coghri/.config/pulse/cookie
       # - ALSA_CARD=${ALSA_CARD}  # Set to the card number for your speaker
     devices:

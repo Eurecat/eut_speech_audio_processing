@@ -165,7 +165,7 @@ class DiarizationNode(Node):
             "Diarization node initialized, waiting for device info..."
         )
 
-    def audio_and_device_info_callback(self, msg):
+    def audio_and_device_info_callback(self, msg: AudioAndDeviceInfo):
         """Callback for audio device info updates"""
 
         # Only initialize once

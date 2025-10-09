@@ -25,6 +25,9 @@ services:
       - QT_X11_NO_MITSHM=1
       - XAUTHORITY=/tmp/xauth/.docker.xauth
       - /dev:/dev
+      - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
+      - ../src/audio_stream_manager_interfaces:/workspace/src/audio_stream_manager_interfaces
+      - ../src/speech_recognition:/workspace/src/speech_recognition
       # - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}  
       # - PULSE_SERVER=unix:/run/user/${USER_ID}/pulse/native
       # - PULSE_COOKIE=/home/coghri/.config/pulse/cookie
@@ -45,7 +48,7 @@ services:
     # TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     # CHANGE COMMAND TO LAUNCH AUDIO PROCESSING NODE
     # command: bash -c "source /workspace/install/setup.bash && ros2 run eut_yolo_core camera_publisher_node"
-  eut_audio_dev:
+  eut_audio_dev: 
     container_name: "eut_audio_dev"
     network_mode: host 
     ipc: host
@@ -59,7 +62,9 @@ services:
       - ~/.xauth_docker/share/:/tmp/xauth/
       - ./.vscode:/workspace/.vscode
       # ADD VOLUME MOUNTS FOR AUDIO PROCESSING NODES IF NEEDED
-      - ../src:/workspace/src/
+      - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
+      - ../src/audio_stream_manager_interfaces:/workspace/src/audio_stream_manager_interfaces
+      - ../src/speech_recognition:/workspace/src/speech_recognition
       # - ./deps/eut_yolo/src/eut_yolo_core:/workspace/src/eut_yolo_core
       # - ./deps/eut_yolo/src/eut_yolo_interfaces:/workspace/src/eut_yolo_interfaces
       - /dev:/dev
@@ -72,7 +77,10 @@ services:
       - NVIDIA_VISIBLE_DEVICES=all 
       - DISPLAY=$DISPLAY
       - QT_X11_NO_MITSHM=1
-      - XAUTHORITY=/tmp/xauth/.docker.xauth     
+      - XAUTHORITY=/tmp/xauth/.docker.xauth   
+      - HF_TOKEN=${HF_TOKEN}
+      # This is just something to for development, ideally we would not need to set this here
+      - PYTHONPATH=/opt/ros_python_env/lib/python3.12/site-packages:${PYTHONPATH:-}
       # - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}  
       # - PULSE_SERVER=unix:/run/user/${USER_ID}/pulse/native
       # - PULSE_COOKIE=/home/coghri/.config/pulse/cookie

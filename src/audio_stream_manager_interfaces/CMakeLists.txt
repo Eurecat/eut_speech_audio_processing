@@ -27,6 +27,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/AudioAndDeviceInfo.msg"
   "msg/Diarization.msg"
   "msg/Vad.msg"
+  "msg/Asr.msg"
   "srv/CheckAudioDevice.srv" 
   DEPENDENCIES std_msgs builtin_interfaces
 )
