@@ -21,12 +21,12 @@ if [ ! -f "$ENV_FILE" ]; then
 fi
 
 # Define directories
-# DEPS_DIR="./deps"
+DEPS_DIR="./deps"
 
 # Create deps directory if it doesn't exist
-# if [ ! -d $DEPS_DIR ]; then
-#     mkdir -p $DEPS_DIR
-# fi
+if [ ! -d $DEPS_DIR ]; then
+    mkdir -p $DEPS_DIR
+fi
 
 # Check arguments
 BASE_IMAGE="eut_ros_torch:jazzy"
