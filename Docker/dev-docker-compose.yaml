@@ -34,8 +34,6 @@ services:
       - XAUTHORITY=/tmp/xauth/.docker.xauth     
       - PULSE_SERVER=unix:/run/user/1000/pulse/native
       - HF_TOKEN=${HF_TOKEN}      
-      # This is just something to for development, ideally we would not need to set this here
-      - PYTHONPATH=/opt/ros_python_env/lib/python3.12/site-packages:${PYTHONPATH:-} 
       # - PULSE_COOKIE=/home/coghri/.config/pulse/cookie
       # - ALSA_CARD=${ALSA_CARD}  # Set to the card number for your speaker
     devices:

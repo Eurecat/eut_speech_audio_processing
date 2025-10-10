@@ -23,6 +23,7 @@ setup(
         "console_scripts": [
             "vad_node = speech_recognition.vad:main",
             "diarization_node = speech_recognition.diarization:main",
+            "asr_node = speech_recognition.asr:main",
         ],
     },
 )

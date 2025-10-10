@@ -8,6 +8,10 @@ numpy
 sounddevice
 diart
 pyannote.audio
+librosa
 
 # HuggingFace ---------------------------
 huggingface_hub
+
+# Whisper ---------------------------------
+faster-Whisper

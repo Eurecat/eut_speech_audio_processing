@@ -20,7 +20,8 @@ services:
       # - USER_ID=${USER_ID}
       # - GROUP_ID=${GROUP_ID}
       # - USERNAME=${USERNAME}
-      - NVIDIA_VISIBLE_DEVICES=all 
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
       - DISPLAY=$DISPLAY
       - QT_X11_NO_MITSHM=1
       - XAUTHORITY=/tmp/xauth/.docker.xauth
@@ -75,12 +76,11 @@ services:
       # - GROUP_ID=${GROUP_ID}
       # - USERNAME=${USERNAME}
       - NVIDIA_VISIBLE_DEVICES=all 
+      - NVIDIA_DRIVER_CAPABILITIES=all
       - DISPLAY=$DISPLAY
       - QT_X11_NO_MITSHM=1
       - XAUTHORITY=/tmp/xauth/.docker.xauth   
       - HF_TOKEN=${HF_TOKEN}
-      # This is just something to for development, ideally we would not need to set this here
-      - PYTHONPATH=/opt/ros_python_env/lib/python3.12/site-packages:${PYTHONPATH:-}
       # - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}  
       # - PULSE_SERVER=unix:/run/user/${USER_ID}/pulse/native
       # - PULSE_COOKIE=/home/coghri/.config/pulse/cookie
