@@ -9,10 +9,13 @@ from faster_whisper import WhisperModel
 from audio_stream_manager_interfaces.msg import Asr, AudioAndDeviceInfo, Vad
 
 MODEL_SIZE = "medium"
-VAD_THRESHOLD = 0.3
+VAD_THRESHOLD = 0.5
 MIN_SILENCE_DURATION = 1.0  # seconds
 MAX_CHUNK_DURATION = 30.0  # seconds
 SILENCE_DETECTION_THRESHOLD = 0.01  # RMS threshold for silence detection
+PRE_BUFFER_DURATION = (
+    1.0  # seconds of audio to prepend the loss of informationbefore VAD start
+)
 
 
 class ASRNode(Node):
@@ -26,7 +29,7 @@ class ASRNode(Node):
 
         # Load Whisper model
         self.model = WhisperModel(
-            MODEL_SIZE, device=self.device, compute_type="float16"
+            MODEL_SIZE, device=self.device, compute_type="float32"
         )
         self.get_logger().info(f"Model {MODEL_SIZE} loaded.")
 
@@ -37,6 +40,7 @@ class ASRNode(Node):
         self.last_vad_change_time = 0.0
         self.speech_start_time = 0.0
         self.last_silence_time = 0.0
+        self.speech_interrupted = False
 
         # Thread safety
         self.buffer_lock = threading.Lock()
@@ -94,7 +98,7 @@ class ASRNode(Node):
                 f"VAD state changed: {self.vad_state} -> {new_vad_state}"
             )
 
-            if new_vad_state:
+            if new_vad_state and not self.speech_interrupted:
                 # Speech started
                 self.speech_start_time = current_time
                 self.get_logger().info("Speech started")
@@ -132,7 +136,8 @@ class ASRNode(Node):
             current_time = time.time()
 
             self.get_logger().info(
-                f"Processing speech end, current time: {current_time}, time since silence: {current_time - self.last_silence_time}, vad_state: {self.vad_state}"
+                f"Processing speech end, current time: {current_time}, "
+                f"time since silence: {current_time - self.last_silence_time}, vad_state: {self.vad_state}"
             )
 
             # Check if we're still in silence and enough time has passed
@@ -143,10 +148,12 @@ class ASRNode(Node):
             ):
                 self.get_logger().info("Processing speech chunk after silence timeout")
                 self._transcribe_speech_chunk()
+                self.speech_interrupted = False
                 return
 
             # Check if VAD became active again
             if self.vad_state:
+                self.speech_interrupted = True
                 self.get_logger().info("VAD reactivated, canceling speech processing")
                 return
 
@@ -205,9 +212,8 @@ class ASRNode(Node):
             self.get_logger().warn("No valid speech start time")
             return
 
-        # En lugar de start_time, usar un tiempo anterior
-        pre_buffer_duration = 0.5  # 500ms antes del VAD
-        actual_start_time = start_time - pre_buffer_duration
+        # Instead of start_time, use an earlier time to prevent cutting the beginning
+        actual_start_time = start_time - PRE_BUFFER_DURATION
 
         with self.buffer_lock:
             # Collect audio data for the speech chunk
@@ -224,7 +230,7 @@ class ASRNode(Node):
             # Concatenate audio chunks
             audio_data = np.concatenate(audio_chunks)
 
-        # Check if we have enough audio (at least 0.5 seconds)
+        # Check if we have enough audio (at least 0.01 seconds)
         min_duration = 0.01
         if self.sample_rate is None or len(audio_data) < int(
             self.sample_rate * min_duration
@@ -242,9 +248,9 @@ class ASRNode(Node):
         try:
             segments, info = self.model.transcribe(
                 audio_data,
-                vad_filter=False,  # We already have VAD
+                vad_filter=True,
                 word_timestamps=False,
-                language="es",
+                language="en",
             )
 
             # Combine all segments into one transcript
