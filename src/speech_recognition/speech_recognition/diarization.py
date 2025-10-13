@@ -26,7 +26,7 @@ warnings.filterwarnings(
 )
 
 # Audio processing constants
-CHUNK_DURATION = 5.0  # seconds - duration of audio chunks for diarization
+CHUNK_DURATION = 2.0  # seconds - duration of audio chunks for diarization
 OVERLAP_DURATION = 0.5  # seconds - overlap between consecutive chunks
 SEGMENTATION_MODEL_NAME = "pyannote/segmentation"
 EMBEDDING_MODEL_NAME = "pyannote/embedding"
@@ -208,7 +208,7 @@ class DiarizationNode(Node):
                     duration=CHUNK_DURATION,
                     step=step_duration,  # Align with audio source block duration
                     tau_active=0.7,  # Lower threshold for speaker activity detection
-                    delta_new=0.9,  # Lower threshold for new speaker detection
+                    delta_new=0.87,  # Lower threshold for new speaker detection
                     # gamma=3.0,  # Scale for speaker change detection
                     # beta=10.0,  # Beta parameter for speaker change
                     max_speakers=10,  # Maximum number of speakers

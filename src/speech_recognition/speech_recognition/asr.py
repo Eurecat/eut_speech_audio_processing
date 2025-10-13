@@ -8,13 +8,13 @@ from collections import deque
 from faster_whisper import WhisperModel
 from audio_stream_manager_interfaces.msg import Asr, AudioAndDeviceInfo, Vad
 
-MODEL_SIZE = "medium"
+MODEL_SIZE = "turbo"
 VAD_THRESHOLD = 0.5
 MIN_SILENCE_DURATION = 1.0  # seconds
 MAX_CHUNK_DURATION = 30.0  # seconds
 SILENCE_DETECTION_THRESHOLD = 0.01  # RMS threshold for silence detection
 PRE_BUFFER_DURATION = (
-    1.0  # seconds of audio to prepend the loss of informationbefore VAD start
+    1.0  # seconds of audio to prepend the loss of information before VAD start
 )
 
 
