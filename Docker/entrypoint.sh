@@ -9,7 +9,8 @@ if [ -f "/opt/ros/jazzy/setup.bash" ]; then
     echo "Sourced ${ROS_DISTRO}"
 fi
 
-cd /workspace && colcon build --event-handlers console_direct+
+cd /workspace && colcon build --event-handlers console_direct+ --symlink-install
+
 
 # Source the workspace if it exists
 if [ -f "/workspace/install/setup.bash" ]; then
