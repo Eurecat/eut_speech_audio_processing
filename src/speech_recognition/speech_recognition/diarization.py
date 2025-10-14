@@ -7,6 +7,7 @@ import numpy as np
 import rclpy
 import torch
 from diart import SpeakerDiarization, SpeakerDiarizationConfig
+
 from diart.inference import StreamingInference
 from pyannote.core import Annotation
 from rclpy.node import Node
