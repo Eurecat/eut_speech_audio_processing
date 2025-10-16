@@ -10,9 +10,10 @@ ARG BASE_IMAGE
 # Prevent interactive prompts during apt installs
 ENV DEBIAN_FRONTEND=noninteractive
  
-# ------------------------------------------------------------
-# Install system dependencies & development tools
-# ------------------------------------------------------------
+# Install this for audio dependencies
+RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
+RUN dpkg -i cuda-keyring_1.1-1_all.deb
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-rosdep \
     python3-colcon-common-extensions \
@@ -23,6 +24,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     portaudio19-dev \
     libasound2-dev \
     libpulse-dev \
+    libcudnn9-cuda-12 \
+    libcudnn9-dev-cuda-12 \
 && rm -rf /var/lib/apt/lists/*
  
 # Set working directory
@@ -57,7 +60,7 @@ RUN rosdep install --from-paths src --ignore-src -r -y
 # ------------------------------------------------------------
 # Build workspace
 # ------------------------------------------------------------
-RUN /bin/bash -c "source /opt/ros/${ROS_DISTRO}/setup.bash; colcon build --event-handlers console_direct+;"
+RUN /bin/bash -c "source /opt/ros/${ROS_DISTRO}/setup.bash; colcon build --event-handlers console_direct+ --symlink-install;"
 
 
 # Copy and set up the entrypoint script
