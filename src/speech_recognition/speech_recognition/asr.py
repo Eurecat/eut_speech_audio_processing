@@ -8,20 +8,47 @@ from collections import deque
 from faster_whisper import WhisperModel
 from audio_stream_manager_interfaces.msg import Asr, AudioAndDeviceInfo, Vad
 
-MODEL_SIZE = "turbo"
-VAD_THRESHOLD = 0.5
-MIN_SILENCE_DURATION = 1.0  # seconds
-MAX_CHUNK_DURATION = 30.0  # seconds
-SILENCE_DETECTION_THRESHOLD = 0.01  # RMS threshold for silence detection
-PRE_BUFFER_DURATION = (
-    1.0  # seconds of audio to prepend the loss of information before VAD start
-)
-
 
 class ASRNode(Node):
     def __init__(self):
         super().__init__("asr_node")
         self.get_logger().info("ASR Node has been started.")
+
+        # Declare parameters
+        self.declare_parameter("model_size", "turbo")
+        self.declare_parameter("vad_threshold", 0.5)
+        self.declare_parameter("min_silence_duration", 1.0)  # seconds
+        self.declare_parameter("max_chunk_duration", 30.0)  # seconds
+        self.declare_parameter(
+            "silence_detection_threshold", 0.01
+        )  # RMS threshold for silence detection
+        self.declare_parameter(
+            "pre_buffer_duration", 1.0
+        )  # seconds of audio to prepend
+
+        # Get parameter values
+        self.model_size = (
+            self.get_parameter("model_size").get_parameter_value().string_value
+        )
+        self.vad_threshold = (
+            self.get_parameter("vad_threshold").get_parameter_value().double_value
+        )
+        self.min_silence_duration = (
+            self.get_parameter("min_silence_duration")
+            .get_parameter_value()
+            .double_value
+        )
+        self.max_chunk_duration = (
+            self.get_parameter("max_chunk_duration").get_parameter_value().double_value
+        )
+        self.silence_detection_threshold = (
+            self.get_parameter("silence_detection_threshold")
+            .get_parameter_value()
+            .double_value
+        )
+        self.pre_buffer_duration = (
+            self.get_parameter("pre_buffer_duration").get_parameter_value().double_value
+        )
 
         # Device setup
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -29,9 +56,9 @@ class ASRNode(Node):
 
         # Load Whisper model
         self.model = WhisperModel(
-            MODEL_SIZE, device=self.device, compute_type="float32"
+            self.model_size, device=self.device, compute_type="float32"
         )
-        self.get_logger().info(f"Model {MODEL_SIZE} loaded.")
+        self.get_logger().info(f"Model {self.model_size} loaded.")
 
         # Audio processing variables
         self.sample_rate = None
@@ -90,7 +117,7 @@ class ASRNode(Node):
     def vad_callback(self, msg: Vad):
         """Process VAD state changes"""
         current_time = time.time()
-        new_vad_state = msg.vad_probability > VAD_THRESHOLD
+        new_vad_state = msg.vad_probability > self.vad_threshold
 
         # Detect VAD state change
         if new_vad_state != self.vad_state:
@@ -124,9 +151,9 @@ class ASRNode(Node):
         # Check for long speech chunks that need to be split
         if self.vad_state and self.speech_start_time > 0:
             speech_duration = current_time - self.speech_start_time
-            if speech_duration >= MAX_CHUNK_DURATION:
+            if speech_duration >= self.max_chunk_duration:
                 self.get_logger().info(
-                    f"Speech duration exceeded {MAX_CHUNK_DURATION}s, forcing chunk split"
+                    f"Speech duration exceeded {self.max_chunk_duration}s, forcing chunk split"
                 )
                 self._force_chunk_split()
 
@@ -144,7 +171,7 @@ class ASRNode(Node):
             if (
                 not self.vad_state
                 and self.last_silence_time > 0
-                and current_time - self.last_silence_time >= MIN_SILENCE_DURATION
+                and current_time - self.last_silence_time >= self.min_silence_duration
             ):
                 self.get_logger().info("Processing speech chunk after silence timeout")
                 self._transcribe_speech_chunk()
@@ -187,7 +214,7 @@ class ASRNode(Node):
                         best_split_time = chunk_time
 
             # If we found a quiet moment, use it as split point
-            if best_split_time and min_rms < SILENCE_DETECTION_THRESHOLD:
+            if best_split_time and min_rms < self.silence_detection_threshold:
                 self.get_logger().info(
                     f"Found silence at {best_split_time}, splitting chunk"
                 )
@@ -213,7 +240,7 @@ class ASRNode(Node):
             return
 
         # Instead of start_time, use an earlier time to prevent cutting the beginning
-        actual_start_time = start_time - PRE_BUFFER_DURATION
+        actual_start_time = start_time - self.pre_buffer_duration
 
         with self.buffer_lock:
             # Collect audio data for the speech chunk

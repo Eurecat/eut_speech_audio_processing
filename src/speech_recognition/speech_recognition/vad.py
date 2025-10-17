@@ -4,13 +4,22 @@ import torch
 from rclpy.node import Node
 from audio_stream_manager_interfaces.msg import AudioAndDeviceInfo, Vad
 
-REPO_MODEL = "snakers4/silero-vad"
-MODEL_NAME = "silero_vad"
-
 
 class VADNode(Node):
     def __init__(self):
         super().__init__("vad_node")
+
+        # Declare parameters
+        self.declare_parameter("repo_model", "snakers4/silero-vad")
+        self.declare_parameter("model_name", "silero_vad")
+
+        # Get parameter values
+        self.repo_model = (
+            self.get_parameter("repo_model").get_parameter_value().string_value
+        )
+        self.model_name = (
+            self.get_parameter("model_name").get_parameter_value().string_value
+        )
 
         # Flag to track if first callback has been processed
         self.vad_initialized = False
@@ -25,7 +34,7 @@ class VADNode(Node):
 
         # Load pre-trained VAD model
         self.model, self.utils = torch.hub.load(
-            repo_or_dir=REPO_MODEL, model=MODEL_NAME, trust_repo=True
+            repo_or_dir=self.repo_model, model=self.model_name, trust_repo=True
         )
 
         # Select device

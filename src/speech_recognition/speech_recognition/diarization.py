@@ -26,12 +26,6 @@ warnings.filterwarnings(
     "ignore", category=UserWarning, module="pytorch_lightning.core.saving"
 )
 
-# Audio processing constants
-CHUNK_DURATION = 2.0  # seconds - duration of audio chunks for diarization
-OVERLAP_DURATION = 0.5  # seconds - overlap between consecutive chunks
-SEGMENTATION_MODEL_NAME = "pyannote/segmentation"
-EMBEDDING_MODEL_NAME = "pyannote/embedding"
-
 
 class DiarizationObserver(Observer):
     """Custom observer that processes diarization results and publishes them"""
@@ -125,6 +119,34 @@ class DiarizationNode(Node):
     def __init__(self):
         super().__init__("diarization_node")
 
+        # Declare parameters
+        self.declare_parameter(
+            "chunk_duration", 2.0
+        )  # seconds - duration of audio chunks for diarization
+        self.declare_parameter(
+            "overlap_duration", 0.5
+        )  # seconds - overlap between consecutive chunks
+        self.declare_parameter("segmentation_model_name", "pyannote/segmentation")
+        self.declare_parameter("embedding_model_name", "pyannote/embedding")
+
+        # Get parameter values
+        self.chunk_duration = (
+            self.get_parameter("chunk_duration").get_parameter_value().double_value
+        )
+        self.overlap_duration = (
+            self.get_parameter("overlap_duration").get_parameter_value().double_value
+        )
+        self.segmentation_model_name = (
+            self.get_parameter("segmentation_model_name")
+            .get_parameter_value()
+            .string_value
+        )
+        self.embedding_model_name = (
+            self.get_parameter("embedding_model_name")
+            .get_parameter_value()
+            .string_value
+        )
+
         # Initialize device info
         self.device_name = None
         self.device_id = None
@@ -190,13 +212,13 @@ class DiarizationNode(Node):
             )
 
             try:
-                self.chunk_size = int(self.device_samplerate * CHUNK_DURATION)
-                self.overlap_size = int(self.device_samplerate * OVERLAP_DURATION)
+                self.chunk_size = int(self.device_samplerate * self.chunk_duration)
+                self.overlap_size = int(self.device_samplerate * self.overlap_duration)
 
                 segmentation = m.SegmentationModel.from_pretrained(
-                    SEGMENTATION_MODEL_NAME
+                    self.segmentation_model_name
                 )
-                embedding = m.EmbeddingModel.from_pretrained(EMBEDDING_MODEL_NAME)
+                embedding = m.EmbeddingModel.from_pretrained(self.embedding_model_name)
 
                 # Calculate step size to align with block duration
                 step_duration = 0.5  # Match with ROSAudioSource block_duration
@@ -206,7 +228,7 @@ class DiarizationNode(Node):
                     embedding=embedding,
                     device=self.device,
                     sample_rate=int(self.device_samplerate),
-                    duration=CHUNK_DURATION,
+                    duration=self.chunk_duration,
                     step=step_duration,  # Align with audio source block duration
                     tau_active=0.7,  # Lower threshold for speaker activity detection
                     delta_new=0.87,  # Lower threshold for new speaker detection
