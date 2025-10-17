@@ -24,6 +24,7 @@ class AudioCapturingNode(Node):
         self.declare_parameter("disconnection_check_interval", 1.0)
         self.declare_parameter("test_stream_duration", 0.1)
         self.declare_parameter("primary_device_check_interval", 5.0)
+        self.declare_parameter("target_samplerate", 16000)
 
         # Publishers
         self.device_disconnected_pub = self.create_publisher(
@@ -53,6 +54,7 @@ class AudioCapturingNode(Node):
         # Initial device setup
         self.stream = None
         self.device = None
+        self.device_name = None
         self.device_index = None
         self.device_samplerate = None
         self.device_channels = None
@@ -100,18 +102,22 @@ class AudioCapturingNode(Node):
 
     def get_device_parameters(self, device_index):
         """Extract device parameters for a given device index."""
-        self.device_index = int(device_index)  # Ensure it's an integer
-        self.device = self.devices[self.device_index]
-        self.device_samplerate = int(self.device["default_samplerate"])
+        device_index = int(device_index)  # Ensure it's an integer
+        device = self.devices[device_index]
+        device_samplerate = int(device["default_samplerate"])
         channels_param = (
             self.get_parameter("channels").get_parameter_value().integer_value
         )
-        self.device_channels = min(self.device["max_input_channels"], channels_param)
+        device_channels = min(device["max_input_channels"], channels_param)
+
+        return device_index, device, device_samplerate, device_channels
 
     def test_device_connection(self, device_index):
         """Test if a device can be successfully opened and used, and is receiving audio (RMS > 0)."""
         try:
-            self.get_device_parameters(device_index)
+            device_index, device, device_samplerate, device_channels = (
+                self.get_device_parameters(device_index)
+            )
 
             # Get parameters
             dtype_param = self.get_parameter("dtype").get_parameter_value().string_value
@@ -122,8 +128,8 @@ class AudioCapturingNode(Node):
             # Try to create and start a test stream
             test_stream = sd.InputStream(
                 device=device_index,
-                samplerate=self.device_samplerate,
-                channels=self.device_channels,
+                samplerate=device_samplerate,
+                channels=device_channels,
                 dtype=dtype_param,
                 blocksize=chunk_param,
                 latency="low",
@@ -138,9 +144,14 @@ class AudioCapturingNode(Node):
             # Check if device is receiving audio (RMS > 0)
             rms = float(np.sqrt(np.mean(audio_data**2)))
             if rms > 0:
+                self.device = device
                 self.get_logger().info(
                     f"Device {device_index} ({self.device['name']}) is receiving audio (RMS: {rms:.6f})"
                 )
+                self.device_name = self.device["name"]
+                self.device_index = device_index
+                self.device_samplerate = device_samplerate
+                self.device_channels = device_channels
                 return True
             else:
                 self.get_logger().warn(
@@ -155,10 +166,12 @@ class AudioCapturingNode(Node):
     def create_audio_stream(self, device_index):
         """Create and start an audio input stream for the given device."""
         try:
-            self.get_device_parameters(device_index)
+            device_index, device, device_samplerate, device_channels = (
+                self.get_device_parameters(device_index)
+            )
 
             self.get_logger().info(
-                f"Selected device: {self.device['name']}; Samplerate: {self.device_samplerate}; Channels: {self.device_channels}"
+                f"Selected device: {device['name']}; Samplerate: {device_samplerate}; Channels: {device_channels}"
             )
 
             # Get parameters
@@ -170,8 +183,8 @@ class AudioCapturingNode(Node):
             # Create the input stream
             self.stream = sd.InputStream(
                 device=device_index,
-                samplerate=self.device_samplerate,
-                channels=self.device_channels,
+                samplerate=device_samplerate,
+                channels=device_channels,
                 dtype=dtype_param,
                 blocksize=chunk_param,
                 callback=self.input_callback,
@@ -179,7 +192,7 @@ class AudioCapturingNode(Node):
             )
             self.stream.start()
             self.get_logger().info(
-                f"Successfully started audio stream with {self.device['name']} and samplerate: {self.device_samplerate}."
+                f"Successfully started audio stream with {device['name']} and samplerate: {device_samplerate}."
             )
 
         except Exception as e:
@@ -235,7 +248,6 @@ class AudioCapturingNode(Node):
                                 ]
                             )
 
-                            self.device_name = device_name
                             self.device_index = device_index
                             self.device_samplerate = self.devices[device_index][
                                 "default_samplerate"
@@ -310,13 +322,30 @@ class AudioCapturingNode(Node):
         rms = float(np.sqrt(np.mean(indata**2)))
 
         if rms >= 0:
+            target_samplerate = (
+                self.get_parameter("target_samplerate")
+                .get_parameter_value()
+                .integer_value
+            )
+
+            if self.device_samplerate != target_samplerate:
+                if (
+                    not hasattr(self, "_last_resampled_device_index")
+                    or self.device_index != self._last_resampled_device_index
+                ):
+                    self.get_logger().info(
+                        f"Resampling audio from {self.device_samplerate} to {target_samplerate}"
+                    )
+                    self._last_resampled_device_index = self.device_index
+                audio_data = self.resample_audio(audio_data, target_samplerate)
+
             # Create and publish the message
             audio_msg = AudioAndDeviceInfo()
             audio_msg.header.stamp = self.get_clock().now().to_msg()
             audio_msg.audio = audio_data
-            audio_msg.device_name = self.device["name"]
+            audio_msg.device_name = self.device_name
             audio_msg.device_id = self.device_index
-            audio_msg.device_samplerate = float(self.device_samplerate)
+            audio_msg.device_samplerate = float(target_samplerate)
 
             self.audio_and_device_info_pub.publish(audio_msg)
 
@@ -326,6 +355,23 @@ class AudioCapturingNode(Node):
             elif rms > 0 and self.device_muted:
                 self.get_logger().info("RMS is non-zero, device is active")
                 self.device_muted = False
+
+    def resample_audio(self, audio_data, target_samplerate):
+        """Resample audio data to the target samplerate."""
+        try:
+            import librosa
+
+            resampled_audio = librosa.resample(
+                audio_data,
+                orig_sr=self.device_samplerate,
+                target_sr=target_samplerate,
+            )
+            return resampled_audio
+        except ImportError:
+            self.get_logger().error(
+                "librosa is not installed. Cannot resample audio. Please install librosa."
+            )
+            return audio_data
 
     def disconnection_check_loop(self):
         """Continuously check for device disconnection in a separate thread."""
