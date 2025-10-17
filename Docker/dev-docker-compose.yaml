@@ -7,7 +7,6 @@ services:
     ipc: host
     shm_size: 1gb
     runtime: ${DOCKER_RUNTIME:-runc}
-    # user: "coghri"
     image: ${BUILT_IMAGE}
     privileged: true
     # user: "coghri"  # User will be created in the entrypoint script
@@ -15,12 +14,9 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - ~/.xauth_docker/share/:/tmp/xauth/
       - ./.vscode:/workspace/.vscode
-      # ADD VOLUME MOUNTS FOR AUDIO PROCESSING NODES IF NEEDED
-      # - ./deps/eut_yolo/src/eut_yolo_core:/workspace/src/eut_yolo_core
       - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
       - ../src/audio_stream_manager_interfaces:/workspace/src/audio_stream_manager_interfaces
       - ../src/speech_recognition:/workspace/src/speech_recognition
-      - /run/user/1000/pulse:/run/user/1000/pulse:rw
       - /dev:/dev
     tty: true
     stdin_open: true
@@ -29,13 +25,12 @@ services:
       # - GROUP_ID=${GROUP_ID}
       # - USERNAME=${USERNAME}
       - NVIDIA_VISIBLE_DEVICES=all 
+      - NVIDIA_DRIVER_CAPABILITIES=all
       - DISPLAY=$DISPLAY
       - QT_X11_NO_MITSHM=1
       - XAUTHORITY=/tmp/xauth/.docker.xauth     
-      - PULSE_SERVER=unix:/run/user/1000/pulse/native
       - HF_TOKEN=${HF_TOKEN}      
-      # - PULSE_COOKIE=/home/coghri/.config/pulse/cookie
-      # - ALSA_CARD=${ALSA_CARD}  # Set to the card number for your speaker
+
     devices:
       - /dev/dri:/dev/dri
       - /dev/snd:/dev/snd

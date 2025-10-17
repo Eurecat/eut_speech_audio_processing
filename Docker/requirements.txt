@@ -2,7 +2,9 @@
 numpy
 
 # Torch -----------------------------------
-# Let pyannote.audio manage torchaudio version for compatibility
+# Fixed versions for compatibility with pyannote.audio and Python 3.12
+torch==2.2.0
+torchaudio==2.2.0
 
 # Audio -----------------------------------
 sounddevice
