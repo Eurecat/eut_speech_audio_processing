@@ -6,7 +6,12 @@ import numpy as np
 import threading
 from collections import deque
 from faster_whisper import WhisperModel
-from audio_stream_manager_interfaces.msg import Asr, AudioAndDeviceInfo, Vad
+from audio_stream_manager_interfaces.msg import (
+    Asr,
+    AudioAndDeviceInfo,
+    Vad,
+    # Diarization,
+)
 
 
 class ASRNode(Node):
@@ -20,10 +25,10 @@ class ASRNode(Node):
         self.declare_parameter("min_silence_duration", 1.0)  # seconds
         self.declare_parameter("max_chunk_duration", 30.0)  # seconds
         self.declare_parameter(
-            "silence_detection_threshold", 0.01
+            "silence_detection_threshold", 0.00001
         )  # RMS threshold for silence detection
         self.declare_parameter(
-            "pre_buffer_duration", 1.0
+            "pre_buffer_duration", 0.5
         )  # seconds of audio to prepend
 
         # Get parameter values
@@ -70,7 +75,7 @@ class ASRNode(Node):
         self.speech_interrupted = False
 
         # Thread safety
-        self.buffer_lock = threading.Lock()
+        self.buffer_lock = threading.RLock()  # Use RLock to prevent deadlock
         self.processing_thread = None
         self.should_stop = False
 
@@ -87,6 +92,12 @@ class ASRNode(Node):
             self.vad_callback,
             10,
         )
+        # self.diarization_sub = self.create_subscription(
+        #     Diarization,
+        #     "diarization",
+        #     self.diarization_callback,
+        #     10,
+        # )
 
         # Publishers
         self.asr_pub = self.create_publisher(Asr, "asr", 10)
@@ -157,6 +168,10 @@ class ASRNode(Node):
                 )
                 self._force_chunk_split()
 
+    # def diarization_callback(self, msg: Diarization):
+    #     """Process diarization results"""
+    #     speaker_id = msg.current_speaker
+
     def _process_speech_end(self):
         """Process speech when VAD goes from on to off"""
         while not self.should_stop:
@@ -187,8 +202,33 @@ class ASRNode(Node):
             # Wait a bit before checking again
             time.sleep(0.1)
 
+    def _extract_audio_data(self, end_time):
+        """Extract audio data from buffer (call this INSIDE the lock)"""
+        start_time = self.speech_start_time
+        if start_time <= 0:
+            return None
+
+        # Instead of start_time, use an earlier time to prevent cutting the beginning
+        actual_start_time = start_time - self.pre_buffer_duration
+
+        # Collect audio data for the speech chunk
+        audio_chunks = []
+        for audio_chunk in self.audio_buffer:
+            chunk_time = audio_chunk["timestamp"]
+            if actual_start_time <= chunk_time <= end_time:
+                audio_chunks.append(audio_chunk["audio"])
+
+        if not audio_chunks:
+            return None
+
+        # Concatenate audio chunks
+        return np.concatenate(audio_chunks)
+
     def _force_chunk_split(self):
         """Force a chunk split due to maximum duration"""
+        audio_data = None
+        split_time = None
+
         with self.buffer_lock:
             if not self.audio_buffer:
                 return
@@ -213,18 +253,23 @@ class ASRNode(Node):
                         min_rms = rms
                         best_split_time = chunk_time
 
-            # If we found a quiet moment, use it as split point
+            # Determine split time and extract audio data
             if best_split_time and min_rms < self.silence_detection_threshold:
+                split_time = best_split_time
                 self.get_logger().info(
                     f"Found silence at {best_split_time}, splitting chunk"
                 )
-                self._transcribe_speech_chunk(end_time=best_split_time)
-                self.speech_start_time = best_split_time
             else:
-                # No good split point found, just split at current time
+                split_time = current_time
                 self.get_logger().info("No silence found, splitting at current time")
-                self._transcribe_speech_chunk()
-                self.speech_start_time = current_time
+
+            # Extract audio data INSIDE the lock
+            audio_data = self._extract_audio_data(split_time)
+
+        # Process transcription OUTSIDE the lock
+        if audio_data is not None:
+            self._transcribe_speech_chunk_with_data(audio_data, split_time)
+            self.speech_start_time = split_time
 
     def _transcribe_speech_chunk(self, end_time=None):
         """Transcribe the accumulated speech chunk"""
@@ -233,32 +278,23 @@ class ASRNode(Node):
                 self.last_silence_time if self.last_silence_time > 0 else time.time()
             )
 
-        start_time = self.speech_start_time
-
-        if start_time <= 0:
-            self.get_logger().warn("No valid speech start time")
-            return
-
-        # Instead of start_time, use an earlier time to prevent cutting the beginning
-        actual_start_time = start_time - self.pre_buffer_duration
-
+        # Extract audio data with lock
         with self.buffer_lock:
-            # Collect audio data for the speech chunk
-            audio_chunks = []
-            for audio_chunk in self.audio_buffer:
-                chunk_time = audio_chunk["timestamp"]
-                if actual_start_time <= chunk_time <= end_time:
-                    audio_chunks.append(audio_chunk["audio"])
+            audio_data = self._extract_audio_data(end_time)
 
-            if not audio_chunks:
-                self.get_logger().warn("No audio data found for transcription")
-                return
+        # Process transcription without lock
+        if audio_data is not None:
+            self._transcribe_speech_chunk_with_data(audio_data, end_time)
 
-            # Concatenate audio chunks
-            audio_data = np.concatenate(audio_chunks)
+    def _transcribe_speech_chunk_with_data(self, audio_data, end_time):
+        """Transcribe with pre-extracted audio data (NO lock needed)"""
+        if audio_data is None or len(audio_data) == 0:
+            self.get_logger().warn("No audio data found for transcription")
+            return
 
         # Check if we have enough audio (at least 0.01 seconds)
         min_duration = 0.01
+
         if self.sample_rate is None or len(audio_data) < int(
             self.sample_rate * min_duration
         ):
@@ -277,7 +313,7 @@ class ASRNode(Node):
                 audio_data,
                 vad_filter=True,
                 word_timestamps=False,
-                language="en",
+                language="es",
             )
 
             # Combine all segments into one transcript
