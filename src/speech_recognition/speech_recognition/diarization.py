@@ -13,7 +13,8 @@ from pyannote.core import Annotation
 from rclpy.node import Node
 from rx.core.observer.observer import Observer
 
-from audio_stream_manager_interfaces.msg import AudioAndDeviceInfo, Diarization
+from audio_stream_manager_interfaces.msg import AudioAndDeviceInfo
+from hri_msgs.msg import SpeechActivityDetection
 
 from .ros_audio_source import ROSAudioSource
 
@@ -37,6 +38,7 @@ class DiarizationObserver(Observer):
         self.speaker_mapping = {}  # Maps model speaker IDs to consistent speaker numbers
         self.next_speaker_id = 1
         self.current_speaker = None
+        self.previous_speaker = None
         self.last_process_time = time.time()
 
     def _extract_prediction(self, value):
@@ -72,7 +74,7 @@ class DiarizationObserver(Observer):
                 self.node.get_logger().debug(
                     f"Found speaker: {speaker} in segment: {segment}"
                 )
-                # Print que hay en la tupla
+                # Print what is inside the track_tuple for debugging
                 self.node.get_logger().debug(f"Track tuple contents: {track_tuple}")
                 self.node.get_logger().debug(
                     f"Segment: {segment}, Track: {track}, Speaker: {speaker}"
@@ -98,18 +100,32 @@ class DiarizationObserver(Observer):
         # Log detected speakers
         self.node.get_logger().debug(f"Active speakers detected: {active_speakers}")
 
-        # Publish diarization result if a speaker is active
-        if active_speakers:
-            diarization_msg = Diarization()
-            diarization_msg.header.stamp = self.node.get_clock().now().to_msg()
-            diarization_msg.current_speaker = (
-                f"speaker{self.speaker_mapping[list(active_speakers)[0]]}"
-            )
-            diarization_msg.active_speakers = [
-                f"speaker{self.speaker_mapping[speaker]}" for speaker in active_speakers
-            ]
+        # Determine current speaker (take the first one if multiple)
+        current_speaker = list(active_speakers)[0] if active_speakers else None
 
-            self.node.diarization_pub.publish(diarization_msg)
+        if current_speaker != self.previous_speaker:
+            # Speaker changed
+            if self.previous_speaker is not None:
+                self._publish_speech_activity(self.previous_speaker, active=False)
+            if current_speaker is not None:
+                self._publish_speech_activity(current_speaker, active=True)
+
+            self.previous_speaker = current_speaker
+
+    def _publish_speech_activity(self, speaker, active):
+        """Publish speech activity detection message"""
+        if speaker is None:
+            return
+
+        speech_activity_msg = SpeechActivityDetection()
+        speech_activity_msg.header.stamp = self.node.get_clock().now().to_msg()
+        speech_activity_msg.speaker_id = f"speaker{self.speaker_mapping[speaker]}"
+        speech_activity_msg.active = active
+
+        self.node.speech_activity_pub.publish(speech_activity_msg)
+        self.node.get_logger().debug(
+            f"Published speech activity: speaker={speech_activity_msg.speaker_id}, active={active}"
+        )
 
     def on_error(self, error: Exception):
         self.node.get_logger().error(f"DiarizationObserver error: {error}")
@@ -172,7 +188,9 @@ class DiarizationNode(Node):
         )
 
         # Publishers
-        self.diarization_pub = self.create_publisher(Diarization, "diarization", 10)
+        self.speech_activity_pub = self.create_publisher(
+            SpeechActivityDetection, "speech_activity_detection", 10
+        )
 
         # Select device (CPU or GPU)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -182,6 +200,7 @@ class DiarizationNode(Node):
         self.speaker_mapping = {}  # Maps model speaker IDs to consistent speaker numbers
         self.next_speaker_id = 1
         self.current_speaker = None
+        self.previous_speaker = None
         self.last_process_time = time.time()
 
         self.get_logger().info(
@@ -231,7 +250,7 @@ class DiarizationNode(Node):
                     duration=self.chunk_duration,
                     step=step_duration,  # Align with audio source block duration
                     tau_active=0.7,  # Lower threshold for speaker activity detection
-                    delta_new=0.87,  # Lower threshold for new speaker detection
+                    delta_new=0.9,  # Lower threshold for new speaker detection
                     # gamma=3.0,  # Scale for speaker change detection
                     # beta=10.0,  # Beta parameter for speaker change
                     max_speakers=10,  # Maximum number of speakers

@@ -7,11 +7,10 @@ import threading
 from collections import deque
 from faster_whisper import WhisperModel
 from audio_stream_manager_interfaces.msg import (
-    Asr,
     AudioAndDeviceInfo,
     Vad,
-    # Diarization,
 )
+from hri_msgs.msg import SpeechResult, SpeechActivityDetection
 
 
 class ASRNode(Node):
@@ -74,6 +73,9 @@ class ASRNode(Node):
         self.last_silence_time = 0.0
         self.speech_interrupted = False
 
+        self.speaker_id = None
+        self.speaker_history = deque()  # Store speaker_id with timestamps
+
         # Thread safety
         self.buffer_lock = threading.RLock()  # Use RLock to prevent deadlock
         self.processing_thread = None
@@ -92,15 +94,15 @@ class ASRNode(Node):
             self.vad_callback,
             10,
         )
-        # self.diarization_sub = self.create_subscription(
-        #     Diarization,
-        #     "diarization",
-        #     self.diarization_callback,
-        #     10,
-        # )
+        self.speech_activity_sub = self.create_subscription(
+            SpeechActivityDetection,
+            "speech_activity_detection",
+            self.speech_activity_callback,
+            10,
+        )
 
         # Publishers
-        self.asr_pub = self.create_publisher(Asr, "asr", 10)
+        self.asr_pub = self.create_publisher(SpeechResult, "speech_result", 10)
 
         self.get_logger().info("ASR Node initialized, waiting for audio...")
 
@@ -168,9 +170,9 @@ class ASRNode(Node):
                 )
                 self._force_chunk_split()
 
-    # def diarization_callback(self, msg: Diarization):
-    #     """Process diarization results"""
-    #     speaker_id = msg.current_speaker
+    def speech_activity_callback(self, msg: SpeechActivityDetection):
+        """Process speech activity detection results"""
+        self.speaker_id = msg.speaker_id
 
     def _process_speech_end(self):
         """Process speech when VAD goes from on to off"""
@@ -325,14 +327,10 @@ class ASRNode(Node):
 
             if transcript:
                 # Publish ASR result
-                asr_msg = Asr()
+                asr_msg = SpeechResult()
                 asr_msg.header.stamp = self.get_clock().now().to_msg()
                 asr_msg.transcript = transcript
-                asr_msg.transcript_confidence = (
-                    float(info.language_probability)
-                    if hasattr(info, "language_probability")
-                    else 0.8
-                )
+                asr_msg.speaker_id = self.speaker_id if self.speaker_id else "unknown"
                 asr_msg.language_code = (
                     info.language if hasattr(info, "language") else "unknown"
                 )
