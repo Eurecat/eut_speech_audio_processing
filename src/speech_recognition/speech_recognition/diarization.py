@@ -13,7 +13,7 @@ from pyannote.core import Annotation
 from rclpy.node import Node
 from rx.core.observer.observer import Observer
 
-from audio_stream_manager_interfaces.msg import AudioAndDeviceInfo
+from audio_stream_manager_interfaces.msg import AudioAndDeviceInfo, Vad
 from hri_msgs.msg import SpeechActivityDetection
 
 from .ros_audio_source import ROSAudioSource
@@ -113,8 +113,12 @@ class DiarizationObserver(Observer):
             self.previous_speaker = current_speaker
 
     def _publish_speech_activity(self, speaker, active):
-        """Publish speech activity detection message"""
+        """Publish speech activity detection message only if VAD probability > threshold"""
         if speaker is None:
+            return
+
+        # Check VAD threshold before publishing
+        if self.node.current_vad_probability <= self.node.vad_threshold:
             return
 
         speech_activity_msg = SpeechActivityDetection()
@@ -123,8 +127,9 @@ class DiarizationObserver(Observer):
         speech_activity_msg.active = active
 
         self.node.speech_activity_pub.publish(speech_activity_msg)
-        self.node.get_logger().debug(
-            f"Published speech activity: speaker={speech_activity_msg.speaker_id}, active={active}"
+        self.node.get_logger().info(
+            f"Published speech activity: speaker={speech_activity_msg.speaker_id}, active={active} "
+            f"(VAD: {self.node.current_vad_probability:.3f})"
         )
 
     def on_error(self, error: Exception):
@@ -144,6 +149,9 @@ class DiarizationNode(Node):
         )  # seconds - overlap between consecutive chunks
         self.declare_parameter("segmentation_model_name", "pyannote/segmentation")
         self.declare_parameter("embedding_model_name", "pyannote/embedding")
+        self.declare_parameter(
+            "vad_threshold", 0.5
+        )  # VAD threshold for publishing speech activity
 
         # Get parameter values
         self.chunk_duration = (
@@ -179,11 +187,23 @@ class DiarizationNode(Node):
         self.device_info_received = False
         self.diarization_started = False
 
+        # VAD tracking
+        self.current_vad_probability = 0.0
+        self.vad_threshold = (
+            self.get_parameter("vad_threshold").get_parameter_value().double_value
+        )
+
         # Subscribers
         self.audio_and_device_info_sub = self.create_subscription(
             AudioAndDeviceInfo,
             "audio_and_device_info",
             self.audio_and_device_info_callback,
+            10,
+        )
+        self.vad_sub = self.create_subscription(
+            Vad,
+            "vad",
+            self.vad_callback,
             10,
         )
 
@@ -299,6 +319,10 @@ class DiarizationNode(Node):
 
             # Feed the audio to our custom source
             self.source.add_audio_chunk(audio_data)
+
+    def vad_callback(self, msg: Vad):
+        """Process VAD messages to track speech probability"""
+        self.current_vad_probability = msg.vad_probability
 
     def run_diarization(self):
         """Run diarization in a separate thread"""
