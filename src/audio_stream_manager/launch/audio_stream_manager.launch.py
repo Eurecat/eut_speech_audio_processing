@@ -28,8 +28,8 @@ def _setup(context, *args, **kwargs):
         SetEnvironmentVariable("PYTHONPATH", new_py_path),
         Node(
             package="audio_stream_manager",
-            executable="audio_capturing_select_device_node",
-            name="audio_capturing_select_device_node",
+            executable="audio_capturing_automatic_device_node",
+            name="audio_capturing_automatic_device_node",
             output="screen",
         ),
     ]
