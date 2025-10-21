@@ -27,7 +27,7 @@ class ASRNode(Node):
             "silence_detection_threshold", 0.00001
         )  # RMS threshold for silence detection
         self.declare_parameter(
-            "pre_buffer_duration", 0.5
+            "pre_buffer_duration", 0.3
         )  # seconds of audio to prepend
 
         # Get parameter values
