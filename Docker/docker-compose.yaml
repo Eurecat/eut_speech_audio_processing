@@ -27,7 +27,6 @@ services:
       - XAUTHORITY=/tmp/xauth/.docker.xauth
       - /dev:/dev
       - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
-      - ../src/audio_stream_manager_interfaces:/workspace/src/audio_stream_manager_interfaces
       - ../src/speech_recognition:/workspace/src/speech_recognition
       # - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}  
       # - PULSE_SERVER=unix:/run/user/${USER_ID}/pulse/native
@@ -64,7 +63,6 @@ services:
       - ./.vscode:/workspace/.vscode
       # ADD VOLUME MOUNTS FOR AUDIO PROCESSING NODES IF NEEDED
       - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
-      - ../src/audio_stream_manager_interfaces:/workspace/src/audio_stream_manager_interfaces
       - ../src/speech_recognition:/workspace/src/speech_recognition
       # - ./deps/eut_yolo/src/eut_yolo_core:/workspace/src/eut_yolo_core
       # - ./deps/eut_yolo/src/eut_yolo_interfaces:/workspace/src/eut_yolo_interfaces

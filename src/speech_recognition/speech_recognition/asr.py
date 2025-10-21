@@ -6,11 +6,7 @@ import numpy as np
 import threading
 from collections import deque
 from faster_whisper import WhisperModel
-from audio_stream_manager_interfaces.msg import (
-    AudioAndDeviceInfo,
-    Vad,
-)
-from hri_msgs.msg import SpeechResult, SpeechActivityDetection
+from hri_msgs.msg import SpeechResult, SpeechActivityDetection, AudioAndDeviceInfo, Vad
 
 
 class ASRNode(Node):

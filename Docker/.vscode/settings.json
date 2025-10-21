@@ -110,7 +110,7 @@
         "stdfloat": "cpp"
     },
     "C_Cpp.errorSquiggles": "disabled",
-    "cmake.sourceDirectory": "/workspace/src/audio_stream_manager_interfaces"
+    "cmake.sourceDirectory": "/workspace/src"
 
 
 }

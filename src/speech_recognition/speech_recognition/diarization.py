@@ -13,7 +13,7 @@ from pyannote.core import Annotation
 from rclpy.node import Node
 from rx.core.observer.observer import Observer
 
-from audio_stream_manager_interfaces.msg import AudioAndDeviceInfo, Vad
+from hri_msgs.msg import AudioAndDeviceInfo, Vad
 from hri_msgs.msg import SpeechActivityDetection
 
 from .ros_audio_source import ROSAudioSource

@@ -15,7 +15,6 @@ services:
       - ~/.xauth_docker/share/:/tmp/xauth/
       - ./.vscode:/workspace/.vscode
       - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
-      - ../src/audio_stream_manager_interfaces:/workspace/src/audio_stream_manager_interfaces
       - ../src/speech_recognition:/workspace/src/speech_recognition
       - /dev:/dev
     tty: true
@@ -45,4 +44,4 @@ services:
     # security_opt:
     #   - seccomp:unconfined
     command: bash -c "source /workspace/install/setup.bash && /bin/bash"
-    entrypoint: ["/entrypoint.sh"]
+    # entrypoint: ["/entrypoint.sh"]

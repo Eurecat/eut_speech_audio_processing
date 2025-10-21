@@ -7,7 +7,7 @@ import sounddevice as sd
 from rclpy.node import Node
 from std_msgs.msg import Bool
 
-from audio_stream_manager_interfaces.msg import AudioAndDeviceInfo
+from hri_msgs.msg import AudioAndDeviceInfo
 
 DTYPE = "float32"
 CHANNELS = 1

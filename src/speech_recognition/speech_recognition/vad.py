@@ -2,7 +2,7 @@ import numpy as np
 import rclpy
 import torch
 from rclpy.node import Node
-from audio_stream_manager_interfaces.msg import AudioAndDeviceInfo, Vad
+from hri_msgs.msg import AudioAndDeviceInfo, Vad
 
 
 class VADNode(Node):
@@ -59,9 +59,14 @@ class VADNode(Node):
         sample_rate = int(msg.device_samplerate)
 
         # Apply VAD
-        with torch.no_grad():
-            prob = self.model(audio_tensor, sr=sample_rate).item()
-
+        if int(audio_data.size) == 512:
+            with torch.no_grad():
+                prob = self.model(audio_tensor, sr=sample_rate).item()
+        else:
+            self.get_logger().warn(
+                f"Unexpected audio chunk size: {int(audio_data.size)}. Expected 512 samples."
+            )
+            prob = 0.0
         # Publish VAD result
         vad_msg = Vad()
         vad_msg.header.stamp = self.get_clock().now().to_msg()

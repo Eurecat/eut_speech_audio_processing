@@ -71,5 +71,5 @@ ros2 launch audio_stream_manager audio_stream_manager.launch.py
 In a separate terminal, execute the following command to start the voice activity detection, speaker diarization, and automatic speech recognition modules:
 
 ```bash
-ros2 launch speech_recognition speech_recognition.launch.py
+ros2 launch speech_recognition asr.launch.py
 ```

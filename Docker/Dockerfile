@@ -15,12 +15,6 @@ RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86
 RUN dpkg -i cuda-keyring_1.1-1_all.deb
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3-rosdep \
-    python3-colcon-common-extensions \
-    python3-vcstool \
-    build-essential \
-    ros-${ROS_DISTRO}-usb-cam \
-    git \
     portaudio19-dev \
     libasound2-dev \
     libpulse-dev \

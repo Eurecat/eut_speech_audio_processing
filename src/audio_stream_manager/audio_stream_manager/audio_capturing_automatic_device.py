@@ -8,7 +8,7 @@ import sounddevice as sd
 from rclpy.node import Node
 from std_msgs.msg import Bool
 
-from audio_stream_manager_interfaces.msg import AudioAndDeviceInfo
+from hri_msgs.msg import AudioAndDeviceInfo
 
 
 class AudioCapturingNode(Node):
@@ -16,7 +16,7 @@ class AudioCapturingNode(Node):
         super().__init__("audio_capturing_node")
 
         # Declare ROS2 parameters
-        self.declare_parameter("device_name", "jabra")
+        self.declare_parameter("device_name", "")
         self.declare_parameter("dtype", "float32")
         self.declare_parameter("channels", 1)
         self.declare_parameter("chunk", 512)
@@ -159,7 +159,7 @@ class AudioCapturingNode(Node):
                 return True
             else:
                 self.get_logger().warn(
-                    f"Device {device_index} ({self.device['name']}) is not receiving audio (RMS: 0)"
+                    f"Device {device_index} ({device['name']}) is not receiving audio (RMS: 0)"
                 )
                 return False
 
@@ -215,7 +215,15 @@ class AudioCapturingNode(Node):
             self.get_logger().info(
                 f"Primary device name set to: {self.primary_device_name}"
             )
-
+        self.devices = sd.query_devices()
+        available_devices = self.get_available_input_devices(self.devices)
+        self.get_logger().info("Available devices:")
+        for i in available_devices:
+            dev = self.devices[i]
+            self.get_logger().info(
+                f"{i}: {dev['name']} ({dev['max_input_channels']} channels)"
+            )
+        self.get_logger().info("-"*60)
         while True:
             try:
                 self.devices = sd.query_devices()
