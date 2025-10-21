@@ -1,0 +1,5 @@
+numpy
+sounddevice
+librosa
+torchaudio
+faster-whisper

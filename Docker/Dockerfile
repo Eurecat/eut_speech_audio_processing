@@ -26,14 +26,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpulse-dev \
     libcudnn9-cuda-12 \
     libcudnn9-dev-cuda-12 \
+    nvidia-cuda-toolkit \
 && rm -rf /var/lib/apt/lists/*
  
 # Set working directory
 WORKDIR /workspace
 
 # Copy requirements.txt and install Python dependencies in the virtual environment
-COPY requirements.txt /workspace/requirements.txt
-RUN /bin/bash -c "source /opt/ros_python_env/bin/activate && uv pip install --no-cache -r requirements.txt"
+COPY requirements_general.txt /workspace/requirements_general.txt
+RUN /bin/bash -c "source /opt/ros_python_env/bin/activate && uv pip install --no-cache -r requirements_general.txt"
+
+# Create a new virtual environment for diarization and install requirements
+RUN python3 -m venv /opt/ros_python_diarization_env
+COPY requirements_diarization.txt /workspace/requirements_diarization.txt
+RUN /bin/bash -c "source /opt/ros_python_diarization_env/bin/activate && pip install --no-cache-dir -r requirements_diarization.txt"
 
 # ------------------------------------------------------------
 # Setup rosdep

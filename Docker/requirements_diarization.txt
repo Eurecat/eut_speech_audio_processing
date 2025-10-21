@@ -1,0 +1,7 @@
+numpy>=1.21
+torch>=2.0,<2.5
+torchaudio>=2.0,<2.5
+diart>=0.9.2
+pyannote.core>=4.5
+rx>=3.2
+huggingface_hub
