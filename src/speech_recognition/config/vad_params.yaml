@@ -1,0 +1,8 @@
+# ROS2 Parameters for VAD (Voice Activity Detection) Node
+# This file contains all the configurable parameters for the VADNode
+
+vad_node:
+  ros__parameters:
+    # Model Configuration
+    repo_model: "snakers4/silero-vad"        # PyTorch Hub repository for VAD model
+    model_name: "silero_vad"                 # Specific model name to load from the repository

@@ -1,0 +1,15 @@
+# ROS2 Parameters for Diarization Node
+# This file contains all the configurable parameters for the DiarizationNode
+
+diarization_node:
+  ros__parameters:
+    # Audio Processing Configuration
+    chunk_duration: 2.0                     # Duration (seconds) of audio chunks for diarization
+    overlap_duration: 0.5                   # Overlap (seconds) between consecutive chunks
+    
+    # Model Configuration
+    segmentation_model_name: "pyannote/segmentation"  # Model name for speaker segmentation
+    embedding_model_name: "pyannote/embedding"        # Model name for speaker embedding
+    
+    # VAD Integration
+    vad_threshold: 0.5                       # VAD threshold for publishing speech activity

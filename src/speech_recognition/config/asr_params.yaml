@@ -1,0 +1,16 @@
+# ROS2 Parameters for ASR (Automatic Speech Recognition) Node
+# This file contains all the configurable parameters for the ASRNode
+
+asr_node:
+  ros__parameters:
+    # Model Configuration
+    model_size: "turbo"                      # Whisper model size (tiny, base, small, medium, large, turbo)
+    
+    # VAD and Speech Detection
+    vad_threshold: 0.5                       # VAD probability threshold for speech detection
+    silence_detection_threshold: 0.00001     # RMS threshold for silence detection
+    
+    # Timing Parameters
+    min_silence_duration: 1.0                # Minimum silence duration (seconds) before processing speech
+    max_chunk_duration: 30.0                 # Maximum duration (seconds) of a single speech chunk
+    pre_buffer_duration: 0.3                 # Duration (seconds) of audio to prepend to speech chunks

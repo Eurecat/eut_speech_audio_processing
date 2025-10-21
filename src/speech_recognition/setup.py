@@ -12,9 +12,9 @@ setup(
         ("share/" + package_name, ["launch/vad.launch.py"]),
         ("share/" + package_name, ["launch/diarization.launch.py"]),
         ("share/" + package_name, ["launch/asr.launch.py"]),
-        ("share/" + package_name, ["launch/speech_recognition.launch.py"]),
-
-
+        ("share/" + package_name + "/config", ["config/asr_params.yaml"]),
+        ("share/" + package_name + "/config", ["config/diarization_params.yaml"]),
+        ("share/" + package_name + "/config", ["config/vad_params.yaml"]),
     ],
     install_requires=["setuptools", "numpy", "torch", "diart"],
     zip_safe=True,
