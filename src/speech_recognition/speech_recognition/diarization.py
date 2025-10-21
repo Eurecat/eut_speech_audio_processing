@@ -93,44 +93,28 @@ class DiarizationObserver(Observer):
                     self.known_speakers.add(speaker)
                     self.speaker_mapping[speaker] = self.next_speaker_id
                     self.next_speaker_id += 1
-                    self.node.get_logger().info(
-                        f"New speaker detected: {speaker} -> speaker{self.speaker_mapping[speaker]}"
-                    )
 
-        # Log detected speakers
-        self.node.get_logger().debug(f"Active speakers detected: {active_speakers}")
 
         # Determine current speaker (take the first one if multiple)
         current_speaker = list(active_speakers)[0] if active_speakers else None
 
-        if current_speaker != self.previous_speaker:
-            # Speaker changed
-            if self.previous_speaker is not None:
-                self._publish_speech_activity(self.previous_speaker, active=False)
-            if current_speaker is not None:
-                self._publish_speech_activity(current_speaker, active=True)
-
-            self.previous_speaker = current_speaker
-
-    def _publish_speech_activity(self, speaker, active):
-        """Publish speech activity detection message only if VAD probability > threshold"""
-        if speaker is None:
+        # Publish speech activity detection message only if VAD probability > threshold
+        if current_speaker is None:
             return
 
         # Check VAD threshold before publishing
         if self.node.current_vad_probability <= self.node.vad_threshold:
             return
 
+        self.node.real_speaker = f"speaker{self.speaker_mapping[current_speaker]}"
         speech_activity_msg = SpeechActivityDetection()
         speech_activity_msg.header.stamp = self.node.get_clock().now().to_msg()
-        speech_activity_msg.speaker_id = f"speaker{self.speaker_mapping[speaker]}"
-        speech_activity_msg.active = active
+        speech_activity_msg.speaker_id = self.node.real_speaker
+        speech_activity_msg.active = True
 
         self.node.speech_activity_pub.publish(speech_activity_msg)
         self.node.get_logger().info(
-            f"Published speech activity: speaker={speech_activity_msg.speaker_id}, active={active} "
-            f"(VAD: {self.node.current_vad_probability:.3f})"
-        )
+            f"Published speech activity: speaker={speech_activity_msg.speaker_id}, active={speech_activity_msg.active} ")
 
     def on_error(self, error: Exception):
         self.node.get_logger().error(f"DiarizationObserver error: {error}")
@@ -222,6 +206,7 @@ class DiarizationNode(Node):
         self.current_speaker = None
         self.previous_speaker = None
         self.last_process_time = time.time()
+        self.real_speaker = None
 
         self.get_logger().info(
             "Diarization node initialized, waiting for device info..."
@@ -232,7 +217,6 @@ class DiarizationNode(Node):
 
         # Only initialize once
         if not self.device_info_received:
-            self.get_logger().info("Received audio and device info message")
 
             # Get device info from message
             self.device_name = msg.device_name
@@ -245,10 +229,6 @@ class DiarizationNode(Node):
                     f"Invalid or missing sample rate: {self.device_samplerate}"
                 )
                 return
-
-            self.get_logger().info(
-                f"Device info received: {self.device_name} (ID: {self.device_id}, Sample rate: {self.device_samplerate})"
-            )
 
             try:
                 self.chunk_size = int(self.device_samplerate * self.chunk_duration)
@@ -270,7 +250,7 @@ class DiarizationNode(Node):
                     duration=self.chunk_duration,
                     step=step_duration,  # Align with audio source block duration
                     tau_active=0.7,  # Lower threshold for speaker activity detection
-                    delta_new=0.9,  # Lower threshold for new speaker detection
+                    delta_new=0.95,  # Lower threshold for new speaker detection
                     # gamma=3.0,  # Scale for speaker change detection
                     # beta=10.0,  # Beta parameter for speaker change
                     max_speakers=10,  # Maximum number of speakers
@@ -323,6 +303,18 @@ class DiarizationNode(Node):
     def vad_callback(self, msg: Vad):
         """Process VAD messages to track speech probability"""
         self.current_vad_probability = msg.vad_probability
+        
+        if self.current_vad_probability <= self.vad_threshold and self.real_speaker is not None:
+            # If VAD indicates silence, publish inactive status for current speaker
+            speech_activity_msg = SpeechActivityDetection()
+            speech_activity_msg.header.stamp = self.get_clock().now().to_msg()
+            speech_activity_msg.speaker_id = self.real_speaker
+            speech_activity_msg.active = False
+            self.speech_activity_pub.publish(speech_activity_msg)
+            self.get_logger().info(
+                f"Published speech activity: speaker={speech_activity_msg.speaker_id}, active=False"
+            )
+            self.real_speaker = None
 
     def run_diarization(self):
         """Run diarization in a separate thread"""
