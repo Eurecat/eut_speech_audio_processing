@@ -60,6 +60,10 @@ class AudioCapturingNode(Node):
         self.device_channels = None
         self.device_muted = True
 
+        # Buffer for maintaining consistent chunk size after resampling
+        self.audio_buffer = np.array([], dtype=np.float32)
+        self.target_chunk_size = 512
+
         # Setup a working device
         self.setup_working_device()
 
@@ -237,6 +241,9 @@ class AudioCapturingNode(Node):
                         if self.test_device_connection(device_index):
                             self.create_audio_stream(device_index)
 
+                            # Clear audio buffer when connecting to new device
+                            self.audio_buffer = np.array([], dtype=np.float32)
+
                             # Update the device_name parameter with the working device
                             self.set_parameters(
                                 [
@@ -287,6 +294,10 @@ class AudioCapturingNode(Node):
                         )
                         if self.test_device_connection(device_index):
                             self.create_audio_stream(device_index)
+
+                            # Clear audio buffer when connecting to new device
+                            self.audio_buffer = np.array([], dtype=np.float32)
+
                             self.get_logger().info(
                                 f"Successfully connected to device: {self.devices[device_index]['name']}"
                             )
@@ -339,15 +350,25 @@ class AudioCapturingNode(Node):
                     self._last_resampled_device_index = self.device_index
                 audio_data = self.resample_audio(audio_data, target_samplerate)
 
-            # Create and publish the message
-            audio_msg = AudioAndDeviceInfo()
-            audio_msg.header.stamp = self.get_clock().now().to_msg()
-            audio_msg.audio = audio_data
-            audio_msg.device_name = self.device_name
-            audio_msg.device_id = self.device_index
-            audio_msg.device_samplerate = float(target_samplerate)
+            # Add audio data to buffer
+            self.audio_buffer = np.concatenate([self.audio_buffer, audio_data])
 
-            self.audio_and_device_info_pub.publish(audio_msg)
+            # Process chunks of target_chunk_size
+            while len(self.audio_buffer) >= self.target_chunk_size:
+                # Extract exactly target_chunk_size samples
+                chunk_data = self.audio_buffer[: self.target_chunk_size]
+                # Keep remaining samples in buffer
+                self.audio_buffer = self.audio_buffer[self.target_chunk_size :]
+
+                # Create and publish the message with consistent chunk size
+                audio_msg = AudioAndDeviceInfo()
+                audio_msg.header.stamp = self.get_clock().now().to_msg()
+                audio_msg.audio = chunk_data
+                audio_msg.device_name = self.device_name
+                audio_msg.device_id = self.device_index
+                audio_msg.device_samplerate = float(target_samplerate)
+
+                self.audio_and_device_info_pub.publish(audio_msg)
 
             if rms == 0 and not self.device_muted:
                 self.get_logger().warn("RMS is zero, probably the device is muted")
@@ -474,6 +495,9 @@ class AudioCapturingNode(Node):
                     # Create new stream with primary device
                     self.create_audio_stream(device_index)
 
+                    # Clear audio buffer when switching devices
+                    self.audio_buffer = np.array([], dtype=np.float32)
+
                     # Reset flags
                     with self.primary_device_check_lock:
                         self.is_using_fallback_device = False
@@ -537,6 +561,8 @@ class AudioCapturingNode(Node):
                     self.get_logger().error(f"Error stopping stream: {e}")
                 finally:
                     self.stream = None
+                    # Clear audio buffer when device disconnects
+                    self.audio_buffer = np.array([], dtype=np.float32)
 
     def device_disconnected_callback(self, msg: Bool):
         if msg.data:
