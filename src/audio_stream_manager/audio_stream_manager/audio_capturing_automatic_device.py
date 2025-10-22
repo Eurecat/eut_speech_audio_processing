@@ -6,7 +6,6 @@ import rclpy
 from rclpy.parameter import Parameter
 import sounddevice as sd
 from rclpy.node import Node
-from std_msgs.msg import Bool
 
 from hri_msgs.msg import AudioAndDeviceInfo
 
@@ -16,7 +15,7 @@ class AudioCapturingNode(Node):
         super().__init__("audio_capturing_node")
 
         # Declare ROS2 parameters
-        self.declare_parameter("device_name", "")
+        self.declare_parameter("device_name", "jabra")
         self.declare_parameter("dtype", "float32")
         self.declare_parameter("channels", 1)
         self.declare_parameter("chunk", 512)
@@ -27,17 +26,12 @@ class AudioCapturingNode(Node):
         self.declare_parameter("target_samplerate", 16000)
 
         # Publishers
-        self.device_disconnected_pub = self.create_publisher(
-            Bool, "device_disconnected", 10
-        )
         self.audio_and_device_info_pub = self.create_publisher(
             AudioAndDeviceInfo, "audio_and_device_info", 10
         )
 
-        # Subscriber
-        self.device_disconnected_sub = self.create_subscription(
-            Bool, "device_disconnected", self.device_disconnected_callback, 10
-        )
+        # Internal device disconnection state
+        self.device_disconnected = False
 
         # Threading control for disconnection check
         self.disconnection_check_running = True
@@ -538,10 +532,8 @@ class AudioCapturingNode(Node):
             time_since_last_callback > disconnection_timeout
             and not self.handling_disconnection
         ):
-            # Publish device status as True (disconnected)
-            msg = Bool()
-            msg.data = True
-            self.device_disconnected_pub.publish(msg)
+            # Set internal disconnection state
+            self.device_disconnected = True
 
             self.set_parameters(
                 [
@@ -556,7 +548,7 @@ class AudioCapturingNode(Node):
             self.handling_disconnection = True
 
             self.get_logger().error(
-                "No callback for 5 seconds. Device may be disconnected."
+                "No callback for 3 seconds. Device may be disconnected."
             )
 
             # Stop the input stream safely
@@ -572,9 +564,13 @@ class AudioCapturingNode(Node):
                     # Clear audio buffer when device disconnects
                     self.audio_buffer = np.array([], dtype=np.float32)
 
-    def device_disconnected_callback(self, msg: Bool):
-        if msg.data:
-            self.get_logger().info("Received device disconnected message.")
+            # Handle disconnection immediately
+            self.handle_device_disconnection()
+
+    def handle_device_disconnection(self):
+        """Handle device disconnection internally without using topics"""
+        if self.device_disconnected:
+            self.get_logger().info("Handling device disconnection internally.")
 
             # Keep trying until we find a working device
             try:
@@ -585,6 +581,9 @@ class AudioCapturingNode(Node):
                 with self.disconnection_check_lock:
                     self.handling_disconnection = False
                     self.last_callback_time = T.time()
+                
+                # Reset disconnection state
+                self.device_disconnected = False
 
             except KeyboardInterrupt:
                 self.get_logger().info("Device selection cancelled by user.")
