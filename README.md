@@ -54,7 +54,9 @@ cd Docker && ./build_container.sh
 
 ### Configuration Parameters
 
-Configure your Hugging Face token in the `.env` file with appropriate permissions for the required models.
+Configure your Hugging Face token in the `.env` file with appropriate permissions for the required models. 
+
+**For quick testing**, you can add this token to your `.env` file: `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`
 
 ## Usage
 
