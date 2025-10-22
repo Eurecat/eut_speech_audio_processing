@@ -1,88 +1,32 @@
-name: coghri_audio
+name: coghri_audio_dev
 
 services:
-  eut_audio:
-    container_name: "eut_audio"
-    network_mode: host 
+  audio_device_manager_service:
+    container_name: "audio_device_manager"
+    network_mode: host
     ipc: host
     shm_size: 1gb
     runtime: ${DOCKER_RUNTIME:-runc}
     image: ${BUILT_IMAGE}
     privileged: true
-    # user: "root"  # User
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - ~/.xauth_docker/share/:/tmp/xauth/
       - ./.vscode:/workspace/.vscode
-    tty: true
-    stdin_open: true
-    environment:
-      # - USER_ID=${USER_ID}
-      # - GROUP_ID=${GROUP_ID}
-      # - USERNAME=${USERNAME}
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=all
-      - DISPLAY=$DISPLAY
-      - QT_X11_NO_MITSHM=1
-      - XAUTHORITY=/tmp/xauth/.docker.xauth
-      - /dev:/dev
       - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
+      - ../src/audio_stream_manager_interfaces:/workspace/src/audio_stream_manager_interfaces
       - ../src/speech_recognition:/workspace/src/speech_recognition
-      # - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}  
-      # - PULSE_SERVER=unix:/run/user/${USER_ID}/pulse/native
-      # - PULSE_COOKIE=/home/coghri/.config/pulse/cookie
-      # - ALSA_CARD=${ALSA_CARD}  # Set to the card number for your speaker
-    devices:
-      - /dev/dri:/dev/dri
-      - /dev/snd:/dev/snd
-      - /dev/bus/usb:/dev/bus/usb
-    device_cgroup_rules:
-      - 'c 180:* rwm'  # 180 is usb
-      - 'c 189:* rwm' # 189 is usb_device
-    # cap_add:
-    #   - NET_RAW
-    #   - NET_ADMIN
-    # security_opt:
-    #   - seccomp:unconfined
-
-    # TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    # CHANGE COMMAND TO LAUNCH AUDIO PROCESSING NODE
-    # command: bash -c "source /workspace/install/setup.bash && ros2 run eut_yolo_core camera_publisher_node"
-  eut_audio_dev: 
-    container_name: "eut_audio_dev"
-    network_mode: host 
-    ipc: host
-    shm_size: 1gb
-    runtime: ${DOCKER_RUNTIME:-runc}
-    image: ${BUILT_IMAGE}
-    privileged: true
-    # user: "root"  # User
-    volumes:
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw
-      - ~/.xauth_docker/share/:/tmp/xauth/
-      - ./.vscode:/workspace/.vscode
-      # ADD VOLUME MOUNTS FOR AUDIO PROCESSING NODES IF NEEDED
-      - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
-      - ../src/speech_recognition:/workspace/src/speech_recognition
-      # - ./deps/eut_yolo/src/eut_yolo_core:/workspace/src/eut_yolo_core
-      # - ./deps/eut_yolo/src/eut_yolo_interfaces:/workspace/src/eut_yolo_interfaces
       - /dev:/dev
     tty: true
     stdin_open: true
     environment:
-      # - USER_ID=${USER_ID}
-      # - GROUP_ID=${GROUP_ID}
-      # - USERNAME=${USERNAME}
       - NVIDIA_VISIBLE_DEVICES=all 
       - NVIDIA_DRIVER_CAPABILITIES=all
       - DISPLAY=$DISPLAY
       - QT_X11_NO_MITSHM=1
-      - XAUTHORITY=/tmp/xauth/.docker.xauth   
-      - HF_TOKEN=${HF_TOKEN}
-      # - ROS_DOMAIN_ID=${ROS_DOMAIN_ID}  
-      # - PULSE_SERVER=unix:/run/user/${USER_ID}/pulse/native
-      # - PULSE_COOKIE=/home/coghri/.config/pulse/cookie
-      # - ALSA_CARD=${ALSA_CARD}  # Set to the card number for your speaker
+      - XAUTHORITY=/tmp/xauth/.docker.xauth     
+      - HF_TOKEN=${HF_TOKEN}      
+
     devices:
       - /dev/dri:/dev/dri
       - /dev/snd:/dev/snd
@@ -90,10 +34,44 @@ services:
     device_cgroup_rules:
       - 'c 180:* rwm'  # 180 is usb
       - 'c 189:* rwm' # 189 is usb_device
-    # cap_add:
-    #   - NET_RAW
-    #   - NET_ADMIN
-    # security_opt:
-    #   - seccomp:unconfined
-    # command: bash -c "source /workspace/install/setup.bash && ros2 launch eut_yolo_core perception.launch.py use_camera_info_camera_calibration:=false depth_channel_available:=false detected_objects_topic:=/entities/detected"
-    command: bash -c "source /workspace/install/setup.bash && /bin/bash"
+
+    command: bash -c "source /workspace/install/setup.bash && ros2 launch audio_stream_manager audio_stream_manager.launch.py"
+
+  speech_recognition_service:
+    container_name: "speech_recognition"
+    network_mode: host
+    ipc: host
+    shm_size: 1gb
+    runtime: ${DOCKER_RUNTIME:-runc}
+    image: ${BUILT_IMAGE}
+    privileged: true
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ~/.xauth_docker/share/:/tmp/xauth/
+      - ./.vscode:/workspace/.vscode
+      - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
+      - ../src/audio_stream_manager_interfaces:/workspace/src/audio_stream_manager_interfaces
+      - ../src/speech_recognition:/workspace/src/speech_recognition
+      - /dev:/dev
+    tty: true
+    stdin_open: true
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all 
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - DISPLAY=$DISPLAY
+      - QT_X11_NO_MITSHM=1
+      - XAUTHORITY=/tmp/xauth/.docker.xauth     
+      - HF_TOKEN=${HF_TOKEN}      
+
+    devices:
+      - /dev/dri:/dev/dri
+      - /dev/snd:/dev/snd
+      - /dev/bus/usb:/dev/bus/usb
+    device_cgroup_rules:
+      - 'c 180:* rwm'  # 180 is usb
+      - 'c 189:* rwm' # 189 is usb_device
+
+    
+    # Enable/disable components via launch file arguments:
+    # ros2 launch speech_recognition speech_recognition.launch.py enable_vad:=false enable_diarization:=false enable_asr:=false
+    command: bash -c "source /workspace/install/setup.bash && ros2 launch speech_recognition speech_recognition.launch.py"

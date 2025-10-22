@@ -94,7 +94,6 @@ class DiarizationObserver(Observer):
                     self.speaker_mapping[speaker] = self.next_speaker_id
                     self.next_speaker_id += 1
 
-
         # Determine current speaker (take the first one if multiple)
         current_speaker = list(active_speakers)[0] if active_speakers else None
 
@@ -107,14 +106,6 @@ class DiarizationObserver(Observer):
             return
 
         self.node.real_speaker = f"speaker{self.speaker_mapping[current_speaker]}"
-        speech_activity_msg = SpeechActivityDetection()
-        speech_activity_msg.header.stamp = self.node.get_clock().now().to_msg()
-        speech_activity_msg.speaker_id = self.node.real_speaker
-        speech_activity_msg.active = True
-
-        self.node.speech_activity_pub.publish(speech_activity_msg)
-        self.node.get_logger().info(
-            f"Published speech activity: speaker={speech_activity_msg.speaker_id}, active={speech_activity_msg.active} ")
 
     def on_error(self, error: Exception):
         self.node.get_logger().error(f"DiarizationObserver error: {error}")
@@ -177,6 +168,11 @@ class DiarizationNode(Node):
             self.get_parameter("vad_threshold").get_parameter_value().double_value
         )
 
+        # VAD buffer for less reactive active=False detection
+        self.vad_buffer = []
+        self.vad_buffer_size = 30
+        self.vad_rms_threshold = 0.5
+
         # Subscribers
         self.audio_and_device_info_sub = self.create_subscription(
             AudioAndDeviceInfo,
@@ -207,6 +203,7 @@ class DiarizationNode(Node):
         self.previous_speaker = None
         self.last_process_time = time.time()
         self.real_speaker = None
+        self.speaker_activated = False
 
         self.get_logger().info(
             "Diarization node initialized, waiting for device info..."
@@ -217,7 +214,6 @@ class DiarizationNode(Node):
 
         # Only initialize once
         if not self.device_info_received:
-
             # Get device info from message
             self.device_name = msg.device_name
             self.device_id = msg.device_id
@@ -304,18 +300,50 @@ class DiarizationNode(Node):
     def vad_callback(self, msg: Vad):
         """Process VAD messages to track speech probability"""
         self.current_vad_probability = msg.vad_probability
-        
-        if self.current_vad_probability <= self.vad_threshold and self.real_speaker is not None:
-            # If VAD indicates silence, publish inactive status for current speaker
+
+        # Add current VAD probability to buffer
+        self.vad_buffer.append(self.current_vad_probability)
+
+        # Keep only the last vad_buffer_size values
+        if len(self.vad_buffer) > self.vad_buffer_size:
+            self.vad_buffer.pop(0)
+
+        # Calculate RMS of VAD buffer for less reactive active=False detection
+        vad_rms = 0.0
+        if len(self.vad_buffer) >= self.vad_buffer_size:
+            vad_array = np.array(self.vad_buffer)
+            vad_rms = float(np.sqrt(np.mean(vad_array**2)))
+
+        if (
+            len(self.vad_buffer) >= self.vad_buffer_size
+            and vad_rms <= self.vad_rms_threshold
+            and self.real_speaker is not None
+            and self.speaker_activated
+        ):
+            # If VAD RMS indicates sustained silence, publish inactive status for current speaker
             speech_activity_msg = SpeechActivityDetection()
             speech_activity_msg.header.stamp = self.get_clock().now().to_msg()
             speech_activity_msg.speaker_id = self.real_speaker
             speech_activity_msg.active = False
             self.speech_activity_pub.publish(speech_activity_msg)
             self.get_logger().info(
-                f"Published speech activity: speaker={speech_activity_msg.speaker_id}, active=False"
+                f"Published speech activity: speaker={speech_activity_msg.speaker_id}, active=False)"
             )
             self.real_speaker = None
+            # A speaker cannot be deactivated if they were not activated before
+            self.speaker_activated = False
+
+        elif (
+            self.current_vad_probability > self.vad_threshold
+            and self.real_speaker is not None
+        ):
+            speech_activity_msg = SpeechActivityDetection()
+            speech_activity_msg.header.stamp = self.get_clock().now().to_msg()
+            speech_activity_msg.speaker_id = self.real_speaker
+            speech_activity_msg.active = True
+            self.speaker_activated = True
+
+            self.speech_activity_pub.publish(speech_activity_msg)
 
     def run_diarization(self):
         """Run diarization in a separate thread"""
