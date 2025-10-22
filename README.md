@@ -60,16 +60,38 @@ Configure your Hugging Face token in the `.env` file with appropriate permission
 
 ## Usage
 
-### Launch Audio Stream Manager
-Execute the following command to initialize the audio input device selection module:
+### Docker Compose (Recommended)
+
+Navigate to the Docker directory and launch both services simultaneously:
 
 ```bash
-ros2 launch audio_stream_manager audio_stream_manager.launch.py
+cd Docker
+docker compose -f dev-docker-compose.yaml up
 ```
 
-### Launch Speech Recognition Pipeline
-In a separate terminal, execute the following command to start the voice activity detection, speaker diarization, and automatic speech recognition modules:
+This command will initialize both the **Audio Stream Manager** and the **Speech Recognition Pipeline** services automatically.
+
+#### Service Configuration
+
+The Docker Compose setup includes two main services:
+
+1. **Audio Device Manager Service**: Handles audio input device selection and stream management
+2. **Speech Recognition Service**: Provides VAD, diarization, and ASR capabilities
+
+#### Enabling/Disabling Components
+
+You can selectively enable or disable speech recognition components by editing the `command` section in the `dev-docker-compose.yaml` file. Modify the speech recognition service command as follows:
 
 ```bash
-ros2 launch speech_recognition asr.launch.py
+# Example: Disable diarization and ASR, keep only VAD
+command: bash -c "source /workspace/install/setup.bash && ros2 launch speech_recognition speech_recognition.launch.py enable_diarization:=false enable_asr:=false"
 ```
+
+**Available options:**
+- `enable_vad:=true/false` - Voice Activity Detection
+- `enable_diarization:=true/false` - Speaker Diarization  
+- `enable_asr:=true/false` - Automatic Speech Recognition
+
+**Important Dependencies:**
+- **Diarization** requires **VAD** to work properly
+- **ASR** requires both **VAD** and **Diarization** for optimal performance
