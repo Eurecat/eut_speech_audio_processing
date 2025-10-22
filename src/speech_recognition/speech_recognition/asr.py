@@ -54,7 +54,8 @@ class ASRNode(Node):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.get_logger().info(f"Using device: {self.device}")
 
-        # Load Whisper model
+        # Model setup
+        self.get_logger().info(f"Loading Whisper model: {self.model_size}")
         self.model = WhisperModel(
             self.model_size, device=self.device, compute_type="float32"
         )

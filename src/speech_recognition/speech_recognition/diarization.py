@@ -234,6 +234,7 @@ class DiarizationNode(Node):
                 self.chunk_size = int(self.device_samplerate * self.chunk_duration)
                 self.overlap_size = int(self.device_samplerate * self.overlap_duration)
 
+                self.get_logger().info("Loading segmentation and embedding models.")
                 segmentation = m.SegmentationModel.from_pretrained(
                     self.segmentation_model_name
                 )
