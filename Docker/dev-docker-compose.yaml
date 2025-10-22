@@ -74,4 +74,4 @@ services:
     
     # Enable/disable components via launch file arguments:
     # ros2 launch speech_recognition speech_recognition.launch.py enable_vad:=false enable_diarization:=false enable_asr:=false
-    command: bash -c "source /workspace/install/setup.bash && ros2 launch speech_recognition speech_recognition.launch.py"
+    command: bash -c "source /workspace/install/setup.bash && /bin/bash"
