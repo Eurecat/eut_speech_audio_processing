@@ -1,4 +1,4 @@
-name: coghri_audio_dev
+name: coghri_audio_processing
 
 services:
   audio_device_manager_service:
