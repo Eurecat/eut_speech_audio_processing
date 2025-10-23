@@ -217,7 +217,7 @@ class AudioCapturingNode(Node):
             self.get_logger().info(
                 f"{i}: {dev['name']} ({dev['max_input_channels']} channels)"
             )
-        self.get_logger().info("-"*60)
+        self.get_logger().info("-" * 60)
         while True:
             try:
                 self.devices = sd.query_devices()
@@ -581,7 +581,7 @@ class AudioCapturingNode(Node):
                 with self.disconnection_check_lock:
                     self.handling_disconnection = False
                     self.last_callback_time = T.time()
-                
+
                 # Reset disconnection state
                 self.device_disconnected = False
 
