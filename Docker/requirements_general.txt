@@ -3,3 +3,4 @@ sounddevice
 librosa
 torchaudio
 faster-whisper
+openwakeword
