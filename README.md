@@ -20,7 +20,7 @@ It is composed of:
   - **Voice Activity Detection (VAD)**: Detects when speech is present in the audio stream
   - **Speaker Diarization**: Identifies and segments different speakers in multi-speaker scenarios
   - **Speech Transcription**: Converts spoken language into text using automatic speech recognition (ASR)
-  - **Wake Word Detection**: *(Future enhancement)* Keyword spotting for voice activation
+  - **Wake Word Detection**: Keyword spotting for voice activation
 
 ### Installation & Setup
 
@@ -66,7 +66,7 @@ Navigate to the Docker directory and launch both services simultaneously:
 
 ```bash
 cd Docker
-docker compose -f dev-docker-compose.yaml up
+docker compose up
 ```
 
 This command will initialize both the **Audio Stream Manager** and the **Speech Recognition Pipeline** services automatically.
@@ -76,7 +76,7 @@ This command will initialize both the **Audio Stream Manager** and the **Speech 
 The Docker Compose setup includes two main services:
 
 1. **Audio Device Manager Service**: Handles audio input device selection and stream management
-2. **Speech Recognition Service**: Provides VAD, diarization, and ASR capabilities
+2. **Speech Recognition Service**: Provides VAD, diarization, wake word and ASR capabilities
 
 #### Enabling/Disabling Components
 
@@ -90,6 +90,7 @@ command: bash -c "source /workspace/install/setup.bash && ros2 launch speech_rec
 **Available options:**
 - `enable_vad:=true/false` - Voice Activity Detection
 - `enable_diarization:=true/false` - Speaker Diarization  
+- `enable_wake_word:=true/false`- Wake Word
 - `enable_asr:=true/false` - Automatic Speech Recognition
 
 **Important Dependencies:**
