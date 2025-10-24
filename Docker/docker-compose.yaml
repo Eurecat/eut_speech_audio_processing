@@ -20,6 +20,7 @@ services:
     tty: true
     stdin_open: true
     environment:
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}    
       - NVIDIA_VISIBLE_DEVICES=all 
       - NVIDIA_DRIVER_CAPABILITIES=all
       - DISPLAY=$DISPLAY
@@ -56,6 +57,7 @@ services:
     tty: true
     stdin_open: true
     environment:
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}    
       - NVIDIA_VISIBLE_DEVICES=all 
       - NVIDIA_DRIVER_CAPABILITIES=all
       - DISPLAY=$DISPLAY

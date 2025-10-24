@@ -20,7 +20,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpulse-dev \
     libcudnn9-cuda-12 \
     libcudnn9-dev-cuda-12 \
-    nvidia-cuda-toolkit \
 && rm -rf /var/lib/apt/lists/*
  
 # Set working directory
