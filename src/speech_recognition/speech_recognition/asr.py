@@ -12,7 +12,6 @@ from hri_msgs.msg import SpeechResult, SpeechActivityDetection, AudioAndDeviceIn
 class ASRNode(Node):
     def __init__(self):
         super().__init__("asr_node")
-        self.get_logger().info("ASR Node has been started.")
 
         # Declare parameters
         self.declare_parameter("model_size", "turbo")
@@ -107,7 +106,9 @@ class ASRNode(Node):
         """Process incoming audio data"""
         if self.sample_rate is None:
             self.sample_rate = int(msg.device_samplerate)
-            self.get_logger().info(f"Audio sample rate: {self.sample_rate} Hz")
+            self.get_logger().info(
+                f"ASR initialized with audio device: {msg.device_name} (Sample rate: {msg.device_samplerate} Hz)"
+            )
 
         # Convert audio to numpy array.
         audio_data = np.array(msg.audio, dtype=np.float32)
@@ -131,18 +132,18 @@ class ASRNode(Node):
 
         # Detect VAD state change
         if new_vad_state != self.vad_state:
-            self.get_logger().info(
+            self.get_logger().debug(
                 f"VAD state changed: {self.vad_state} -> {new_vad_state}"
             )
 
             if new_vad_state and not self.speech_interrupted:
                 # Speech started
                 self.speech_start_time = current_time
-                self.get_logger().info("Speech started")
+                self.get_logger().debug("Speech started")
             else:
                 # Speech ended
                 self.last_silence_time = current_time
-                self.get_logger().info("Speech ended, starting silence timer")
+                self.get_logger().debug("Speech ended, starting silence timer")
 
                 # Start processing thread if not already running
                 if (
@@ -162,7 +163,7 @@ class ASRNode(Node):
         if self.vad_state and self.speech_start_time > 0:
             speech_duration = current_time - self.speech_start_time
             if speech_duration >= self.max_chunk_duration:
-                self.get_logger().info(
+                self.get_logger().debug(
                     f"Speech duration exceeded {self.max_chunk_duration}s, forcing chunk split"
                 )
                 self._force_chunk_split()
@@ -176,7 +177,7 @@ class ASRNode(Node):
         while not self.should_stop:
             current_time = time.time()
 
-            self.get_logger().info(
+            self.get_logger().debug(
                 f"Processing speech end, current time: {current_time}, "
                 f"time since silence: {current_time - self.last_silence_time}, vad_state: {self.vad_state}"
             )
@@ -187,7 +188,7 @@ class ASRNode(Node):
                 and self.last_silence_time > 0
                 and current_time - self.last_silence_time >= self.min_silence_duration
             ):
-                self.get_logger().info("Processing speech chunk after silence timeout")
+                self.get_logger().debug("Processing speech chunk after silence timeout")
                 self._transcribe_speech_chunk()
                 self.speech_interrupted = False
                 return
@@ -195,7 +196,7 @@ class ASRNode(Node):
             # Check if VAD became active again
             if self.vad_state:
                 self.speech_interrupted = True
-                self.get_logger().info("VAD reactivated, canceling speech processing")
+                self.get_logger().debug("VAD reactivated, canceling speech processing")
                 return
 
             # Wait a bit before checking again
@@ -255,12 +256,12 @@ class ASRNode(Node):
             # Determine split time and extract audio data
             if best_split_time and min_rms < self.silence_detection_threshold:
                 split_time = best_split_time
-                self.get_logger().info(
+                self.get_logger().debug(
                     f"Found silence at {best_split_time}, splitting chunk"
                 )
             else:
                 split_time = current_time
-                self.get_logger().info("No silence found, splitting at current time")
+                self.get_logger().debug("No silence found, splitting at current time")
 
             # Extract audio data INSIDE the lock
             audio_data = self._extract_audio_data(split_time)
@@ -297,12 +298,12 @@ class ASRNode(Node):
         if self.sample_rate is None or len(audio_data) < int(
             self.sample_rate * min_duration
         ):
-            self.get_logger().info(
+            self.get_logger().warn(
                 "Audio chunk too short for transcription or sample rate not set"
             )
             return
 
-        self.get_logger().info(
+        self.get_logger().debug(
             f"Transcribing {len(audio_data) / self.sample_rate:.2f}s of audio"
         )
 
@@ -333,11 +334,11 @@ class ASRNode(Node):
                 )
 
                 self.asr_pub.publish(asr_msg)
-                self.get_logger().info(
+                self.get_logger().debug(
                     f"Published transcript: '{transcript}' (lang: {asr_msg.language_code}, conf: {asr_msg.transcript_confidence:.2f})"
                 )
             else:
-                self.get_logger().info("Empty transcript, not publishing")
+                self.get_logger().error("Empty transcript, not publishing")
 
         except Exception as e:
             self.get_logger().error(f"Transcription failed: {e}")

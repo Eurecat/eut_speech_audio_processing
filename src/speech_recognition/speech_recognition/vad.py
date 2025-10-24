@@ -81,7 +81,7 @@ def main(args=None):
     try:
         rclpy.spin(vad_node)
     except KeyboardInterrupt:
-        vad_node.get_logger().info("Shutting down node.")
+        vad_node.get_logger().info("Shutting down VAD node.")
     finally:
         vad_node.destroy_node()
         rclpy.shutdown()

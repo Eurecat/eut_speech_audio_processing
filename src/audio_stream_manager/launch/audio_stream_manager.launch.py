@@ -24,12 +24,12 @@ def _setup(context, *args, **kwargs):
     new_py_path = site_pkgs if not existing else f"{site_pkgs}{os.pathsep}{existing}"
 
     # Get the path to the audio_params.yaml file
-    config_dir = get_package_share_directory('audio_stream_manager')
-    config_file = os.path.join(config_dir, 'config', 'audio_params.yaml')
+    config_dir = get_package_share_directory("audio_stream_manager")
+    config_file = os.path.join(config_dir, "config", "audio_params.yaml")
 
     return [
-        LogInfo(msg=f"[simple_py] Using AI venv: {VENV_PATH}"),
-        LogInfo(msg=f"[simple_py] Injecting site-packages: {site_pkgs}"),
+        LogInfo(msg=f"[audio_stream_manager] Using AI venv: {VENV_PATH}"),
+        LogInfo(msg=f"[audio_stream_manager] Injecting site-packages: {site_pkgs}"),
         LogInfo(msg=f"[audio_stream_manager] Loading config from: {config_file}"),
         SetEnvironmentVariable("PYTHONPATH", new_py_path),
         Node(

@@ -14,7 +14,7 @@ from hri_msgs.msg import AudioAndDeviceInfo, WakeWord
 class WakeWordDetectorNode(Node):
     def __init__(self):
         super().__init__("wake_word_detector")
-       
+
         # Select device (CPU or GPU)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.get_logger().info(f"Using device: {self.device}")
@@ -53,23 +53,28 @@ class WakeWordDetectorNode(Node):
         self.wake_word = "hey_pipi"
 
         # .onnx model path based on wake word
-        self.model_path = "/workspace/src/speech_recognition/weights_openwakeword/hey_pipi.onnx"
+        self.model_path = (
+            "/workspace/src/speech_recognition/weights_openwakeword/hey_pipi.onnx"
+        )
 
         # Initialize OpenWakeWord model
         try:
             self.get_logger().info("Loading OpenWakeWord model...")
-            
+
             # Check if model file exists
             import os
+
             if not os.path.exists(self.model_path):
                 raise FileNotFoundError(f"Model file not found: {self.model_path}")
-            
+
             # Check if model file is not empty
             if os.path.getsize(self.model_path) == 0:
                 raise ValueError(f"Model file is empty: {self.model_path}")
-            
-            self.get_logger().info(f"Model file found: {self.model_path} ({os.path.getsize(self.model_path)} bytes)")
-            
+
+            self.get_logger().info(
+                f"Model file found: {self.model_path} ({os.path.getsize(self.model_path)} bytes)"
+            )
+
             # wakeword_model_paths expects a list of paths
             self.oww_model = Model(wakeword_model_paths=[self.model_path])
             self.get_logger().info("OpenWakeWord model loaded successfully")
@@ -155,7 +160,7 @@ class WakeWordDetectorNode(Node):
             self.get_logger().error(f"Error in audio callback: {e}")
 
     def detect_wake_word(self, window_data):
-        """Use OpenWakeWord for Alexa-like detection with CUDA optimization"""
+        """Use OpenWakeWord for Alexa-like detection"""
         if self.oww_model is None:
             return False
 
@@ -170,7 +175,7 @@ class WakeWordDetectorNode(Node):
                 # Extract the confidence score for the specific wake word
                 if self.wake_word in predictions:
                     confidence_score = float(predictions[self.wake_word])
-                    self.get_logger().info(f"Wake word '{self.wake_word}' confidence: {confidence_score:.6f}")
+                    # self.get_logger().info(f"Wake word '{self.wake_word}' confidence: {confidence_score:.6f}")
 
                     return confidence_score
 
@@ -191,7 +196,6 @@ class WakeWordDetectorNode(Node):
                 wake_word_probability = self.detect_wake_word(window_data)
 
                 if wake_word_probability:
-
                     # Publish wake word detection
                     msg = WakeWord()
                     msg.header.stamp = self.get_clock().now().to_msg()

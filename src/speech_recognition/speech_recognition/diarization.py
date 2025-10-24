@@ -1,6 +1,28 @@
+import warnings
+
+# Matplotlib 3D warning
+warnings.filterwarnings("ignore", message="Unable to import Axes3D")
+
+# Torchaudio deprecation
+warnings.filterwarnings(
+    "ignore", message="torchaudio._backend.set_audio_backend has been deprecated"
+)
+
+# PyTorch Lightning checkpoint upgrades
+warnings.filterwarnings(
+    "ignore", message="Lightning automatically upgraded your loaded checkpoint"
+)
+warnings.filterwarnings("ignore", message="multiple `ModelCheckpoint` callback states")
+
+# PyAnnote frame mismatch
+warnings.filterwarnings(
+    "ignore",
+    message="Mismatch between frames",
+    module="pyannote.audio.models.blocks.pooling",
+)
+
 import threading
 import time
-import warnings
 
 import diart.models as m
 import numpy as np
@@ -17,15 +39,6 @@ from hri_msgs.msg import AudioAndDeviceInfo, Vad
 from hri_msgs.msg import SpeechActivityDetection
 
 from .ros_audio_source import ROSAudioSource
-
-# Suppress specific warnings about model versions
-warnings.filterwarnings("ignore", message="Model was trained with.*")
-warnings.filterwarnings(
-    "ignore", category=UserWarning, module="pyannote.audio.core.model"
-)
-warnings.filterwarnings(
-    "ignore", category=UserWarning, module="pytorch_lightning.core.saving"
-)
 
 
 class DiarizationObserver(Observer):
@@ -206,7 +219,7 @@ class DiarizationNode(Node):
         self.speaker_activated = False
 
         self.get_logger().info(
-            "Diarization node initialized, waiting for device info..."
+            "Diarization node initialized, waiting for device and VAD info..."
         )
 
     def audio_and_device_info_callback(self, msg: AudioAndDeviceInfo):
@@ -218,6 +231,10 @@ class DiarizationNode(Node):
             self.device_name = msg.device_name
             self.device_id = msg.device_id
             self.device_samplerate = msg.device_samplerate
+
+            self.get_logger().info(
+                f"Diarization initialized with audio device: {msg.device_name} (Sample rate: {msg.device_samplerate} Hz)"
+            )
 
             # Validate that we have all required information
             if self.device_samplerate is None or self.device_samplerate <= 0:
@@ -265,9 +282,7 @@ class DiarizationNode(Node):
                     )
                     # Start reading from the source (starts the internal thread)
                     self.source.read()
-                    self.get_logger().info(
-                        f"Using ROS audio source with sample rate: {self.device_samplerate}"
-                    )
+
                 except Exception as audio_error:
                     self.get_logger().error(
                         f"Failed to initialize ROS audio source: {audio_error}"
@@ -284,7 +299,7 @@ class DiarizationNode(Node):
                 self.diarization_procedure.daemon = True
                 self.diarization_procedure.start()
 
-                self.get_logger().info("Diarization system initialized and started")
+                self.get_logger().debug("Diarization system initialized and started")
 
             except Exception as e:
                 self.get_logger().error(f"Failed to initialize diarization: {e}")
@@ -299,6 +314,12 @@ class DiarizationNode(Node):
 
     def vad_callback(self, msg: Vad):
         """Process VAD messages to track speech probability"""
+
+        # Print once VAD information received
+        if not hasattr(self, "vad_info_logged"):
+            self.get_logger().info("VAD information received.")
+            self.vad_info_logged = True
+
         self.current_vad_probability = msg.vad_probability
 
         # Add current VAD probability to buffer
@@ -326,7 +347,7 @@ class DiarizationNode(Node):
             speech_activity_msg.speaker_id = self.real_speaker
             speech_activity_msg.active = False
             self.speech_activity_pub.publish(speech_activity_msg)
-            self.get_logger().info(
+            self.get_logger().debug(
                 f"Published speech activity: speaker={speech_activity_msg.speaker_id}, active=False)"
             )
             self.real_speaker = None
@@ -359,7 +380,7 @@ class DiarizationNode(Node):
             self.get_logger().warn("Diarization already started")
             return
 
-        self.get_logger().info("Starting diarization process")
+        self.get_logger().debug("Starting diarization process")
 
         try:
             # Create streaming inference
@@ -377,7 +398,7 @@ class DiarizationNode(Node):
             # Start processing audio stream
             self.inference()
 
-            self.get_logger().info("Diarization streaming completed")
+            self.get_logger().debug("Diarization streaming completed")
 
         except Exception as e:
             self.get_logger().error(f"Failed to start diarization: {e}")
@@ -406,7 +427,7 @@ def main(args=None):
     try:
         rclpy.spin(diarization_node)
     except KeyboardInterrupt:
-        diarization_node.get_logger().info("Shutting down node.")
+        diarization_node.get_logger().info("Shutting down DIARIZATION node.")
     finally:
         diarization_node.destroy_node()
         rclpy.shutdown()

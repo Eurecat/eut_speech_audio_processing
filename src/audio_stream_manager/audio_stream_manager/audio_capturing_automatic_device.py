@@ -1,13 +1,29 @@
+import os
+import sys
 import threading
 import time as T
 
 import numpy as np
 import rclpy
-from rclpy.parameter import Parameter
 import sounddevice as sd
 from rclpy.node import Node
+from rclpy.parameter import Parameter
 
 from hri_msgs.msg import AudioAndDeviceInfo
+
+
+class suppress_stderr:
+    """Context manager to silence ALSA/PortAudio C-level error prints."""
+
+    def __enter__(self):
+        self.null_fd = os.open(os.devnull, os.O_RDWR)
+        self.saved_stderr = os.dup(2)
+        os.dup2(self.null_fd, 2)
+
+    def __exit__(self, *args):
+        os.dup2(self.saved_stderr, 2)
+        os.close(self.null_fd)
+        os.close(self.saved_stderr)
 
 
 class AudioCapturingNode(Node):
@@ -52,7 +68,7 @@ class AudioCapturingNode(Node):
         self.device_index = None
         self.device_samplerate = None
         self.device_channels = None
-        self.device_muted = True
+        self.device_muted = False
 
         # Buffer for maintaining consistent chunk size after resampling
         self.audio_buffer = np.array([], dtype=np.float32)
@@ -92,7 +108,7 @@ class AudioCapturingNode(Node):
             device_name_from_system = self.devices[device_index]["name"].upper()
             if device_name_upper in device_name_from_system:
                 matching_devices.append(device_index)
-                self.get_logger().info(
+                self.get_logger().debug(
                     f"Found matching device: {self.devices[device_index]['name']} (index {device_index})"
                 )
 
@@ -124,26 +140,27 @@ class AudioCapturingNode(Node):
             )
 
             # Try to create and start a test stream
-            test_stream = sd.InputStream(
-                device=device_index,
-                samplerate=device_samplerate,
-                channels=device_channels,
-                dtype=dtype_param,
-                blocksize=chunk_param,
-                latency="low",
-            )
-            test_stream.start()
+            with suppress_stderr():
+                test_stream = sd.InputStream(
+                    device=device_index,
+                    samplerate=device_samplerate,
+                    channels=device_channels,
+                    dtype=dtype_param,
+                    blocksize=chunk_param,
+                    latency="low",
+                )
+                test_stream.start()
 
-            # Record some audio data to check if device is receiving input
-            audio_data, _ = test_stream.read(chunk_param)
-            test_stream.stop()
-            test_stream.close()
+                # Record some audio data to check if device is receiving input
+                audio_data, _ = test_stream.read(chunk_param)
+                test_stream.stop()
+                test_stream.close()
 
             # Check if device is receiving audio (RMS > 0)
             rms = float(np.sqrt(np.mean(audio_data**2)))
             if rms > 0:
                 self.device = device
-                self.get_logger().info(
+                self.get_logger().debug(
                     f"Device {device_index} ({self.device['name']}) is receiving audio (RMS: {rms:.6f})"
                 )
                 self.device_name = self.device["name"]
@@ -158,7 +175,7 @@ class AudioCapturingNode(Node):
                 return False
 
         except Exception as e:
-            self.get_logger().warn(f"Device {device_index} test failed: {e}")
+            self.get_logger().debug(f"Device {device_index} test failed: {e}")
             return False
 
     def create_audio_stream(self, device_index):
@@ -168,7 +185,7 @@ class AudioCapturingNode(Node):
                 self.get_device_parameters(device_index)
             )
 
-            self.get_logger().info(
+            self.get_logger().debug(
                 f"Selected device: {device['name']}; Samplerate: {device_samplerate}; Channels: {device_channels}"
             )
 
@@ -179,16 +196,17 @@ class AudioCapturingNode(Node):
             )
 
             # Create the input stream
-            self.stream = sd.InputStream(
-                device=device_index,
-                samplerate=device_samplerate,
-                channels=device_channels,
-                dtype=dtype_param,
-                blocksize=chunk_param,
-                callback=self.input_callback,
-                latency="low",
-            )
-            self.stream.start()
+            with suppress_stderr():
+                self.stream = sd.InputStream(
+                    device=device_index,
+                    samplerate=device_samplerate,
+                    channels=device_channels,
+                    dtype=dtype_param,
+                    blocksize=chunk_param,
+                    callback=self.input_callback,
+                    latency="low",
+                )
+                self.stream.start()
             self.get_logger().info(
                 f"Successfully started audio stream with {device['name']} and samplerate: {device_samplerate}."
             )
@@ -206,18 +224,19 @@ class AudioCapturingNode(Node):
         # Store the primary device name when first setting up
         if self.primary_device_name is None and device_name_param != "":
             self.primary_device_name = device_name_param
-            self.get_logger().info(
+            self.get_logger().debug(
                 f"Primary device name set to: {self.primary_device_name}"
             )
         self.devices = sd.query_devices()
         available_devices = self.get_available_input_devices(self.devices)
-        self.get_logger().info("Available devices:")
+        self.get_logger().debug("-" * 70)
+        self.get_logger().debug("Available devices:")
         for i in available_devices:
             dev = self.devices[i]
-            self.get_logger().info(
+            self.get_logger().debug(
                 f"{i}: {dev['name']} ({dev['max_input_channels']} channels)"
             )
-        self.get_logger().info("-" * 60)
+        self.get_logger().debug("-" * 70)
         while True:
             try:
                 self.devices = sd.query_devices()
@@ -225,10 +244,6 @@ class AudioCapturingNode(Node):
 
                 # Check if this is a disconnection scenario (device_name is empty)
                 if device_name_param == "":
-                    self.get_logger().info(
-                        "Device disconnected. Searching for any working device in order..."
-                    )
-
                     # Mark that we're using a fallback device
                     with self.primary_device_check_lock:
                         self.is_using_fallback_device = True
@@ -236,7 +251,7 @@ class AudioCapturingNode(Node):
                     # Try each available device in order until one receives messages
                     for device_index in self.available_devices:
                         device_name = self.devices[device_index]["name"]
-                        self.get_logger().info(
+                        self.get_logger().debug(
                             f"Testing device {device_index}: {device_name}"
                         )
 
@@ -262,7 +277,7 @@ class AudioCapturingNode(Node):
                                 "default_samplerate"
                             ]
 
-                            self.get_logger().info(
+                            self.get_logger().debug(
                                 f"Successfully connected to device: {device_name}. Updated device_name parameter."
                             )
                             return  # Successfully connected to a device
@@ -291,7 +306,7 @@ class AudioCapturingNode(Node):
 
                     # Try each matching device until one works
                     for device_index in matching_devices:
-                        self.get_logger().info(
+                        self.get_logger().debug(
                             f"Testing device {device_index}: {self.devices[device_index]['name']}"
                         )
                         if self.test_device_connection(device_index):
@@ -300,9 +315,6 @@ class AudioCapturingNode(Node):
                             # Clear audio buffer when connecting to new device
                             self.audio_buffer = np.array([], dtype=np.float32)
 
-                            self.get_logger().info(
-                                f"Successfully connected to device: {self.devices[device_index]['name']}"
-                            )
                             return  # Successfully connected to a device
 
                     # If no device worked, wait and try again
@@ -313,11 +325,11 @@ class AudioCapturingNode(Node):
                 T.sleep(2)
 
             except KeyboardInterrupt:
-                self.get_logger().info("Operation cancelled by user.")
+                self.get_logger().debug("Operation cancelled by user.")
                 raise
             except Exception as e:
                 self.get_logger().error(f"Failed to setup device: {e}")
-                self.get_logger().info("Retrying in 2 seconds...")
+                self.get_logger().debug("Retrying in 2 seconds...")
                 T.sleep(2)
 
     # Callback for audio input stream. Whenever new audio data is available, this function is called.
@@ -346,11 +358,20 @@ class AudioCapturingNode(Node):
                     not hasattr(self, "_last_resampled_device_index")
                     or self.device_index != self._last_resampled_device_index
                 ):
-                    self.get_logger().info(
+                    self.get_logger().debug(
                         f"Resampling audio from {self.device_samplerate} to {target_samplerate}"
                     )
                     self._last_resampled_device_index = self.device_index
                 audio_data = self.resample_audio(audio_data, target_samplerate)
+
+            if rms == 0 and not self.device_muted:
+                self.get_logger().warn("RMS is zero, probably the device is muted")
+                self.device_muted = True
+            elif rms > 0 and self.device_muted:
+                self.get_logger().info(
+                    "RMS is non-zero again, device has been re-activated"
+                )
+                self.device_muted = False
 
             # Add audio data to buffer
             self.audio_buffer = np.concatenate([self.audio_buffer, audio_data])
@@ -371,13 +392,6 @@ class AudioCapturingNode(Node):
                 audio_msg.device_samplerate = float(target_samplerate)
 
                 self.audio_and_device_info_pub.publish(audio_msg)
-
-            if rms == 0 and not self.device_muted:
-                self.get_logger().warn("RMS is zero, probably the device is muted")
-                self.device_muted = True
-            elif rms > 0 and self.device_muted:
-                self.get_logger().info("RMS is non-zero, device is active")
-                self.device_muted = False
 
     def resample_audio(self, audio_data, target_samplerate):
         """Resample audio data to the target samplerate."""
@@ -459,21 +473,22 @@ class AudioCapturingNode(Node):
             # Test if the primary device is working
             for device_index in matching_devices:
                 device_name = current_devices[device_index]["name"]
-                self.get_logger().info(
+                self.get_logger().debug(
                     f"Testing primary device recovery: {device_name}"
                 )
 
                 if self.test_device_connection(device_index):
-                    self.get_logger().info(
+                    self.get_logger().debug(
                         f"Primary device '{device_name}' is available again! Switching back..."
                     )
 
                     # Stop current stream
                     if self.stream is not None:
                         try:
-                            self.stream.stop()
-                            self.stream.close()
-                            self.get_logger().info(
+                            with suppress_stderr():
+                                self.stream.stop()
+                                self.stream.close()
+                            self.get_logger().debug(
                                 "Stopped current stream for primary device switch."
                             )
                         except Exception as e:
@@ -507,7 +522,7 @@ class AudioCapturingNode(Node):
                     with self.disconnection_check_lock:
                         self.last_callback_time = T.time()
 
-                    self.get_logger().info(
+                    self.get_logger().debug(
                         f"Successfully switched back to primary device: {device_name}"
                     )
                     return
@@ -554,14 +569,14 @@ class AudioCapturingNode(Node):
             # Stop the input stream safely
             if self.stream is not None:
                 try:
-                    self.stream.stop()
-                    self.stream.close()
-                    self.get_logger().info("Input stream stopped.")
+                    with suppress_stderr():
+                        self.stream.stop()
+                        self.stream.close()
+                    self.get_logger().debug("Input stream stopped.")
                 except Exception as e:
                     self.get_logger().error(f"Error stopping stream: {e}")
                 finally:
                     self.stream = None
-                    # Clear audio buffer when device disconnects
                     self.audio_buffer = np.array([], dtype=np.float32)
 
             # Handle disconnection immediately
@@ -570,7 +585,9 @@ class AudioCapturingNode(Node):
     def handle_device_disconnection(self):
         """Handle device disconnection internally without using topics"""
         if self.device_disconnected:
-            self.get_logger().info("Handling device disconnection internally.")
+            self.get_logger().debug(
+                "Handling device disconnection internally. Searching for any working device in order..."
+            )
 
             # Keep trying until we find a working device
             try:
@@ -586,7 +603,7 @@ class AudioCapturingNode(Node):
                 self.device_disconnected = False
 
             except KeyboardInterrupt:
-                self.get_logger().info("Device selection cancelled by user.")
+                self.get_logger().debug("Device selection cancelled by user.")
             except Exception as e:
                 self.get_logger().error(f"Failed to setup new device: {e}")
 
