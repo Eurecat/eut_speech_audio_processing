@@ -12,7 +12,7 @@ The system is designed with two **decoupled components** to ensure robust error 
 This submodule interfaces directly with audio hardware devices to capture raw audio streams, isolating hardware-related issues from the speech processing logic.
 
 #### **Speech Recognition Pipeline**
-This submodule contains several audio processing and understanding capabilities that enable real-time analysis of acoustic environments, including **speech detection**, **speaker identification**, and  **transcription**. 
+This submodule contains several audio processing and understanding capabilities that enable real-time analysis of acoustic environments, including **speech and wake word detection**, **speaker identification**, and  **transcription**. 
 
 This module receives as input the processed audio output from the *Audio Stream Manager*. 
 
