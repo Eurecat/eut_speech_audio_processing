@@ -54,7 +54,7 @@ cd Docker && ./build_container.sh
 
 ### Configuration Parameters
 
-Configure your Hugging Face token in the `.env` file to access the required models. Ensure the token has permission for:
+Configure your Hugging Face token in the `.env` file to access the required models (take a look at the `.env.example` and use the same variable name). Ensure the token has permission for:
 
 - `openai/whisper`
 - `pyannote/embedding`
