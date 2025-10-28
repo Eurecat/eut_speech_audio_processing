@@ -116,7 +116,7 @@ def _setup(context, *args, **kwargs):
             ]
         )
 
-    # Diarization Node Setup (starts first with 5 second delay)
+    # Diarization Node Setup (starts first with 4 second delay)
     if enable_diarization.lower() == "true":
         site_pkgs_diarization = _venv_site_packages(VENV_PATH_DIARIZATION)
         existing = os.environ.get("PYTHONPATH", "")
@@ -141,7 +141,7 @@ def _setup(context, *args, **kwargs):
                     msg=f"[speech_recognition] Diarization: Loading config from: {diarization_config_file}"
                 ),
                 LogInfo(
-                    msg=f"[speech_recognition] Diarization: Will start with {diarization_delay} second delay (starts first)"
+                    msg=f"[speech_recognition] Diarization: Will start with {diarization_delay} second delay"
                 ),
             ]
         )
@@ -187,7 +187,7 @@ def _setup(context, *args, **kwargs):
                     msg=f"[speech_recognition] ASR: Loading config from: {asr_config_file}"
                 ),
                 LogInfo(
-                    msg=f"[speech_recognition] ASR: Will start with {asr_delay} second delay (after Diarization)"
+                    msg=f"[speech_recognition] ASR: Will start with {asr_delay} second delay"
                 ),
             ]
         )
@@ -231,24 +231,24 @@ def generate_launch_description():
                 description="Enable Wake Word Detection node",
             ),
             DeclareLaunchArgument(
-                "enable_asr",
-                default_value="true",
-                description="Enable ASR (Automatic Speech Recognition) node",
-            ),
-            DeclareLaunchArgument(
                 "enable_diarization",
                 default_value="true",
                 description="Enable Diarization (Speaker Identification) node",
             ),
             DeclareLaunchArgument(
                 "diarization_delay",
-                default_value="5.0",
-                description="Delay (seconds) before starting Diarization node",
+                default_value="4.0",
+                description="Delay (seconds)",
+            ),
+            DeclareLaunchArgument(
+                "enable_asr",
+                default_value="true",
+                description="Enable ASR (Automatic Speech Recognition) node",
             ),
             DeclareLaunchArgument(
                 "asr_delay",
                 default_value="8.0",
-                description="Delay (seconds) before starting ASR node",
+                description="Delay (seconds)",
             ),
             # Add informational log message
             LogInfo(msg="[speech_recognition] Starting Speech Recognition Suite"),

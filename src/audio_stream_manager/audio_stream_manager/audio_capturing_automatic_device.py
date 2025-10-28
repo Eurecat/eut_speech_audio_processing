@@ -224,19 +224,21 @@ class AudioCapturingNode(Node):
         # Store the primary device name when first setting up
         if self.primary_device_name is None and device_name_param != "":
             self.primary_device_name = device_name_param
-            self.get_logger().debug(
+            self.get_logger().info(
                 f"Primary device name set to: {self.primary_device_name}"
             )
         self.devices = sd.query_devices()
         available_devices = self.get_available_input_devices(self.devices)
-        self.get_logger().debug("-" * 70)
-        self.get_logger().debug("Available devices:")
+
+        # Print available devices for debugging
+        self.get_logger().info("-" * 70)
+        self.get_logger().info("Available devices:")
         for i in available_devices:
             dev = self.devices[i]
-            self.get_logger().debug(
+            self.get_logger().info(
                 f"{i}: {dev['name']} ({dev['max_input_channels']} channels)"
             )
-        self.get_logger().debug("-" * 70)
+        self.get_logger().info("-" * 70)
         while True:
             try:
                 self.devices = sd.query_devices()

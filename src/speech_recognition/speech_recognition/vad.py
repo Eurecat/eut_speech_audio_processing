@@ -1,6 +1,7 @@
 import numpy as np
 import rclpy
 import torch
+import time
 from rclpy.node import Node
 from hri_msgs.msg import AudioAndDeviceInfo, Vad
 
@@ -23,6 +24,10 @@ class VADNode(Node):
 
         # Flag to track if first callback has been processed
         self.vad_initialized = False
+
+        # Logging control
+        self.last_log_time = 0  # For 1Hz logging
+        self.log_time = 1.0  # Log every 1 second
 
         # Subscribers
         self.audio_sub = self.create_subscription(
@@ -67,6 +72,12 @@ class VADNode(Node):
                 f"Unexpected audio chunk size: {int(audio_data.size)}. Expected 512 samples."
             )
             prob = 0.0
+
+        current_time = time.time()
+        if current_time - self.last_log_time >= self.log_time:
+            self.get_logger().info(f"VAD probability: {prob}")
+            self.last_log_time = current_time
+
         # Publish VAD result
         vad_msg = Vad()
         vad_msg.header.stamp = self.get_clock().now().to_msg()

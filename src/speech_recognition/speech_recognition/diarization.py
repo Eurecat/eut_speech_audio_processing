@@ -1,5 +1,7 @@
 import warnings
 
+from sympy import true
+
 # Matplotlib 3D warning
 warnings.filterwarnings("ignore", message="Unable to import Axes3D")
 
@@ -218,6 +220,10 @@ class DiarizationNode(Node):
         self.real_speaker = None
         self.speaker_activated = False
 
+        # Logging control
+        self.last_log_time = 0  # For 1Hz logging
+        self.log_time = 1.0  # Log every 1 second
+
         self.get_logger().info(
             "Diarization node initialized, waiting for device and VAD info..."
         )
@@ -248,10 +254,22 @@ class DiarizationNode(Node):
                 self.overlap_size = int(self.device_samplerate * self.overlap_duration)
 
                 self.get_logger().info("Loading segmentation and embedding models.")
+                # Get Hugging Face token from environment variable or set it here
+                import os
+
+                hf_token = os.environ.get("HF_TOKEN", None)
+                if hf_token is None:
+                    self.get_logger().warn(
+                        "No Hugging Face token found in environment variable HF_TOKEN. Public models may work, but private/gated models will fail."
+                    )
+
+                # Load segmentation and embedding models
                 segmentation = m.SegmentationModel.from_pretrained(
-                    self.segmentation_model_name
+                    self.segmentation_model_name, use_hf_token=hf_token
                 )
-                embedding = m.EmbeddingModel.from_pretrained(self.embedding_model_name)
+                embedding = m.EmbeddingModel.from_pretrained(
+                    self.embedding_model_name, use_hf_token=hf_token
+                )
 
                 # Calculate step size to align with block duration
                 step_duration = 0.5  # Match with ROSAudioSource block_duration
@@ -347,9 +365,12 @@ class DiarizationNode(Node):
             speech_activity_msg.speaker_id = self.real_speaker
             speech_activity_msg.active = False
             self.speech_activity_pub.publish(speech_activity_msg)
-            self.get_logger().debug(
-                f"Published speech activity: speaker={speech_activity_msg.speaker_id}, active=False)"
-            )
+            current_time = time.time()
+            if current_time - self.last_log_time >= 1.0:
+                self.get_logger().info(
+                    f"Published speech activity: speaker={speech_activity_msg.speaker_id}"
+                )
+                self.last_log_time = current_time
             self.real_speaker = None
             # A speaker cannot be deactivated if they were not activated before
             self.speaker_activated = False

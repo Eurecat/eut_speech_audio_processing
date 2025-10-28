@@ -4,4 +4,4 @@ librosa
 torchaudio
 faster-whisper
 openwakeword
-onnxruntime-gpu>1.20.1  # example, for CUDA 12.x
+onnxruntime-gpu>1.20.1

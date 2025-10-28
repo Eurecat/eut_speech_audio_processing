@@ -303,7 +303,7 @@ class ASRNode(Node):
             )
             return
 
-        self.get_logger().debug(
+        self.get_logger().info(
             f"Transcribing {len(audio_data) / self.sample_rate:.2f}s of audio"
         )
 
@@ -334,7 +334,7 @@ class ASRNode(Node):
                 )
 
                 self.asr_pub.publish(asr_msg)
-                self.get_logger().debug(
+                self.get_logger().info(
                     f"Published transcript: '{transcript}' (lang: {asr_msg.language_code}, conf: {asr_msg.transcript_confidence:.2f})"
                 )
             else:

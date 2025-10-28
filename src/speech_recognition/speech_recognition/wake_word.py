@@ -45,6 +45,10 @@ class WakeWordDetectorNode(Node):
         # Window processing control
         self.last_process_time = 0.0
 
+        # Logging control
+        self.last_confidence_log_time = 0.0
+        self.log_time = 1.0  # Log every 1 second
+
         # Processing control
         self.is_processing = True
         self.wake_word_detected = False
@@ -175,7 +179,12 @@ class WakeWordDetectorNode(Node):
                 # Extract the confidence score for the specific wake word
                 if self.wake_word in predictions:
                     confidence_score = float(predictions[self.wake_word])
-                    # self.get_logger().info(f"Wake word '{self.wake_word}' confidence: {confidence_score:.6f}")
+                    current_time = time.time()
+                    if current_time - self.last_confidence_log_time >= self.log_time:
+                        self.get_logger().info(
+                            f"Wake word '{self.wake_word}' confidence: {confidence_score:.6f}"
+                        )
+                        self.last_confidence_log_time = current_time
 
                     return confidence_score
 
