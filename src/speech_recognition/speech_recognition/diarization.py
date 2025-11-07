@@ -1,46 +1,44 @@
-import warnings
+# import warnings
 
-from sympy import true
+# # Matplotlib 3D warning
+# warnings.filterwarnings("ignore", message="Unable to import Axes3D")
 
-# Matplotlib 3D warning
-warnings.filterwarnings("ignore", message="Unable to import Axes3D")
+# # Torchaudio deprecation
+# warnings.filterwarnings(
+#     "ignore", message="torchaudio._backend.set_audio_backend has been deprecated"
+# )
 
-# Torchaudio deprecation
-warnings.filterwarnings(
-    "ignore", message="torchaudio._backend.set_audio_backend has been deprecated"
-)
+# # PyTorch Lightning checkpoint upgrades
+# warnings.filterwarnings(
+#     "ignore", message="Lightning automatically upgraded your loaded checkpoint"
+# )
+# warnings.filterwarnings("ignore", message="multiple `ModelCheckpoint` callback states")
 
-# PyTorch Lightning checkpoint upgrades
-warnings.filterwarnings(
-    "ignore", message="Lightning automatically upgraded your loaded checkpoint"
-)
-warnings.filterwarnings("ignore", message="multiple `ModelCheckpoint` callback states")
-
-# PyAnnote frame mismatch
-warnings.filterwarnings(
-    "ignore",
-    message="Mismatch between frames",
-    module="pyannote.audio.models.blocks.pooling",
-)
+# # PyAnnote frame mismatch
+# warnings.filterwarnings(
+#     "ignore",
+#     message="Mismatch between frames",
+#     module="pyannote.audio.models.blocks.pooling",
+# )
 
 import threading
 import time
+from typing import Dict
 
 import diart.models as m
 import numpy as np
 import rclpy
 import torch
 from diart import SpeakerDiarization, SpeakerDiarizationConfig
-
 from diart.inference import StreamingInference
 from pyannote.core import Annotation
 from rclpy.node import Node
 from rx.core.observer.observer import Observer
 
-from hri_msgs.msg import AudioAndDeviceInfo, Vad
-from hri_msgs.msg import SpeechActivityDetection
+from hri_msgs.msg import AudioAndDeviceInfo, SpeechActivityDetection, Vad
 
 from .ros_audio_source import ROSAudioSource
+from .database import DataBaseManager
 
 
 class DiarizationObserver(Observer):
@@ -55,6 +53,10 @@ class DiarizationObserver(Observer):
         self.current_speaker = None
         self.previous_speaker = None
         self.last_process_time = time.time()
+
+        # Data base variables
+        self.db = DataBaseManager()
+        self.number_of_speakers = self.db.number_speakers()
 
     def _extract_prediction(self, value):
         """Extract prediction annotation from the value"""
@@ -124,6 +126,40 @@ class DiarizationObserver(Observer):
 
     def on_error(self, error: Exception):
         self.node.get_logger().error(f"DiarizationObserver error: {error}")
+        self.db.close()
+
+    def process_embeddings(self, pipeline_embeddings: Dict):
+        """
+        Process embeddings extracted from the pipeline.
+        Depending if they are known or new, show and save them.
+        """
+        if not pipeline_embeddings:
+            self.node.get_logger().warn("No embeddings detected in the pipeline")
+            return
+
+        self.node.get_logger().info(
+            f"Embeddings detected: {len(pipeline_embeddings)} speaker(s)"
+        )
+
+        for speaker_id, embedding in pipeline_embeddings.items():
+            # Convert to numpy if necessary
+            if not isinstance(embedding, np.ndarray):
+                embedding = np.array(embedding)
+
+            # Check if it already exists in the database
+            result = self.db.find_speaker(embedding)
+
+            if result:
+                name, distance = result
+                self.node.get_logger().info(f"Recognized as: {name}")
+                self.node.get_logger().info(f"Cosine distance: {distance:.4f}")
+            else:
+                # New speaker, save it
+                new_number_of_speakers = self.number_of_speakers + 1
+                name = f"Speaker_{new_number_of_speakers}"
+                self.db.save_speaker(name, embedding)
+                self.node.get_logger().info(f"New speaker saved as: {name}")
+                self.node.get_logger().info("Embedding saved in MongoDB")
 
 
 class DiarizationNode(Node):
@@ -419,11 +455,45 @@ class DiarizationNode(Node):
             # Start processing audio stream
             self.inference()
 
-            self.get_logger().debug("Diarization streaming completed")
+            # Try to extract embeddings from the pipeline
+            pipeline_embeddings = self._extract_embeddings_from_pipeline(self.model)
+
+            if pipeline_embeddings:
+                self.observer.process_embeddings(pipeline_embeddings)
+            else:
+                self.get_logger().warn(
+                    "No embeddings could be extracted from the pipeline"
+                )
 
         except Exception as e:
             self.get_logger().error(f"Failed to start diarization: {e}")
             self.diarization_started = False
+
+    def _extract_embeddings_from_pipeline(self, pipeline: SpeakerDiarization):
+        """
+        Extract embeddings from the diarization pipeline.
+        """
+        embeddings = {}
+
+        if hasattr(pipeline, "clustering"):
+            clustering = pipeline.clustering
+
+            # Extract embeddings from clustering centers
+            if hasattr(clustering, "centers") and clustering.centers is not None:
+                centers = clustering.centers
+                # Only extract the active centers if available
+                active_centers = clustering.active_centers
+                for center_idx in active_centers:
+                    embedding = centers[center_idx]
+                    embeddings[f"speaker_{center_idx}"] = embedding
+
+            else:
+                self.get_logger().error("clustering.centers is empty or None")
+
+        if not embeddings:
+            self.get_logger().warn("No embeddings found")
+
+        return embeddings
 
     def destroy_node(self):
         """Clean up resources when the node is destroyed"""

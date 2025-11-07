@@ -1,0 +1,75 @@
+import datetime
+from typing import Optional
+
+import numpy as np
+from pymongo import MongoClient
+from pymongo.errors import ConnectionFailure
+from scipy.spatial.distance import cosine
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+class DataBaseManager:
+    """Manages MongoDB operations for speaker embeddings."""
+
+    def __init__(self, mongo_uri: str = "mongodb://localhost:27017/"):
+        try:
+            self.client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
+            self.client.admin.command("ping")
+            self.db = self.client["speaker_recognition"]
+            self.speakers = self.db["speakers"]
+            self.speakers.create_index("speaker_name", unique=True)
+            logger.info("Connected to MongoDB\n")
+        except ConnectionFailure:
+            logger.error("Could not connect to MongoDB. Is it running?\n")
+            raise
+
+    def save_speaker(self, name: str, embedding: np.ndarray):
+        """Saves a speaker in the database"""
+        doc = {
+            "speaker_name": name,
+            "embedding": embedding.tolist(),
+            "date": datetime.datetime.now(datetime.timezone.utc),
+        }
+        self.speakers.update_one({"speaker_name": name}, {"$set": doc}, upsert=True)
+
+    def find_speaker(
+        self, embedding: np.ndarray, threshold: float = 0.4
+    ) -> Optional[str]:
+        """Searches for a matching speaker embedding in the database"""
+        all_speakers = list(self.speakers.find())
+
+        if not all_speakers:
+            return None
+
+        best_name = None
+        best_distance = float("inf")
+
+        for speaker in all_speakers:
+            saved_embedding = np.array(speaker["embedding"])
+            distance = cosine(embedding, saved_embedding)
+            logger.info(f"Distance to {speaker['speaker_name']}: {distance}")
+
+            if distance < best_distance:
+                best_distance = distance
+                best_name = speaker["speaker_name"]
+
+        if best_distance < threshold:
+            return best_name, best_distance
+
+        return None
+
+    def number_speakers(self):
+        """Shows the number of speakers in the database"""
+        speakers = list(self.speakers.find())
+        logger.info(f"Speakers in database: {len(speakers)}")
+        for s in speakers:
+            logger.info(
+                f"  - {s['speaker_name']} (saved: {s['date'].strftime('%Y-%m-%d %H:%M')})"
+            )
+        return len(speakers)
+
+    def close(self):
+        self.client.close()
