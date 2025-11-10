@@ -1,25 +1,25 @@
-# import warnings
+import warnings
 
-# # Matplotlib 3D warning
-# warnings.filterwarnings("ignore", message="Unable to import Axes3D")
+# Matplotlib 3D warning
+warnings.filterwarnings("ignore", message="Unable to import Axes3D")
 
-# # Torchaudio deprecation
-# warnings.filterwarnings(
-#     "ignore", message="torchaudio._backend.set_audio_backend has been deprecated"
-# )
+# Torchaudio deprecation
+warnings.filterwarnings(
+    "ignore", message="torchaudio._backend.set_audio_backend has been deprecated"
+)
 
-# # PyTorch Lightning checkpoint upgrades
-# warnings.filterwarnings(
-#     "ignore", message="Lightning automatically upgraded your loaded checkpoint"
-# )
-# warnings.filterwarnings("ignore", message="multiple `ModelCheckpoint` callback states")
+# PyTorch Lightning checkpoint upgrades
+warnings.filterwarnings(
+    "ignore", message="Lightning automatically upgraded your loaded checkpoint"
+)
+warnings.filterwarnings("ignore", message="multiple `ModelCheckpoint` callback states")
 
-# # PyAnnote frame mismatch
-# warnings.filterwarnings(
-#     "ignore",
-#     message="Mismatch between frames",
-#     module="pyannote.audio.models.blocks.pooling",
-# )
+# PyAnnote frame mismatch
+warnings.filterwarnings(
+    "ignore",
+    message="Mismatch between frames",
+    module="pyannote.audio.models.blocks.pooling",
+)
 
 import threading
 import time
@@ -55,8 +55,12 @@ class DiarizationObserver(Observer):
         self.last_process_time = time.time()
 
         # Data base variables
+        # DataBaseManager expects optional mongo_uri, not the node object
         self.db = DataBaseManager()
         self.number_of_speakers = self.db.number_speakers()
+
+        # Store embeddings in memory to save on shutdown
+        self.pending_embeddings = {}
 
     def _extract_prediction(self, value):
         """Extract prediction annotation from the value"""
@@ -66,6 +70,32 @@ class DiarizationObserver(Observer):
             return value
         else:
             return None
+
+    def _extract_embeddings_from_pipeline(self, pipeline: SpeakerDiarization):
+        """
+        Extract embeddings from the diarization pipeline.
+        """
+        embeddings = {}
+
+        if hasattr(pipeline, "clustering"):
+            clustering = pipeline.clustering
+
+            # Extract embeddings from clustering centers
+            if hasattr(clustering, "centers") and clustering.centers is not None:
+                centers = clustering.centers
+                # Only extract the active centers if available
+                active_centers = clustering.active_centers
+                for center_idx in active_centers:
+                    embedding = centers[center_idx]
+                    embeddings[f"speaker{center_idx}"] = embedding
+
+            else:
+                self.node.get_logger().warn("clustering.centers is empty or None")
+
+        if not embeddings:
+            self.node.get_logger().warn("No embeddings found")
+
+        return embeddings
 
     def on_next(self, value):
         """Process new diarization result and publish speaker status"""
@@ -113,6 +143,8 @@ class DiarizationObserver(Observer):
 
         # Determine current speaker (take the first one if multiple)
         current_speaker = list(active_speakers)[0] if active_speakers else None
+        self.node.get_logger().debug(f"Current active speakers: {active_speakers}")
+        self.node.get_logger().debug(f"Current speaker: {current_speaker}")
 
         # Publish speech activity detection message only if VAD probability > threshold
         if current_speaker is None:
@@ -122,16 +154,25 @@ class DiarizationObserver(Observer):
         if self.node.current_vad_probability <= self.node.vad_threshold:
             return
 
-        self.node.real_speaker = f"speaker{self.speaker_mapping[current_speaker]}"
+        # Extract and process embeddings when a real speaker is detected
+        if self.node.model is not None:
+            try:
+                pipeline_embeddings = self._extract_embeddings_from_pipeline(
+                    self.node.model
+                )
+                if pipeline_embeddings:
+                    self._process_embeddings(pipeline_embeddings, current_speaker)
+            except Exception as ex:
+                self.node.get_logger().error(f"Error extracting embeddings: {ex}")
 
     def on_error(self, error: Exception):
         self.node.get_logger().error(f"DiarizationObserver error: {error}")
         self.db.close()
 
-    def process_embeddings(self, pipeline_embeddings: Dict):
+    def _process_embeddings(self, pipeline_embeddings: Dict, current_speaker):
         """
         Process embeddings extracted from the pipeline.
-        Depending if they are known or new, show and save them.
+        Store them in memory to be saved on shutdown instead of saving immediately.
         """
         if not pipeline_embeddings:
             self.node.get_logger().warn("No embeddings detected in the pipeline")
@@ -142,24 +183,55 @@ class DiarizationObserver(Observer):
         )
 
         for speaker_id, embedding in pipeline_embeddings.items():
-            # Convert to numpy if necessary
-            if not isinstance(embedding, np.ndarray):
-                embedding = np.array(embedding)
+            self.node.get_logger().debug(f"SPEAKER ID: {speaker_id}")
 
-            # Check if it already exists in the database
-            result = self.db.find_speaker(embedding)
+            if speaker_id == current_speaker:
+                # Convert to numpy if necessary
+                if not isinstance(embedding, np.ndarray):
+                    embedding = np.array(embedding)
 
-            if result:
-                name, distance = result
-                self.node.get_logger().info(f"Recognized as: {name}")
-                self.node.get_logger().info(f"Cosine distance: {distance:.4f}")
-            else:
-                # New speaker, save it
-                new_number_of_speakers = self.number_of_speakers + 1
-                name = f"Speaker_{new_number_of_speakers}"
-                self.db.save_speaker(name, embedding)
-                self.node.get_logger().info(f"New speaker saved as: {name}")
-                self.node.get_logger().info("Embedding saved in MongoDB")
+                # Check if it already exists in the database
+                result = self.db.find_speaker(embedding)
+
+                if result:
+                    name, distance = result
+                    self.node.get_logger().info(f"{speaker_id} recognized as: {name}")
+                    self.node.get_logger().info(f"Cosine distance: {distance:.4f}")
+                    self.node.real_speaker = name
+                    # Find if the speaker_id has been included in pending embeddings for some error and remove it
+                    if speaker_id in self.pending_embeddings:
+                        del self.pending_embeddings[speaker_id]
+                        self.node.get_logger().info(
+                            f"Removed {speaker_id} from pending embeddings"
+                        )
+                else:
+                    self.node.real_speaker = (
+                        f"speaker{self.speaker_mapping[current_speaker]}"
+                    )
+                    # Store embedding in memory, don't save yet
+                    self.pending_embeddings[speaker_id] = embedding
+                    self.node.get_logger().info(
+                        f"New speaker detected: {speaker_id} (will be saved on shutdown)"
+                    )
+
+    def _save_pending_embeddings(self):
+        """Save all pending embeddings to the database. Called on node shutdown."""
+        if not self.pending_embeddings:
+            self.node.get_logger().info("No new embeddings to save")
+            return
+
+        self.node.get_logger().info(
+            f"Saving {len(self.pending_embeddings)} new speaker(s) to database..."
+        )
+
+        for speaker_id, embedding in self.pending_embeddings.items():
+            new_number_of_speakers = self.number_of_speakers + 1
+            name = f"speaker{new_number_of_speakers}"
+            self.db.save_speaker(name, embedding)
+            self.node.get_logger().info(f"Saved {speaker_id} as: {name}")
+            self.number_of_speakers = new_number_of_speakers
+
+        self.node.get_logger().info("All embeddings saved to MongoDB")
 
 
 class DiarizationNode(Node):
@@ -255,10 +327,6 @@ class DiarizationNode(Node):
         self.last_process_time = time.time()
         self.real_speaker = None
         self.speaker_activated = False
-
-        # Logging control
-        self.last_log_time = 0  # For 1Hz logging
-        self.log_time = 1.0  # Log every 1 second
 
         self.get_logger().info(
             "Diarization node initialized, waiting for device and VAD info..."
@@ -401,12 +469,9 @@ class DiarizationNode(Node):
             speech_activity_msg.speaker_id = self.real_speaker
             speech_activity_msg.active = False
             self.speech_activity_pub.publish(speech_activity_msg)
-            current_time = time.time()
-            if current_time - self.last_log_time >= 1.0:
-                self.get_logger().info(
-                    f"Published speech activity: speaker={speech_activity_msg.speaker_id}"
-                )
-                self.last_log_time = current_time
+            self.get_logger().info(
+                f"Finish publishing speech activity: speaker={speech_activity_msg.speaker_id}"
+            )
             self.real_speaker = None
             # A speaker cannot be deactivated if they were not activated before
             self.speaker_activated = False
@@ -455,51 +520,23 @@ class DiarizationNode(Node):
             # Start processing audio stream
             self.inference()
 
-            # Try to extract embeddings from the pipeline
-            pipeline_embeddings = self._extract_embeddings_from_pipeline(self.model)
-
-            if pipeline_embeddings:
-                self.observer.process_embeddings(pipeline_embeddings)
-            else:
-                self.get_logger().warn(
-                    "No embeddings could be extracted from the pipeline"
-                )
-
         except Exception as e:
             self.get_logger().error(f"Failed to start diarization: {e}")
             self.diarization_started = False
 
-    def _extract_embeddings_from_pipeline(self, pipeline: SpeakerDiarization):
-        """
-        Extract embeddings from the diarization pipeline.
-        """
-        embeddings = {}
-
-        if hasattr(pipeline, "clustering"):
-            clustering = pipeline.clustering
-
-            # Extract embeddings from clustering centers
-            if hasattr(clustering, "centers") and clustering.centers is not None:
-                centers = clustering.centers
-                # Only extract the active centers if available
-                active_centers = clustering.active_centers
-                for center_idx in active_centers:
-                    embedding = centers[center_idx]
-                    embeddings[f"speaker_{center_idx}"] = embedding
-
-            else:
-                self.get_logger().error("clustering.centers is empty or None")
-
-        if not embeddings:
-            self.get_logger().warn("No embeddings found")
-
-        return embeddings
-
     def destroy_node(self):
         """Clean up resources when the node is destroyed"""
         try:
+            self.get_logger().info("Shutting down diarization node...")
+
             # Mark as not started to stop the diarization thread
             self.diarization_started = False
+
+            # Save pending embeddings to database before shutdown
+            if hasattr(self, "observer") and self.observer is not None:
+                self.observer._save_pending_embeddings()
+                # Close database connection
+                self.observer.db.close()
 
             # Close the audio source
             if hasattr(self, "source") and self.source is not None:
