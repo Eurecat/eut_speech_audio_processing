@@ -77,3 +77,20 @@ services:
     # Enable/disable components via launch file arguments:
     # ros2 launch speech_recognition speech_recognition.launch.py enable_vad:=false enable_diarization:=false enable_asr:=false
     command: bash -c "source /workspace/install/setup.bash && ros2 launch speech_recognition speech_recognition.launch.py"
+
+  mongodb_service:
+    image: mongo:7
+    container_name: "mongodb"
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGODB_INITDB_ROOT_USERNAME=eurecat
+      - MONGODB_INITDB_ROOT_PASSWORD=cerdanyola
+    network_mode: host
+
+volumes:
+  mongodb_data:
+    driver: local
