@@ -92,6 +92,14 @@ def _setup(context, *args, **kwargs):
             else f"{site_pkgs_wake_word}{os.pathsep}{existing}"
         )
 
+        # Wake word parameters - List of ONNX model names (without .onnx extension)
+        wake_word_params = {
+            'wake_word_model_names': ['hey_jana', 'jana'],  # Multiple models will be loaded
+            'window_duration': 2.0,        # Duration of the sliding window in seconds
+            'step_duration': 0.5,          # Step size for sliding window in seconds
+            'log_interval': 1.0,           # Interval for logging confidence scores in seconds
+        }
+
         log_messages.extend(
             [
                 LogInfo(
@@ -99,6 +107,9 @@ def _setup(context, *args, **kwargs):
                 ),
                 LogInfo(
                     msg=f"[speech_recognition] Wake Word: Injecting site-packages: {site_pkgs_wake_word}"
+                ),
+                LogInfo(
+                    msg=f"[speech_recognition] Wake Word: Models: {wake_word_params['wake_word_model_names']}"
                 ),
             ]
         )
@@ -111,6 +122,7 @@ def _setup(context, *args, **kwargs):
                     executable="wake_word_node",
                     name="wake_word_node",
                     output="screen",
+                    parameters=[wake_word_params],
                     condition=IfCondition(LaunchConfiguration("enable_wake_word")),
                 ),
             ]

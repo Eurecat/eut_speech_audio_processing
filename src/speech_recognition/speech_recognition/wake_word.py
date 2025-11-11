@@ -13,7 +13,41 @@ from hri_msgs.msg import AudioAndDeviceInfo, WakeWord
 
 class WakeWordDetectorNode(Node):
     def __init__(self):
-        super().__init__("wake_word_detector")
+        super().__init__("wake_word_node")
+
+        # Declare and get ROS2 parameters
+        # For string arrays, we need to use proper parameter declaration
+        self.declare_parameter("wake_word_model_names", ["hey_jana"])
+        self.declare_parameter("window_duration", 2.0)
+        self.declare_parameter("step_duration", 0.5)
+        self.declare_parameter("log_interval", 1.0)
+
+        # Get parameter values - fix string array retrieval
+        # This is a list of ONNX model names (without .onnx extension)
+        try:
+            # Use get_parameter().value for string arrays instead of string_array_value
+            wake_word_param = self.get_parameter("wake_word_model_names")
+            self.wake_word_models = wake_word_param.value
+            
+            # Debug log the parameter retrieval
+            self.get_logger().info(f"Retrieved wake_word_model_names parameter: {self.wake_word_models}")
+            self.get_logger().debug(f"Parameter type: {type(self.wake_word_models)}")
+            
+            # If parameter is empty or None, fallback to default
+            if not self.wake_word_models or not isinstance(self.wake_word_models, list):
+                self.get_logger().warning("wake_word_model_names parameter is empty or invalid, using default")
+                self.wake_word_models = ["hey_jana"]
+                
+        except Exception as e:
+            self.get_logger().error(f"Error retrieving wake_word_model_names parameter: {e}")
+            self.wake_word_models = ["hey_jana"]  # fallback
+        
+        self.window_duration = self.get_parameter("window_duration").get_parameter_value().double_value
+        self.step_duration = self.get_parameter("step_duration").get_parameter_value().double_value
+        self.log_time = self.get_parameter("log_interval").get_parameter_value().double_value
+
+        self.get_logger().info(f"Using wake word models: {self.wake_word_models}")
+        self.get_logger().info(f"Number of models loaded: {len(self.wake_word_models)}")
 
         # Select device (CPU or GPU)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -26,8 +60,6 @@ class WakeWordDetectorNode(Node):
         self.sample_rate = (
             16000  # Default sample rate, will be updated from audio stream
         )
-        self.window_duration = 2.0  # 2 seconds window
-        self.step_duration = 0.5  # 0.5 seconds step
 
         # Calculate sizes in samples
         self.window_size_samples = int(
@@ -47,43 +79,53 @@ class WakeWordDetectorNode(Node):
 
         # Logging control
         self.last_confidence_log_time = 0.0
-        self.log_time = 1.0  # Log every 1 second
 
         # Processing control
         self.is_processing = True
         self.wake_word_detected = False
 
-        # Wake word and wake word model
-        self.wake_word = "hey_pipi"
+        # Wake word model paths based on the ONNX model names from parameters
+        # Each model file should be located at: /workspace/src/speech_recognition/weights_openwakeword/{model_name}.onnx
+        self.model_paths = []
+        for model_name in self.wake_word_models:
+            model_path = f"/workspace/src/speech_recognition/weights_openwakeword/{model_name}.onnx"
+            self.model_paths.append(model_path)
 
-        # .onnx model path based on wake word
-        self.model_path = (
-            "/workspace/src/speech_recognition/weights_openwakeword/hey_pipi.onnx"
-        )
-
-        # Initialize OpenWakeWord model
+        # Initialize single OpenWakeWord model instance with multiple ONNX models
+        self.oww_model = None
         try:
-            self.get_logger().info("Loading OpenWakeWord model...")
+            self.get_logger().info("Loading OpenWakeWord models...")
 
-            # Check if model file exists
+            # Check if all model files exist
             import os
+            
+            valid_model_paths = []
+            for i, model_path in enumerate(self.model_paths):
+                model_name = self.wake_word_models[i]
+                
+                if not os.path.exists(model_path):
+                    self.get_logger().warning(f"Model file not found: {model_path}")
+                    continue
 
-            if not os.path.exists(self.model_path):
-                raise FileNotFoundError(f"Model file not found: {self.model_path}")
+                # Check if model file is not empty
+                if os.path.getsize(model_path) == 0:
+                    self.get_logger().warning(f"Model file is empty: {model_path}")
+                    continue
 
-            # Check if model file is not empty
-            if os.path.getsize(self.model_path) == 0:
-                raise ValueError(f"Model file is empty: {self.model_path}")
+                self.get_logger().info(
+                    f"Model file found: {model_path} ({os.path.getsize(model_path)} bytes)"
+                )
+                valid_model_paths.append(model_path)
 
-            self.get_logger().info(
-                f"Model file found: {self.model_path} ({os.path.getsize(self.model_path)} bytes)"
-            )
+            if not valid_model_paths:
+                raise ValueError("No valid model files found")
 
-            # wakeword_model_paths expects a list of paths
-            self.oww_model = Model(wakeword_model_paths=[self.model_path])
-            self.get_logger().info("OpenWakeWord model loaded successfully")
+            # Load all models at once - OpenWakeWord Model can handle multiple ONNX files
+            self.oww_model = Model(wakeword_model_paths=valid_model_paths)
+            self.get_logger().info(f"OpenWakeWord model loaded successfully with {len(valid_model_paths)} ONNX models")
+            
         except Exception as e:
-            self.get_logger().error(f"Failed to load OpenWakeWord model: {e}")
+            self.get_logger().error(f"Failed to load OpenWakeWord models: {e}")
             self.oww_model = None
 
         # Subscriber
@@ -164,34 +206,51 @@ class WakeWordDetectorNode(Node):
             self.get_logger().error(f"Error in audio callback: {e}")
 
     def detect_wake_word(self, window_data):
-        """Use OpenWakeWord for Alexa-like detection"""
-        if self.oww_model is None:
-            return False
+        """Use OpenWakeWord for wake word detection with multiple models"""
+        if not self.oww_model:
+            return 0.0
 
         try:
             # Convert float32 data to int16 format required by OpenWakeWord
             audio_int16 = (window_data * 32767).astype(np.int16)
 
-            # Get predictions from OpenWakeWord
-            predictions = self.oww_model.predict(audio_int16)
+            max_confidence_score = 0.0
+            winning_model = None
+            all_scores = {}
 
-            if predictions:
-                # Extract the confidence score for the specific wake word
-                if self.wake_word in predictions:
-                    confidence_score = float(predictions[self.wake_word])
-                    current_time = time.time()
-                    if current_time - self.last_confidence_log_time >= self.log_time:
-                        self.get_logger().info(
-                            f"Wake word '{self.wake_word}' confidence: {confidence_score:.6f}"
-                        )
-                        self.last_confidence_log_time = current_time
+            # Get predictions from all models
+            try:
+                # Get predictions from OpenWakeWord
+                predictions = self.oww_model.predict(audio_int16)
+                
+                for model_name, confidence_score in predictions.items():
+                    all_scores[model_name] = confidence_score
+                    
+                    # Track the maximum confidence score and which model achieved it
+                    if confidence_score > max_confidence_score:
+                        max_confidence_score = confidence_score
+                        winning_model = model_name
+                        
+            except Exception as e:
+                self.get_logger().error(f"Error processing models: {e}")
 
-                    return confidence_score
+            # Log confidence scores periodically
+            current_time = time.time()
+            if current_time - self.last_confidence_log_time >= self.log_time and all_scores:
+                scores_str = ", ".join([f"{name}: {score:.6f}" for name, score in all_scores.items()])
+                if winning_model:
+                    self.get_logger().info(
+                        f"Wake word confidences [{scores_str}] - MAX: {max_confidence_score:.6f} from '{winning_model}'"
+                    )
+                else:
+                    self.get_logger().info(f"Wake word confidences [{scores_str}] - No detection")
+                self.last_confidence_log_time = current_time
+
+            return max_confidence_score
 
         except Exception as e:
             self.get_logger().error(f"Error in OpenWakeWord detection: {e}")
-
-        return False
+            return 0.0
 
     def audio_processing_thread(self):
         """Thread function for processing sliding windows"""
@@ -208,9 +267,10 @@ class WakeWordDetectorNode(Node):
                     # Publish wake word detection
                     msg = WakeWord()
                     msg.header.stamp = self.get_clock().now().to_msg()
-                    msg.wake_word_probability = wake_word_probability
+                    msg.wake_word_probability = float(wake_word_probability)
 
                     self.wake_word_publisher.publish(msg)
+                    
 
                     # Reset for next detection
                     self.wake_word_detected = False
@@ -222,6 +282,9 @@ class WakeWordDetectorNode(Node):
                 continue
             except Exception as e:
                 self.get_logger().error(f"Error in audio processing thread: {e}")
+                # Add more detailed error information
+                import traceback
+                self.get_logger().error(f"Traceback: {traceback.format_exc()}")
 
     def destroy_node(self):
         """Clean shutdown of sliding window wake word detector"""
