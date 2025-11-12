@@ -93,4 +93,5 @@ services:
 
 volumes:
   mongodb_data:
+    name: coghri_speakers_mongodb_data
     driver: local
