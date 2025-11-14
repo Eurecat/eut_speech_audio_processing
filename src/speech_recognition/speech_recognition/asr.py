@@ -76,6 +76,7 @@ class ASRNode(Node):
         self.buffer_lock = threading.RLock()  # Use RLock to prevent deadlock
         self.processing_thread = None
         self.should_stop = False
+        self.speech_cancelled = threading.Event()  # Signal to cancel speech processing
 
         # Subscribers
         self.audio_and_device_info_sub = self.create_subscription(
@@ -126,24 +127,34 @@ class ASRNode(Node):
                 self.audio_buffer.popleft()
 
     def vad_callback(self, msg: Vad):
-        """Process VAD state changes"""
         current_time = time.time()
         new_vad_state = msg.vad_probability > self.vad_threshold
 
-        # Detect VAD state change
         if new_vad_state != self.vad_state:
             self.get_logger().debug(
                 f"VAD state changed: {self.vad_state} -> {new_vad_state}"
             )
 
-            if new_vad_state and not self.speech_interrupted:
-                # Speech started
-                self.speech_start_time = current_time
-                self.get_logger().debug("Speech started")
+            if new_vad_state:
+                # Speech started or reactivated
+                self.speech_cancelled.set()  # Cancel any pending processing
+
+                if self.speech_start_time == 0:
+                    # New speech started
+                    self.speech_start_time = current_time
+                    self.get_logger().debug("Speech started")
+                else:
+                    # Speech continued after brief pause
+                    self.get_logger().debug("Speech continued from previous segment")
+
+                self.speech_interrupted = False
             else:
                 # Speech ended
                 self.last_silence_time = current_time
                 self.get_logger().debug("Speech ended, starting silence timer")
+
+                # Clear the cancel flag for new processing
+                self.speech_cancelled.clear()
 
                 # Start processing thread if not already running
                 if (
@@ -156,8 +167,8 @@ class ASRNode(Node):
                     self.processing_thread.daemon = True
                     self.processing_thread.start()
 
-            self.vad_state = new_vad_state
-            self.last_vad_change_time = current_time
+        self.vad_state = new_vad_state
+        self.last_vad_change_time = current_time
 
         # Check for long speech chunks that need to be split
         if self.vad_state and self.speech_start_time > 0:
@@ -174,33 +185,28 @@ class ASRNode(Node):
 
     def _process_speech_end(self):
         """Process speech when VAD goes from on to off"""
-        while not self.should_stop:
-            current_time = time.time()
+        self.get_logger().debug(
+            f"Started silence timer, waiting {self.min_silence_duration}s"
+        )
 
+        # Wait for min_silence_duration or until cancelled (VAD reactivated)
+        was_cancelled = self.speech_cancelled.wait(timeout=self.min_silence_duration)
+
+        if was_cancelled:
+            # VAD reactivated before timeout - cancel processing
+            self.speech_interrupted = False
+            self.get_logger().debug("VAD reactivated, canceling speech processing")
+            return
+
+        # Timeout reached - check if still in silence and process
+        if not self.vad_state and self.last_silence_time > 0:
+            self.get_logger().debug("Processing speech chunk after silence timeout")
+            self._transcribe_speech_chunk()
+            self.speech_interrupted = False
+        else:
             self.get_logger().debug(
-                f"Processing speech end, current time: {current_time}, "
-                f"time since silence: {current_time - self.last_silence_time}, vad_state: {self.vad_state}"
+                "Silence timeout reached but VAD state changed, skipping transcription"
             )
-
-            # Check if we're still in silence and enough time has passed
-            if (
-                not self.vad_state
-                and self.last_silence_time > 0
-                and current_time - self.last_silence_time >= self.min_silence_duration
-            ):
-                self.get_logger().debug("Processing speech chunk after silence timeout")
-                self._transcribe_speech_chunk()
-                self.speech_interrupted = False
-                return
-
-            # Check if VAD became active again
-            if self.vad_state:
-                self.speech_interrupted = True
-                self.get_logger().debug("VAD reactivated, canceling speech processing")
-                return
-
-            # Wait a bit before checking again
-            time.sleep(0.1)
 
     def _extract_audio_data(self, end_time):
         """Extract audio data from buffer (call this INSIDE the lock)"""
@@ -338,7 +344,7 @@ class ASRNode(Node):
                     f"Published transcript: '{transcript}' (lang: {asr_msg.language_code}, conf: {asr_msg.transcript_confidence:.2f})"
                 )
             else:
-                self.get_logger().error("Empty transcript, not publishing")
+                self.get_logger().info("Empty transcript, not publishing")
 
         except Exception as e:
             self.get_logger().error(f"Transcription failed: {e}")

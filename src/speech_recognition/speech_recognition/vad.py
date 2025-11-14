@@ -75,7 +75,7 @@ class VADNode(Node):
 
         current_time = time.time()
         if current_time - self.last_log_time >= self.log_time:
-            self.get_logger().info(f"VAD probability: {prob}")
+            self.get_logger().debug(f"VAD probability: {prob}")
             self.last_log_time = current_time
 
         # Publish VAD result

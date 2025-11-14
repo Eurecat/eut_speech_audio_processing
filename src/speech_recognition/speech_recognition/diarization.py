@@ -21,6 +21,8 @@ warnings.filterwarnings(
     module="pyannote.audio.models.blocks.pooling",
 )
 
+import signal
+import sys
 import threading
 import time
 from typing import Dict
@@ -31,14 +33,13 @@ import rclpy
 import torch
 from diart import SpeakerDiarization, SpeakerDiarizationConfig
 from diart.inference import StreamingInference
+from hri_msgs.msg import AudioAndDeviceInfo, SpeechActivityDetection, Vad
 from pyannote.core import Annotation
 from rclpy.node import Node
 from rx.core.observer.observer import Observer
 
-from hri_msgs.msg import AudioAndDeviceInfo, SpeechActivityDetection, Vad
-
-from .ros_audio_source import ROSAudioSource
 from .database import DataBaseManager
+from .ros_audio_source import ROSAudioSource
 
 
 class DiarizationObserver(Observer):
@@ -178,7 +179,7 @@ class DiarizationObserver(Observer):
             self.node.get_logger().warn("No embeddings detected in the pipeline")
             return
 
-        self.node.get_logger().info(
+        self.node.get_logger().debug(
             f"Embeddings detected: {len(pipeline_embeddings)} speaker(s)"
         )
 
@@ -205,13 +206,16 @@ class DiarizationObserver(Observer):
                             f"Removed {speaker_id} from pending embeddings"
                         )
                 else:
-                    self.node.real_speaker = (
-                        f"speaker{self.speaker_mapping[current_speaker]}"
+                    # Assign speaker ID based on total speakers (DB + pending)
+                    total_speakers = self.number_of_speakers + len(
+                        self.pending_embeddings
                     )
+                    new_speaker_number = total_speakers + 1
+                    self.node.real_speaker = f"speaker{new_speaker_number}"
                     # Store embedding in memory, don't save yet
                     self.pending_embeddings[speaker_id] = embedding
                     self.node.get_logger().info(
-                        f"New speaker detected: {speaker_id} (will be saved on shutdown)"
+                        f"New speaker detected: {new_speaker_number} (will be saved on shutdown)"
                     )
 
     def _save_pending_embeddings(self):
@@ -386,7 +390,7 @@ class DiarizationNode(Node):
                     duration=self.chunk_duration,
                     step=step_duration,  # Align with audio source block duration
                     tau_active=0.7,  # Lower threshold for speaker activity detection
-                    delta_new=0.95,  # Lower threshold for new speaker detection
+                    delta_new=0.92,  # Lower threshold for new speaker detection
                     # gamma=3.0,  # Scale for speaker change detection
                     # beta=10.0,  # Beta parameter for speaker change
                     max_speakers=10,  # Maximum number of speakers
@@ -551,6 +555,18 @@ class DiarizationNode(Node):
 def main(args=None):
     rclpy.init(args=args)
     diarization_node = DiarizationNode()
+
+    def shutdown_handler(signum, frame):
+        diarization_node.get_logger().info(
+            f"Signal {signum} received, shutting down..."
+        )
+        diarization_node.destroy_node()
+        rclpy.shutdown()
+        sys.exit(0)
+
+    # Capturar ambas señales
+    signal.signal(signal.SIGINT, shutdown_handler)
+    signal.signal(signal.SIGTERM, shutdown_handler)
 
     try:
         rclpy.spin(diarization_node)
