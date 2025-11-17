@@ -1,12 +1,16 @@
-import rclpy
-from rclpy.node import Node
-import torch
-import time
-import numpy as np
+import os
 import threading
+import time
 from collections import deque
+
+import numpy as np
+import rclpy
+import torch
 from faster_whisper import WhisperModel
-from hri_msgs.msg import SpeechResult, SpeechActivityDetection, AudioAndDeviceInfo, Vad
+from huggingface_hub import snapshot_download
+from rclpy.node import Node
+
+from hri_msgs.msg import AudioAndDeviceInfo, SpeechActivityDetection, SpeechResult, Vad
 
 
 class ASRNode(Node):
@@ -53,11 +57,48 @@ class ASRNode(Node):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.get_logger().info(f"Using device: {self.device}")
 
-        # Model setup
-        self.get_logger().info(f"Loading Whisper model: {self.model_size}")
-        self.model = WhisperModel(
-            self.model_size, device=self.device, compute_type="float32"
+        # Search model inside "weights" folder (next to this file)
+        # If "weights" folder does not exist, it will be created automatically by faster-whisper
+        weights_dir = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "weights")
         )
+
+        if not os.path.exists(weights_dir):
+            os.makedirs(weights_dir, exist_ok=True)
+            self.get_logger().info(f"Weights directory created: {weights_dir}")
+
+        # Model setup - try to find a local snapshot under weights/ and use it,
+        # otherwise fall back to using the HF repo id with download_root.
+        resolved_model_path = None
+        for name in os.listdir(weights_dir):
+            if name.startswith("models--"):
+                snaps = os.path.join(weights_dir, name, "snapshots")
+                if os.path.isdir(snaps):
+                    # choose the first/most-recent snapshot folder
+                    entries = sorted(os.listdir(snaps), reverse=True)
+                    if entries:
+                        resolved_model_path = os.path.join(snaps, entries[0])
+                        break
+
+        if resolved_model_path and os.path.isdir(resolved_model_path):
+            self.get_logger().info(
+                f"Using local snapshot for model: {resolved_model_path}"
+            )
+            model_arg = resolved_model_path
+            # when passing a snapshot folder, no need to set download_root
+            self.model = WhisperModel(
+                model_arg, device=self.device, compute_type="float32"
+            )
+        else:
+            self.get_logger().info(
+                f"No local snapshot found, using HuggingFace repo id: {self.model_size} (download_root={weights_dir})"
+            )
+            self.model = WhisperModel(
+                self.model_size,
+                device=self.device,
+                compute_type="float32",
+                download_root=weights_dir,
+            )
         self.get_logger().info(f"Model {self.model_size} loaded.")
 
         # Audio processing variables

@@ -212,3 +212,5 @@ __marimo__/
 # Dependencies directory
 deps/
 
+
+weights/
