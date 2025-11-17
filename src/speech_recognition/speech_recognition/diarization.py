@@ -232,7 +232,7 @@ class DiarizationObserver(Observer):
             new_number_of_speakers = self.number_of_speakers + 1
             name = f"speaker{new_number_of_speakers}"
             self.db.save_speaker(name, embedding)
-            self.node.get_logger().info(f"Saved {speaker_id} as: {name}")
+            self.node.get_logger().info(f"Saved internal {speaker_id} as: {name} in MONGODB")
             self.number_of_speakers = new_number_of_speakers
 
         self.node.get_logger().info("All embeddings saved to MongoDB")
@@ -560,11 +560,10 @@ def main(args=None):
         diarization_node.get_logger().info(
             f"Signal {signum} received, shutting down..."
         )
-        diarization_node.destroy_node()
-        rclpy.shutdown()
-        sys.exit(0)
+        # Raise KeyboardInterrupt instead of calling sys.exit
+        raise KeyboardInterrupt
 
-    # Capturar ambas señales
+    # Capture both signals
     signal.signal(signal.SIGINT, shutdown_handler)
     signal.signal(signal.SIGTERM, shutdown_handler)
 
@@ -572,9 +571,17 @@ def main(args=None):
         rclpy.spin(diarization_node)
     except KeyboardInterrupt:
         diarization_node.get_logger().info("Shutting down DIARIZATION node.")
+    except SystemExit:
+        # Handle SystemExit without propagating it
+        diarization_node.get_logger().info("SystemExit caught, cleaning up...")
     finally:
-        diarization_node.destroy_node()
-        rclpy.shutdown()
+        # Ensure cleanup always happens
+        try:
+            if rclpy.ok():
+                diarization_node.destroy_node()
+                rclpy.shutdown()
+        except Exception as e:
+            print(f"Error during shutdown: {e}")
 
 
 if __name__ == "__main__":

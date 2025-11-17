@@ -101,3 +101,18 @@ command: bash -c "source /workspace/install/setup.bash && ros2 launch speech_rec
 **Important Dependencies:**
 - **Diarization** requires **VAD** to work properly
 - **ASR** requires both **VAD** and **Diarization** for optimal performance
+
+
+
+### Managing the Speaker Recognition Database
+
+To query the database:
+```bash
+mongosh
+use speaker_recognition
+db.speakers.find()
+```
+
+To delete the database, remove the associated Docker volume.
+
+You can also manage entries via the web interface at [http://0.0.0.0:8081/db/speaker_recognition/speakers](http://0.0.0.0:8081/db/speaker_recognition/speakers).
