@@ -22,6 +22,7 @@ setup(
         "console_scripts": [
             "audio_capturing_select_device_node = audio_stream_manager.audio_capturing_select_device:main",
             "audio_capturing_automatic_device_node = audio_stream_manager.audio_capturing_automatic_device:main",
+            "save_mp3_node = audio_stream_manager.save_mp3:main",
         ],
     },
 )
