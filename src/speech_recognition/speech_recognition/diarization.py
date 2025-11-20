@@ -56,7 +56,6 @@ class DiarizationObserver(Observer):
         self.previous_diart_speaker = None
         self.last_process_time = time.time()
         self.last_merge_check_time = time.time()
-        self.merge_check_interval = 10.0  # Check for similar speakers every 10 seconds
 
         # Get use_database parameter from node
         self.use_database = self.node.use_database
@@ -705,7 +704,7 @@ class DiarizationNode(Node):
                     duration=self.chunk_duration,
                     step=step_duration,  # Align with audio source block duration
                     tau_active=0.7,  # Lower threshold for speaker activity detection
-                    delta_new=0.92,  # Lower threshold for new speaker detection
+                    delta_new=0.90,  # Lower threshold for new speaker detection
                     # gamma=3.0,  # Scale for speaker change detection
                     # beta=10.0,  # Beta parameter for speaker change
                     max_speakers=10,  # Maximum number of speakers
