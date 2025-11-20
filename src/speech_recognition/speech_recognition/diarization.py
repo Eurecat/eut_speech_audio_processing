@@ -74,7 +74,7 @@ class DiarizationObserver(Observer):
         self.pending_embeddings = {}
         
         # Threshold for considering speakers as the same person (lower = stricter)
-        self.similarity_threshold = 0.3
+        self.similarity_threshold = 0.35
 
     def _extract_prediction(self, value):
         """Extract prediction annotation from the value"""
@@ -153,6 +153,95 @@ class DiarizationObserver(Observer):
             
         self.node.get_logger().info("=" * 80)
         return embeddings
+
+    def _merge_similar_speakers(self, pipeline_embeddings: Dict):
+        """
+        Compare all speaker embeddings and merge similar ones by updating the mapping.
+        Uses cosine distance to detect if two DIART speakers are actually the same person.
+        """
+        if len(pipeline_embeddings) < 2:
+            return  # Nothing to merge
+        
+        self.node.get_logger().info("=" * 80)
+        self.node.get_logger().info("CHECKING FOR SIMILAR SPEAKERS TO MERGE")
+        
+        # Convert all embeddings to numpy arrays for comparison
+        speaker_ids = list(pipeline_embeddings.keys())
+        embeddings_list = []
+        
+        for speaker_id in speaker_ids:
+            emb = pipeline_embeddings[speaker_id]
+            if not isinstance(emb, np.ndarray):
+                emb = np.array(emb)
+            # Normalize the embedding for cosine similarity
+            emb_norm = emb / (np.linalg.norm(emb) + 1e-8)
+            embeddings_list.append(emb_norm)
+        
+        self.node.get_logger().info(f"Comparing {len(speaker_ids)} speaker embeddings")
+        self.node.get_logger().info(f"Current DIART->EUT mapping: {self.diart_to_eut_mapping}")
+        
+        # Compare each pair of speakers
+        for i in range(len(speaker_ids)):
+            for j in range(i + 1, len(speaker_ids)):
+                speaker_i = speaker_ids[i]
+                speaker_j = speaker_ids[j]
+                
+                # Get current EUT mappings
+                eut_i = self.diart_to_eut_mapping.get(speaker_i)
+                eut_j = self.diart_to_eut_mapping.get(speaker_j)
+                
+                # Skip if already mapped to the same EUT speaker
+                if eut_i and eut_j and eut_i == eut_j:
+                    self.node.get_logger().info(f"  {speaker_i} ({eut_i}) and {speaker_j} ({eut_j}) already mapped to same EUT speaker")
+                    continue
+                
+                # Compute cosine distance (1 - cosine similarity)
+                emb_i = embeddings_list[i]
+                emb_j = embeddings_list[j]
+                cosine_similarity = np.dot(emb_i, emb_j)
+                cosine_distance = 1.0 - cosine_similarity
+                
+                # Show EUT IDs in comparison
+                eut_i_str = f"({eut_i})" if eut_i else "(unmapped)"
+                eut_j_str = f"({eut_j})" if eut_j else "(unmapped)"
+                self.node.get_logger().info(f"  Comparing {speaker_i} {eut_i_str} vs {speaker_j} {eut_j_str}: cosine_distance = {cosine_distance:.4f}")
+                
+                # If distance is below threshold, they're the same person
+                if cosine_distance < self.similarity_threshold:
+                    self.node.get_logger().info(f"  ✓✓✓ DETECTED DUPLICATE: {speaker_i} and {speaker_j} are the same person!")
+                    
+                    # Decide which EUT speaker ID to use
+                    if eut_i and eut_j:
+                        # Both already mapped - use the lower numbered one
+                        keep_eut = min(eut_i, eut_j)
+                        discard_eut = max(eut_i, eut_j)
+                        self.node.get_logger().info(f"    Both mapped: keeping {keep_eut}, merging {discard_eut}")
+                        
+                        # Update all mappings that point to discard_eut to point to keep_eut
+                        for diart_id, eut_id in self.diart_to_eut_mapping.items():
+                            if eut_id == discard_eut:
+                                self.diart_to_eut_mapping[diart_id] = keep_eut
+                                self.node.get_logger().info(f"    Updated {diart_id}: {discard_eut} -> {keep_eut}")
+                    
+                    elif eut_i:
+                        # Only i is mapped, map j to same EUT speaker
+                        self.diart_to_eut_mapping[speaker_j] = eut_i
+                        self.node.get_logger().info(f"    Mapped {speaker_j} to existing {eut_i}")
+                    
+                    elif eut_j:
+                        # Only j is mapped, map i to same EUT speaker
+                        self.diart_to_eut_mapping[speaker_i] = eut_j
+                        self.node.get_logger().info(f"    Mapped {speaker_i} to existing {eut_j}")
+                    
+                    else:
+                        # Neither mapped yet - will be handled in normal flow
+                        # Just log that they should be merged
+                        self.node.get_logger().info(f"    Both unmapped - will assign same EUT ID when processed")
+                else:
+                    self.node.get_logger().info(f"    Different speakers (distance > {self.similarity_threshold:.4f})")
+        
+        self.node.get_logger().info(f"Updated DIART->EUT mapping: {self.diart_to_eut_mapping}")
+        self.node.get_logger().info("=" * 80)
 
     def on_next(self, value):
         """Process new diarization result and publish speaker status"""
@@ -270,6 +359,9 @@ class DiarizationObserver(Observer):
         self.node.get_logger().info(f"Current DIART speaker: {current_diart_speaker}")
         self.node.get_logger().info(f"Pending embeddings in memory: {list(self.pending_embeddings.keys())}")
         self.node.get_logger().info(f"Speakers in database: {self.number_of_speakers}")
+
+        # First, check for similar speakers and merge them
+        self._merge_similar_speakers(pipeline_embeddings)
 
         for diart_speaker_id, embedding in pipeline_embeddings.items():
             self.node.get_logger().info(f"--- Processing DIART speaker: {diart_speaker_id} ---")
