@@ -31,7 +31,7 @@ class AudioCapturingNode(Node):
         super().__init__("audio_capturing_node")
 
         # Declare ROS2 parameters
-        self.declare_parameter("device_name", "jabra")
+        self.declare_parameter("device_name", "DJI")
         self.declare_parameter("dtype", "float32")
         self.declare_parameter("channels", 1)
         self.declare_parameter("chunk", 512)
