@@ -36,7 +36,7 @@ class DataBaseManager:
         self.speakers.update_one({"speaker_name": name}, {"$set": doc}, upsert=True)
 
     def find_speaker(
-        self, embedding: np.ndarray, threshold: float = 0.4
+        self, embedding: np.ndarray, loggefunc, threshold: float = 0.5
     ) -> Optional[str]:
         """Searches for a matching speaker embedding in the database"""
         all_speakers = list(self.speakers.find())
@@ -50,7 +50,7 @@ class DataBaseManager:
         for speaker in all_speakers:
             saved_embedding = np.array(speaker["embedding"])
             distance = cosine(embedding, saved_embedding)
-            logger.info(f"Distance to {speaker['speaker_name']}: {distance}")
+            loggefunc.info(f"\033[93mDistance to {speaker['speaker_name']}: {distance}\033[0m")
 
             if distance < best_distance:
                 best_distance = distance

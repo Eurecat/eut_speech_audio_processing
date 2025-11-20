@@ -51,6 +51,7 @@ class DiarizationObserver(Observer):
         self.known_diart_speakers = set()  # Track DIART's internal speaker labels
         self.diart_to_eut_mapping = {}  # Maps DIART speaker IDs to EUT speaker IDs
         self.next_eut_speaker_id = 1
+        self.highest_eut_speaker_number = 0  # Track the highest EUT speaker number ever assigned
         self.current_diart_speaker = None
         self.previous_diart_speaker = None
         self.last_process_time = time.time()
@@ -64,17 +65,21 @@ class DiarizationObserver(Observer):
         if self.use_database:
             self.db = DataBaseManager()
             self.number_of_speakers = self.db.number_speakers()
+            # Initialize highest_eut_speaker_number from database
+            self.highest_eut_speaker_number = self.number_of_speakers
+            self.next_eut_speaker_id = self.number_of_speakers + 1
             self.node.get_logger().info(f"Database enabled - {self.number_of_speakers} speakers loaded")
+            self.node.get_logger().info(f"Highest EUT speaker number initialized to: {self.highest_eut_speaker_number}")
         else:
             self.db = None
             self.number_of_speakers = 0
             self.node.get_logger().info("Database disabled - using session-only speaker tracking")
 
         # Store embeddings in memory to save on shutdown
-        self.pending_embeddings = {}
+        self.pending_embeddings = {}  # Maps DIART speaker ID to embedding
         
         # Threshold for considering speakers as the same person (lower = stricter)
-        self.similarity_threshold = 0.35
+        self.similarity_threshold = 0.5
 
     def _extract_prediction(self, value):
         """Extract prediction annotation from the value"""
@@ -361,7 +366,7 @@ class DiarizationObserver(Observer):
         self.node.get_logger().info(f"Speakers in database: {self.number_of_speakers}")
 
         # First, check for similar speakers and merge them
-        self._merge_similar_speakers(pipeline_embeddings)
+        # self._merge_similar_speakers(pipeline_embeddings)
 
         for diart_speaker_id, embedding in pipeline_embeddings.items():
             self.node.get_logger().info(f"--- Processing DIART speaker: {diart_speaker_id} ---")
@@ -377,8 +382,8 @@ class DiarizationObserver(Observer):
 
                 # Check if it already exists in the database
                 if self.use_database:
-                    self.node.get_logger().info(f"    Searching database for matching speaker...")
-                    result = self.db.find_speaker(embedding)
+                    self.node.get_logger().info("\033[92m    Searching database for matching speaker...\033[0m")
+                    result = self.db.find_speaker(embedding, self.node.get_logger())
 
                     if result:
                         eut_speaker_name, distance = result
@@ -393,23 +398,42 @@ class DiarizationObserver(Observer):
                             self.node.get_logger().info(
                                 f"    Removed DIART {diart_speaker_id} from pending embeddings (already in DB)"
                             )
+                        
+                        # Update mapping
+                        self.diart_to_eut_mapping[diart_speaker_id] = eut_speaker_name
                     else:
-                        # Assign EUT speaker ID based on total speakers (DB + pending)
-                        total_speakers = self.number_of_speakers + len(self.pending_embeddings)
-                        new_eut_speaker_number = total_speakers + 1
-                        self.node.eut_speaker_id = f"EUT_speaker{new_eut_speaker_number}"
+                        # Check if this DIART speaker already has an EUT ID assigned
+                        if diart_speaker_id in self.diart_to_eut_mapping:
+                            # Use existing mapping
+                            self.node.eut_speaker_id = self.diart_to_eut_mapping[diart_speaker_id]
+                            self.node.get_logger().info(f"    Using existing EUT mapping: {self.node.eut_speaker_id}")
+                        else:
+                            # Assign NEW EUT speaker ID
+                            new_eut_speaker_number = self.highest_eut_speaker_number + 1
+                            self.highest_eut_speaker_number = new_eut_speaker_number
+                            self.node.eut_speaker_id = f"EUT_speaker{new_eut_speaker_number}"
+                            
+                            # Create mapping
+                            self.diart_to_eut_mapping[diart_speaker_id] = self.node.eut_speaker_id
+                            
+                            self.node.get_logger().info(f"    ✗✗✗ NEW SPEAKER detected")
+                            self.node.get_logger().info(f"    Total speakers in DB: {self.number_of_speakers}")
+                            self.node.get_logger().info(f"    Pending embeddings: {len(self.pending_embeddings)}")
+                            self.node.get_logger().info(f"    Assigned new EUT speaker number: {new_eut_speaker_number}")
+                            self.node.get_logger().info(f"    Setting eut_speaker_id to: {self.node.eut_speaker_id}")
                         
-                        self.node.get_logger().info(f"    ✗✗✗ NEW SPEAKER detected")
-                        self.node.get_logger().info(f"    Total speakers in DB: {self.number_of_speakers}")
-                        self.node.get_logger().info(f"    Pending embeddings: {len(self.pending_embeddings)}")
-                        self.node.get_logger().info(f"    Assigned new EUT speaker number: {new_eut_speaker_number}")
-                        self.node.get_logger().info(f"    Setting eut_speaker_id to: {self.node.eut_speaker_id}")
-                        
-                        # Store embedding in memory, don't save yet
-                        self.pending_embeddings[diart_speaker_id] = embedding
-                        self.node.get_logger().info(
-                            f"    Stored in pending embeddings (will be saved on shutdown)"
-                        )
+                        # Store embedding in memory if not already there
+                        if diart_speaker_id not in self.pending_embeddings:
+                            self.pending_embeddings[diart_speaker_id] = embedding
+                            self.node.get_logger().info(
+                                f"    Stored in pending embeddings (will be saved on shutdown)"
+                            )
+                        else:
+                            # Update the embedding (it may have changed)
+                            self.pending_embeddings[diart_speaker_id] = embedding
+                            self.node.get_logger().info(
+                                f"    Updated embedding in pending (already existed)"
+                            )
                 else:
                     # Database disabled - use clustering speaker_id with EUT prefix
                     self.node.get_logger().info("    Database disabled - using clustering speaker ID with EUT prefix")
@@ -428,12 +452,15 @@ class DiarizationObserver(Observer):
                         self.node.get_logger().info(f"    Created new mapping: DIART {diart_speaker_id} -> {self.node.eut_speaker_id} (number: {new_eut_speaker_number})")
             else:
                 self.node.get_logger().info(f"    ✗ Not the current active DIART speaker, skipping")
-        
+        self._merge_similar_speakers(pipeline_embeddings)
+
         self.node.get_logger().info(f"Final eut_speaker_id value: {self.node.eut_speaker_id}")
         self.node.get_logger().info("*" * 80)
 
     def _save_pending_embeddings(self):
-        """Save all pending embeddings to the database. Called on node shutdown."""
+        """Save all pending embeddings to the database. Called on node shutdown.
+        If multiple DIART speakers map to the same EUT speaker, merge their embeddings by averaging.
+        """
         if not self.use_database:
             self.node.get_logger().info("Database disabled, skipping saving embeddings")
             return
@@ -442,18 +469,82 @@ class DiarizationObserver(Observer):
             self.node.get_logger().info("No new embeddings to save")
             return
 
+        self.node.get_logger().info("=" * 80)
+        self.node.get_logger().info("SAVING PENDING EMBEDDINGS TO DATABASE")
         self.node.get_logger().info(
-            f"Saving {len(self.pending_embeddings)} new speaker(s) to database..."
+            f"Total pending DIART speakers: {len(self.pending_embeddings)}"
         )
+        self.node.get_logger().info(f"DIART->EUT mapping: {self.diart_to_eut_mapping}")
 
+        # Group embeddings by EUT speaker ID
+        eut_to_embeddings = {}  # Maps EUT speaker ID to list of embeddings
+        
         for diart_speaker_id, embedding in self.pending_embeddings.items():
-            new_number_of_speakers = self.number_of_speakers + 1
-            eut_speaker_name = f"EUT_speaker{new_number_of_speakers}"
-            self.db.save_speaker(eut_speaker_name, embedding)
-            self.node.get_logger().info(f"Saved DIART {diart_speaker_id} as: {eut_speaker_name} in MONGODB")
-            self.number_of_speakers = new_number_of_speakers
+            # Get the EUT speaker ID for this DIART speaker
+            eut_speaker_id = self.diart_to_eut_mapping.get(diart_speaker_id)
+            
+            if eut_speaker_id:
+                # Add embedding to the list for this EUT speaker
+                if eut_speaker_id not in eut_to_embeddings:
+                    eut_to_embeddings[eut_speaker_id] = []
+                eut_to_embeddings[eut_speaker_id].append((diart_speaker_id, embedding))
+                self.node.get_logger().info(
+                    f"  Grouping DIART {diart_speaker_id} under {eut_speaker_id}"
+                )
+            else:
+                # No mapping found - create a new EUT speaker
+                new_eut_speaker_number = self.highest_eut_speaker_number + 1
+                self.highest_eut_speaker_number = new_eut_speaker_number
+                eut_speaker_id = f"EUT_speaker{new_eut_speaker_number}"
+                eut_to_embeddings[eut_speaker_id] = [(diart_speaker_id, embedding)]
+                self.node.get_logger().info(
+                    f"  Creating new EUT speaker {eut_speaker_id} for unmapped DIART {diart_speaker_id}"
+                )
 
-        self.node.get_logger().info("All embeddings saved to MongoDB")
+        self.node.get_logger().info(f"Unique EUT speakers to save: {len(eut_to_embeddings)}")
+        
+        # Save each EUT speaker with merged embeddings if necessary
+        for eut_speaker_id, embeddings_list in eut_to_embeddings.items():
+            self.node.get_logger().info("-" * 80)
+            self.node.get_logger().info(f"Processing EUT speaker: {eut_speaker_id}")
+            self.node.get_logger().info(f"  Number of DIART speakers: {len(embeddings_list)}")
+            
+            if len(embeddings_list) == 1:
+                # Only one DIART speaker - save directly
+                diart_id, embedding = embeddings_list[0]
+                self.node.get_logger().info(f"  Single DIART speaker: {diart_id}")
+                self.node.get_logger().info(f"  Saving to database as: {eut_speaker_id}")
+                self.db.save_speaker(eut_speaker_id, embedding)
+                self.number_of_speakers += 1
+            else:
+                # Multiple DIART speakers - merge embeddings by averaging
+                self.node.get_logger().info(f"  Multiple DIART speakers detected - merging embeddings:")
+                diart_ids = [diart_id for diart_id, _ in embeddings_list]
+                for diart_id in diart_ids:
+                    self.node.get_logger().info(f"    - {diart_id}")
+                
+                # Convert all embeddings to numpy arrays and stack them
+                embeddings_array = []
+                for diart_id, emb in embeddings_list:
+                    if not isinstance(emb, np.ndarray):
+                        emb = np.array(emb)
+                    embeddings_array.append(emb)
+                
+                # Average the embeddings
+                embeddings_stack = np.stack(embeddings_array, axis=0)
+                merged_embedding = np.mean(embeddings_stack, axis=0)
+                
+                self.node.get_logger().info(f"  Merged embedding shape: {merged_embedding.shape}")
+                self.node.get_logger().info(f"  Merged embedding stats: mean={merged_embedding.mean():.6f}, std={merged_embedding.std():.6f}")
+                self.node.get_logger().info(f"  Saving merged embedding to database as: {eut_speaker_id}")
+                
+                # Save the merged embedding
+                self.db.save_speaker(eut_speaker_id, merged_embedding)
+                self.number_of_speakers += 1
+
+        self.node.get_logger().info("=" * 80)
+        self.node.get_logger().info(f"Successfully saved {len(eut_to_embeddings)} unique speaker(s) to MongoDB")
+        self.node.get_logger().info(f"Total speakers in database: {self.number_of_speakers}")
 
 
 class DiarizationNode(Node):
@@ -473,7 +564,7 @@ class DiarizationNode(Node):
             "vad_threshold", 0.5
         )  # VAD threshold for publishing speech activity
         self.declare_parameter(
-            "use_database", False
+            "use_database", True
         )  # Whether to use the database for speaker tracking
 
         # Get parameter values
