@@ -3,7 +3,8 @@ import subprocess
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import OpaqueFunction, LogInfo, SetEnvironmentVariable
+from launch.actions import OpaqueFunction, LogInfo, SetEnvironmentVariable, DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 VENV_PATH = os.environ.get(
@@ -27,10 +28,20 @@ def _setup(context, *args, **kwargs):
     config_dir = get_package_share_directory('speech_recognition')
     config_file = os.path.join(config_dir, 'config', 'diarization_params.yaml')
 
+    # Get debug parameter
+    enable_debug = LaunchConfiguration('enable_debug_output').perform(context).lower() == 'true'
+    
+    # Prepare arguments - add debug log level if debug output is enabled
+    node_arguments = []
+    if enable_debug:
+        # Set debug level only for this specific node, not globally
+        node_arguments = ['--ros-args', '--log-level', 'diarization_node:=debug']
+
     return [
         LogInfo(msg=f"[speech_recognition] Using AI venv: {VENV_PATH}"),
         LogInfo(msg=f"[speech_recognition] Injecting site-packages: {site_pkgs}"),
         LogInfo(msg=f"[speech_recognition] Loading Diarization config from: {config_file}"),
+        LogInfo(msg=f"[speech_recognition] Debug logging: {'enabled' if enable_debug else 'disabled'}"),
         SetEnvironmentVariable("PYTHONPATH", new_py_path),
         Node(
             package="speech_recognition",
@@ -38,9 +49,17 @@ def _setup(context, *args, **kwargs):
             name="diarization_node",
             output="screen",
             parameters=[config_file],
+            arguments=node_arguments,
         ),
     ]
 
 
 def generate_launch_description():
-    return LaunchDescription([OpaqueFunction(function=_setup)])
+    return LaunchDescription([
+        DeclareLaunchArgument(
+            'enable_debug_output',
+            default_value='false',
+            description='Enable debug logging output for diarization node'
+        ),
+        OpaqueFunction(function=_setup)
+    ])
