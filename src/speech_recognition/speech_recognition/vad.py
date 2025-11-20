@@ -1,7 +1,9 @@
 import numpy as np
+import os
 import rclpy
 import torch
 import time
+from pathlib import Path
 from rclpy.node import Node
 from hri_msgs.msg import AudioAndDeviceInfo, Vad
 
@@ -13,6 +15,10 @@ class VADNode(Node):
         # Declare parameters
         self.declare_parameter("repo_model", "snakers4/silero-vad")
         self.declare_parameter("model_name", "silero_vad")
+        self.declare_parameter(
+            "weights_dir",
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "weights")),
+        )
 
         # Get parameter values
         self.repo_model = (
@@ -20,6 +26,9 @@ class VADNode(Node):
         )
         self.model_name = (
             self.get_parameter("model_name").get_parameter_value().string_value
+        )
+        self.weights_dir = os.path.abspath(
+            self.get_parameter("weights_dir").get_parameter_value().string_value
         )
 
         # Flag to track if first callback has been processed
@@ -37,8 +46,14 @@ class VADNode(Node):
         # Publishers
         self.vad_pub = self.create_publisher(Vad, "vad", 10)
 
-        # Load pre-trained VAD model
-        self.model, self.utils = torch.hub.load(
+        # Load VAD model from local weights or download if not present
+        os.makedirs(self.weights_dir, exist_ok=True)
+
+        # Set torch hub directory to weights folder
+        torch.hub.set_dir(str(self.weights_dir))
+
+        self.get_logger().info(f"Loading VAD model from: {self.weights_dir}")
+        self.model, _ = torch.hub.load(
             repo_or_dir=self.repo_model, model=self.model_name, trust_repo=True
         )
 
