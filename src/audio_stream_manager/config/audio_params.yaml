@@ -1,7 +1,7 @@
 # ROS2 Parameters for Audio Capturing Node
 # This file contains all the configurable parameters for the AudioCapturingNode
 
-audio_capturing_node:
+audio_capturing_automatic_device_node:
   ros__parameters:
     # Device Configuration
     device_name: "jabra"                    # Name or partial name of the audio input device to use
