@@ -7,7 +7,6 @@ import numpy as np
 import rclpy
 import torch
 from faster_whisper import WhisperModel
-from huggingface_hub import snapshot_download
 from rclpy.node import Node
 
 from hri_msgs.msg import AudioAndDeviceInfo, SpeechActivityDetection, SpeechResult, Vad
@@ -53,6 +52,40 @@ class ASRNode(Node):
             self.get_parameter("pre_buffer_duration").get_parameter_value().double_value
         )
 
+        self.possible_model_sizes = {
+            "tiny.en": "Systran/faster-whisper-tiny.en",
+            "tiny": "Systran/faster-whisper-tiny",
+            "base.en": "Systran/faster-whisper-base.en",
+            "base": "Systran/faster-whisper-base",
+            "small.en": "Systran/faster-whisper-small.en",
+            "small": "Systran/faster-whisper-small",
+            "medium.en": "Systran/faster-whisper-medium.en",
+            "medium": "Systran/faster-whisper-medium",
+            "large-v1": "Systran/faster-whisper-large-v1",
+            "large-v2": "Systran/faster-whisper-large-v2",
+            "large-v3": "Systran/faster-whisper-large-v3",
+            "large": "Systran/faster-whisper-large-v3",
+            "distil-large-v2": "Systran/faster-distil-whisper-large-v2",
+            "distil-medium.en": "Systran/faster-distil-whisper-medium.en",
+            "distil-small.en": "Systran/faster-distil-whisper-small.en",
+            "distil-large-v3": "Systran/faster-distil-whisper-large-v3",
+            "distil-large-v3.5": "distil-whisper/distil-large-v3.5-ct2",
+            "large-v3-turbo": "mobiuslabsgmbh/faster-whisper-large-v3-turbo",
+            "turbo": "mobiuslabsgmbh/faster-whisper-large-v3-turbo",
+        }
+
+        model_path = None
+
+        if self.model_size not in self.possible_model_sizes:
+            self.get_logger().error(
+                f"Invalid model_size parameter: {self.model_size}. Available models: {list(self.possible_model_sizes.keys())}"
+            )
+            raise ValueError(f"Invalid model_size: {self.model_size}")
+        else:
+            self.model_dir = self.possible_model_sizes[self.model_size]
+            # To load the model from local, we need to convert the directory name to the model path
+            model_path = "models--" + self.model_dir.replace("/", "--")
+
         # Device setup
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.get_logger().info(f"Using device: {self.device}")
@@ -71,13 +104,15 @@ class ASRNode(Node):
         # otherwise fall back to using the HF repo id with download_root.
         resolved_model_path = None
         for name in os.listdir(weights_dir):
-            if name.startswith("models--"):
-                snaps = os.path.join(weights_dir, name, "snapshots")
-                if os.path.isdir(snaps):
-                    # choose the first/most-recent snapshot folder
-                    entries = sorted(os.listdir(snaps), reverse=True)
-                    if entries:
-                        resolved_model_path = os.path.join(snaps, entries[0])
+            if name == model_path:
+                resolved_model_path = os.path.join(weights_dir, name)
+                self.get_logger().info(
+                    f"Found local snapshot for model: {resolved_model_path}"
+                )
+                # Walk through subdirectories to find the actual model folder (model.bin)
+                for root, _, files in os.walk(resolved_model_path):
+                    if "model.bin" in files:
+                        resolved_model_path = root
                         break
 
         if resolved_model_path and os.path.isdir(resolved_model_path):
