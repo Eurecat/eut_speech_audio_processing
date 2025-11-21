@@ -232,7 +232,9 @@ class DiarizationObserver(Observer):
             new_number_of_speakers = self.number_of_speakers + 1
             name = f"speaker{new_number_of_speakers}"
             self.db.save_speaker(name, embedding)
-            self.node.get_logger().info(f"Saved internal {speaker_id} as: {name} in MONGODB")
+            self.node.get_logger().info(
+                f"Saved internal {speaker_id} as: {name} in MONGODB"
+            )
             self.number_of_speakers = new_number_of_speakers
 
         self.node.get_logger().info("All embeddings saved to MongoDB")
