@@ -38,53 +38,7 @@ services:
       - 'c 180:* rwm'  # 180 is usb
       - 'c 189:* rwm' # 189 is usb_device
 
-    command: >
-      bash -c "source /workspace/install/setup.bash &&
-      exec ros2 launch audio_stream_manager audio_stream_manager.launch.py"
-
-
-  speech_recognition_service:
-    container_name: "speech_recognition"
-    network_mode: host
-    ipc: host
-    shm_size: 1gb
-    runtime: ${DOCKER_RUNTIME:-runc}
-    image: ${BUILT_IMAGE}
-    privileged: true
-    depends_on:
-      - mongodb_service
-    volumes:
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw
-      - ~/.xauth_docker/share/:/tmp/xauth/
-      - ./.vscode:/workspace/.vscode
-      - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
-      - ../src/audio_stream_manager_interfaces:/workspace/src/audio_stream_manager_interfaces
-      - ../src/speech_recognition:/workspace/src/speech_recognition
-      - /dev:/dev
-    tty: true
-    stdin_open: true
-    environment:
-      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}    
-      - NVIDIA_VISIBLE_DEVICES=all 
-      - NVIDIA_DRIVER_CAPABILITIES=all
-      - DISPLAY=$DISPLAY
-      - QT_X11_NO_MITSHM=1
-      - XAUTHORITY=/tmp/xauth/.docker.xauth     
-      - HF_TOKEN=${HF_TOKEN}
-
-    devices:
-      - /dev/dri:/dev/dri
-      - /dev/snd:/dev/snd
-      - /dev/bus/usb:/dev/bus/usb
-    device_cgroup_rules:
-      - 'c 180:* rwm'  # 180 is usb
-      - 'c 189:* rwm' # 189 is usb_device
-    
-    # Enable/disable components via launch file arguments:
-    # ros2 launch speech_recognition speech_recognition.launch.py enable_vad:=false enable_diarization:=false enable_asr:=false enable_wake_word:=false
-    command: >
-      bash -c "source /workspace/install/setup.bash &&
-      exec ros2 launch speech_recognition speech_recognition.launch.py enable_wake_word:=false"
+    command: sleep infinity
 
     stop_signal: SIGINT
     stop_grace_period: 30s

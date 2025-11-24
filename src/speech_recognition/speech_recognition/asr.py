@@ -17,7 +17,7 @@ class ASRNode(Node):
         super().__init__("asr_node")
 
         # Declare parameters
-        self.declare_parameter("model_size", "turbo")
+        self.declare_parameter("model_size", "turbo.en")
         self.declare_parameter("vad_threshold", 0.5)
         self.declare_parameter("min_silence_duration", 1.0)  # seconds
         self.declare_parameter("max_chunk_duration", 30.0)  # seconds
@@ -51,6 +51,8 @@ class ASRNode(Node):
         self.pre_buffer_duration = (
             self.get_parameter("pre_buffer_duration").get_parameter_value().double_value
         )
+
+        self.get_logger().info(f"Using VAD: {self.vad_threshold}")
 
         self.possible_model_sizes = {
             "tiny.en": "Systran/faster-whisper-tiny.en",
@@ -395,7 +397,7 @@ class ASRNode(Node):
                 audio_data,
                 vad_filter=True,
                 word_timestamps=False,
-                language="es",
+                language="en",
             )
 
             # Combine all segments into one transcript

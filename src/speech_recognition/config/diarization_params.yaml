@@ -12,4 +12,4 @@ diarization_node:
     embedding_model_name: "pyannote/embedding"        # Model name for speaker embedding
     
     # VAD Integration
-    vad_threshold: 0.5                       # VAD threshold for publishing speech activity
+    vad_threshold: 0.75                       # VAD threshold for publishing speech activity

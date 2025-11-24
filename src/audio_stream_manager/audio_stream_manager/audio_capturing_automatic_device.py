@@ -347,6 +347,12 @@ class AudioCapturingNode(Node):
             self.get_logger().warn(f"Stream status: {status}")
 
         rms = float(np.sqrt(np.mean(indata**2)))
+        self.get_logger().info(f"Audio buffer noise level (RMS): {rms:.6f}")       
+
+        if rms < 0.01:
+            #then make audio data FULLY silent
+            audio_data = np.zeros_like(audio_data)
+            self.get_logger().info("Audio data muted due to very low noise level (RMS < 0.01).")
 
         if rms >= 0:
             target_samplerate = (
