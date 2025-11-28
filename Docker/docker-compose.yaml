@@ -84,12 +84,15 @@ services:
     # ros2 launch speech_recognition speech_recognition.launch.py enable_vad:=false enable_diarization:=false enable_asr:=false enable_wake_word:=false
     command: >
       bash -c "source /workspace/install/setup.bash &&
-      exec ros2 launch speech_recognition speech_recognition.launch.py enable_wake_word:=false"
+      exec ros2 launch speech_recognition speech_recognition.launch.py"
 
     stop_signal: SIGINT
     stop_grace_period: 30s
 
-
+0.01:
+        #     #then make audio data FULLY silent
+        #     audio_data = np.zeros_like(audio_data)
+        #     self.get
   mongodb_service:
     image: mongo:7
     container_name: "mongodb"

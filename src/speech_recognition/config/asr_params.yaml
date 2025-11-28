@@ -4,7 +4,7 @@
 asr_node:
   ros__parameters:
     # Model Configuration
-    model_size: "turbo.en"                      # Whisper model size (tiny, base, small, medium, large, turbo)
+    model_size: "turbo"                      # Whisper model size (tiny, base, small, medium, large, turbo)
     
     # VAD and Speech Detection
     vad_threshold: 0.95                       # VAD probability threshold for speech detection

@@ -17,7 +17,7 @@ class ASRNode(Node):
         super().__init__("asr_node")
 
         # Declare parameters
-        self.declare_parameter("model_size", "turbo.en")
+        self.declare_parameter("model_size", "turbo")
         self.declare_parameter("vad_threshold", 0.5)
         self.declare_parameter("min_silence_duration", 1.0)  # seconds
         self.declare_parameter("max_chunk_duration", 30.0)  # seconds
@@ -136,7 +136,9 @@ class ASRNode(Node):
                 compute_type="float32",
                 download_root=weights_dir,
             )
-        self.get_logger().info(f"Model {self.model_size} loaded.")
+        green = "\033[92m"
+        reset = "\033[0m"
+        self.get_logger().info(f"{green}Model {self.model_size} loaded.{reset}")
 
         # Audio processing variables
         self.sample_rate = None
@@ -418,8 +420,11 @@ class ASRNode(Node):
                 )
 
                 self.asr_pub.publish(asr_msg)
+                # Print info log in yellow color
+                yellow = "\033[93m"
+                reset = "\033[0m"
                 self.get_logger().info(
-                    f"Published transcript: '{transcript}' (lang: {asr_msg.language_code}, conf: {asr_msg.transcript_confidence:.2f})"
+                    f"{yellow}Published transcript: '{transcript}' (lang: {asr_msg.language_code}, conf: {asr_msg.transcript_confidence:.2f}){reset}"
                 )
             else:
                 self.get_logger().info("Empty transcript, not publishing")

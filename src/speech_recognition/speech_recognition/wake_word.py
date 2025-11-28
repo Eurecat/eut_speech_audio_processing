@@ -122,7 +122,7 @@ class WakeWordDetectorNode(Node):
 
             # Load all models at once - OpenWakeWord Model can handle multiple ONNX files
             self.oww_model = Model(wakeword_model_paths=valid_model_paths)
-            self.get_logger().info(f"OpenWakeWord model loaded successfully with {len(valid_model_paths)} ONNX models")
+            self.get_logger().info("\033[92mOpenWakeWord model loaded successfully with {} ONNX models\033[0m".format(len(valid_model_paths)))
             
         except Exception as e:
             self.get_logger().error(f"Failed to load OpenWakeWord models: {e}")
