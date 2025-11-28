@@ -789,6 +789,10 @@ class DiarizationNode(Node):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.get_logger().info(f"Using device: {self.device}")
 
+        # Add ANSI color helpers for logging
+        self._COLOR_GREEN = "\033[92m"
+        self._COLOR_RESET = "\033[0m"
+
         # Speaker tracking
         self.diart_to_eut_mapping = {}  # Maps DIART speaker IDs to EUT speaker IDs
         self.next_eut_speaker_id = 1
@@ -827,43 +831,71 @@ class DiarizationNode(Node):
                 self.chunk_size = int(self.device_samplerate * self.chunk_duration)
                 self.overlap_size = int(self.device_samplerate * self.overlap_duration)
 
-                self.get_logger().info("Loading segmentation and embedding models.")
-                # Get Hugging Face token from environment variable or set it here
+                # Enhanced step-by-step logging for model loading
+                self.get_logger().info("[Diarization] Starting model initialization sequence")
+                self.get_logger().info(
+                    f"[Diarization] Segmentation model name: {self.segmentation_model_name}"
+                )
+                self.get_logger().info(
+                    f"[Diarization] Embedding model name: {self.embedding_model_name}"
+                )
+                self.get_logger().info("[Diarization] Retrieving HuggingFace token from env")
                 import os
-
                 hf_token = os.environ.get("HF_TOKEN", None)
                 if hf_token is None:
                     self.get_logger().warn(
-                        "No Hugging Face token found in environment variable HF_TOKEN. Public models may work, but private/gated models will fail."
+                        "[Diarization] No HF_TOKEN found. Public models ok; gated models will fail."
                     )
+                else:
+                    self.get_logger().info("[Diarization] HuggingFace token detected")
 
-                # Load segmentation and embedding models
+                # Load segmentation model
+                self.get_logger().info("[Diarization] Loading segmentation model ...")
                 segmentation = m.SegmentationModel.from_pretrained(
                     self.segmentation_model_name, use_hf_token=hf_token
                 )
+                self.get_logger().info(
+                    f"[Diarization] Segmentation model loaded: {type(segmentation).__name__}"
+                )
+
+                # Load embedding model
+                self.get_logger().info("[Diarization] Loading embedding model ...")
                 embedding = m.EmbeddingModel.from_pretrained(
                     self.embedding_model_name, use_hf_token=hf_token
+                )
+                self.get_logger().info(
+                    f"[Diarization] Embedding model loaded: {type(embedding).__name__}"
                 )
 
                 # Calculate step size to align with block duration
                 step_duration = 0.5  # Match with ROSAudioSource block_duration
+                self.get_logger().info(
+                    f"[Diarization] Using streaming step duration: {step_duration}s"
+                )
 
+                # Build config
+                self.get_logger().info("[Diarization] Building SpeakerDiarizationConfig ...")
                 self.config = SpeakerDiarizationConfig(
                     segmentation=segmentation,
                     embedding=embedding,
                     device=self.device,
                     sample_rate=int(self.device_samplerate),
                     duration=self.chunk_duration,
-                    step=step_duration,  # Align with audio source block duration
-                    tau_active=0.7,  # Lower threshold for speaker activity detection
-                    delta_new=0.90,  # Lower threshold for new speaker detection
-                    # gamma=3.0,  # Scale for speaker change detection
-                    # beta=10.0,  # Beta parameter for speaker change
-                    max_speakers=10,  # Maximum number of speakers
+                    step=step_duration,
+                    tau_active=0.7,
+                    delta_new=0.90,
+                    # gamma=3.0, #Scale for speaker change detection
+                    # beta=10.0, #Beta parameter for speaker change
+                    max_speakers=10,
                 )
+                self.get_logger().info("[Diarization] Config object created")
 
-                # Load pre-trained diarization model
+                # Instantiate pipeline
+                self.get_logger().info("[Diarization] Instantiating SpeakerDiarization pipeline ...")
                 self.model = SpeakerDiarization(self.config)
+                self.get_logger().info(
+                    f"{self._COLOR_GREEN}[Diarization] Pipeline instantiated: {type(self.model).__name__}{self._COLOR_RESET}"
+                )
 
                 # Create custom ROS audio source with aligned block duration
                 try:
@@ -881,17 +913,12 @@ class DiarizationNode(Node):
                     )
                     return
 
-                # Mark device info as received
+                # Mark device info as received and start thread
                 self.device_info_received = True
-
-                # Start diarization in a separate thread
-                self.diarization_procedure = threading.Thread(
-                    target=self.run_diarization
-                )
+                self.diarization_procedure = threading.Thread(target=self.run_diarization)
                 self.diarization_procedure.daemon = True
                 self.diarization_procedure.start()
-
-                self.get_logger().debug("Diarization system initialized and started")
+                self.get_logger().info("Diarization system initialized and started")
 
             except Exception as e:
                 self.get_logger().error(f"Failed to initialize diarization: {e}")
