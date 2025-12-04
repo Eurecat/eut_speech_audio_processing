@@ -3,3 +3,7 @@ repositories:
     type: git
     url: https://github.com/Eurecat/hri_msgs.git
     version: jazzy-devel
+  audio_common:
+    type: git
+    url: https://github.com/ros-drivers/audio_common.git
+    version: ros2

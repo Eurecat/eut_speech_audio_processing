@@ -37,6 +37,9 @@ def _setup(context, *args, **kwargs):
     enable_asr = LaunchConfiguration("enable_asr").perform(context)
     diarization_delay = float(LaunchConfiguration("diarization_delay").perform(context))
     asr_delay = float(LaunchConfiguration("asr_delay").perform(context))
+    
+    # Get ros4hri_with_id parameter
+    ros4hri_with_id = LaunchConfiguration('ros4hri_with_id').perform(context).lower() == 'true'
 
     # Get package config directory
     config_dir = get_package_share_directory("speech_recognition")
@@ -46,6 +49,7 @@ def _setup(context, *args, **kwargs):
     log_messages = []
 
     # VAD Node Setup
+
     if enable_vad.lower() == "true":
         site_pkgs_vad = _venv_site_packages(VENV_PATH_DEFAULT)
         existing = os.environ.get("PYTHONPATH", "")
@@ -155,6 +159,7 @@ def _setup(context, *args, **kwargs):
                 LogInfo(
                     msg=f"[speech_recognition] Diarization: Will start with {diarization_delay} second delay"
                 ),
+                LogInfo(msg=f"[speech_recognition] Diarization: ROS4HRI with ID: {'enabled' if ros4hri_with_id else 'disabled'}"),
             ]
         )
 
@@ -169,7 +174,7 @@ def _setup(context, *args, **kwargs):
                         executable="diarization_node",
                         name="diarization_node",
                         output="screen",
-                        parameters=[diarization_config_file],
+                        parameters=[diarization_config_file, {'ros4hri_with_id': ros4hri_with_id}],
                         condition=IfCondition(
                             LaunchConfiguration("enable_diarization")
                         ),
@@ -201,6 +206,7 @@ def _setup(context, *args, **kwargs):
                 LogInfo(
                     msg=f"[speech_recognition] ASR: Will start with {asr_delay} second delay"
                 ),
+                LogInfo(msg=f"[speech_recognition] ASR: ROS4HRI with ID: {'enabled' if ros4hri_with_id else 'disabled'}"),
             ]
         )
 
@@ -215,7 +221,7 @@ def _setup(context, *args, **kwargs):
                         executable="asr_node",
                         name="asr_node",
                         output="screen",
-                        parameters=[asr_config_file],
+                        parameters=[asr_config_file, {'ros4hri_with_id': ros4hri_with_id}],
                         condition=IfCondition(LaunchConfiguration("enable_asr")),
                     ),
                 ],
@@ -261,6 +267,11 @@ def generate_launch_description():
                 "asr_delay",
                 default_value="8.0",
                 description="Delay (seconds)",
+            ),
+            DeclareLaunchArgument(
+                "ros4hri_with_id",
+                default_value="true",
+                description="Enable ROS4HRI standard publishing with ID approach",
             ),
             # Add informational log message
             LogInfo(msg="[speech_recognition] Starting Speech Recognition Suite"),

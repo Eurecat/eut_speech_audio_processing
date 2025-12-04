@@ -48,6 +48,8 @@ RUN apt-get update && \
  
 # Copy necessary files to the workspace
 COPY deps/hri_msgs /workspace/src/hri_msgs
+# Copy only audio_common_msgs from audio_common repository
+COPY deps/audio_common/audio_common_msgs /workspace/src/audio_common_msgs
 # COPY deps/eut_yolo/src/eut_yolo_core /workspace/src/eut_yolo_core
 # COPY deps/eut_yolo/src/eut_yolo_interfaces /workspace/src/eut_yolo_interfaces
 

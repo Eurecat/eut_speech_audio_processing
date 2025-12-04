@@ -31,6 +31,9 @@ def _setup(context, *args, **kwargs):
     # Get debug parameter
     enable_debug = LaunchConfiguration('enable_debug_output').perform(context).lower() == 'true'
     
+    # Get ros4hri_with_id parameter
+    ros4hri_with_id = LaunchConfiguration('ros4hri_with_id').perform(context).lower() == 'true'
+    
     # Prepare arguments - add debug log level if debug output is enabled
     node_arguments = []
     if enable_debug:
@@ -42,13 +45,14 @@ def _setup(context, *args, **kwargs):
         LogInfo(msg=f"[speech_recognition] Injecting site-packages: {site_pkgs}"),
         LogInfo(msg=f"[speech_recognition] Loading Diarization config from: {config_file}"),
         LogInfo(msg=f"[speech_recognition] Debug logging: {'enabled' if enable_debug else 'disabled'}"),
+        LogInfo(msg=f"[speech_recognition] ROS4HRI with ID: {'enabled' if ros4hri_with_id else 'disabled'}"),
         SetEnvironmentVariable("PYTHONPATH", new_py_path),
         Node(
             package="speech_recognition",
             executable="diarization_node",
             name="diarization_node",
             output="screen",
-            parameters=[config_file],
+            parameters=[config_file, {'ros4hri_with_id': ros4hri_with_id}],
             arguments=node_arguments,
         ),
     ]
@@ -60,6 +64,11 @@ def generate_launch_description():
             'enable_debug_output',
             default_value='false',
             description='Enable debug logging output for diarization node'
+        ),
+        DeclareLaunchArgument(
+            'ros4hri_with_id',
+            default_value='true',
+            description='Enable ROS4HRI standard publishing with ID approach'
         ),
         OpaqueFunction(function=_setup)
     ])

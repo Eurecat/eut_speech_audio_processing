@@ -9,7 +9,7 @@ import torch
 from faster_whisper import WhisperModel
 from rclpy.node import Node
 
-from hri_msgs.msg import AudioAndDeviceInfo, SpeechActivityDetection, SpeechResult, Vad
+from hri_msgs.msg import AudioAndDeviceInfo, SpeechActivityDetection, SpeechResult, Vad, LiveSpeech
 
 
 class ASRNode(Node):
@@ -27,6 +27,7 @@ class ASRNode(Node):
         self.declare_parameter(
             "pre_buffer_duration", 0.3
         )  # seconds of audio to prepend
+        self.declare_parameter("ros4hri_with_id", True)
 
         # Get parameter values
         self.model_size = (
@@ -50,6 +51,9 @@ class ASRNode(Node):
         )
         self.pre_buffer_duration = (
             self.get_parameter("pre_buffer_duration").get_parameter_value().double_value
+        )
+        self.ros4hri_enabled = (
+            self.get_parameter("ros4hri_with_id").get_parameter_value().bool_value
         )
 
         self.get_logger().info(f"Using VAD: {self.vad_threshold}")
@@ -180,6 +184,9 @@ class ASRNode(Node):
 
         # Publishers
         self.asr_pub = self.create_publisher(SpeechResult, "speech_result", 10)
+        
+        # ROS4HRI Publishers
+        self.voice_publishers = {} # Map speaker_id to dict of publishers
 
         self.get_logger().info("ASR Node initialized, waiting for audio...")
 
@@ -262,6 +269,13 @@ class ASRNode(Node):
     def speech_activity_callback(self, msg: SpeechActivityDetection):
         """Process speech activity detection results"""
         self.speaker_id = msg.speaker_id
+        
+        # Create speech publisher for ROS4HRI when a new speaker is detected
+        if self.ros4hri_enabled and self.speaker_id and self.speaker_id != "unknown":
+            if self.speaker_id not in self.voice_publishers:
+                topic = f"/humans/voices/{self.speaker_id}/speech"
+                self.voice_publishers[self.speaker_id] = self.create_publisher(LiveSpeech, topic, 10)
+                self.get_logger().debug(f"Created speech publisher for speaker: {self.speaker_id}")
 
     def _process_speech_end(self):
         """Process speech when VAD goes from on to off"""
@@ -418,8 +432,17 @@ class ASRNode(Node):
                 asr_msg.language_code = (
                     info.language if hasattr(info, "language") else "unknown"
                 )
+                # Set default confidence since faster-whisper might not return per-transcript confidence easily aggregated
+                # Or we can take average of segment avg_logprob converted to prob, but 0.0 is consistent with existing code
+                asr_msg.transcript_confidence = 0.0 
+                asr_msg.speaker_id_confidence = 0.0
 
                 self.asr_pub.publish(asr_msg)
+
+                # Handle ROS4HRI LiveSpeech
+                if self.ros4hri_enabled and asr_msg.speaker_id and asr_msg.speaker_id != "unknown":
+                    self._publish_ros4hri_speech(asr_msg.speaker_id, transcript, asr_msg.language_code)
+
                 # Print info log in yellow color
                 yellow = "\033[93m"
                 reset = "\033[0m"
@@ -435,6 +458,22 @@ class ASRNode(Node):
         # Reset speech timing
         self.speech_start_time = 0.0
         self.last_silence_time = 0.0
+
+    def _publish_ros4hri_speech(self, speaker_id, transcript, language_code):
+        """Publish LiveSpeech message for ROS4HRI"""
+        # Ensure publisher exists
+        if speaker_id not in self.voice_publishers:
+            topic = f"/humans/voices/{speaker_id}/speech"
+            self.voice_publishers[speaker_id] = self.create_publisher(LiveSpeech, topic, 10)
+        
+        msg = LiveSpeech()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.final = transcript
+        msg.incremental = "" # We only have final result here
+        msg.confidence = 0.0 # Placeholder
+        msg.locale = language_code # Using language code as locale for now
+        
+        self.voice_publishers[speaker_id].publish(msg)
 
     def destroy_node(self):
         """Clean up resources when the node is destroyed"""

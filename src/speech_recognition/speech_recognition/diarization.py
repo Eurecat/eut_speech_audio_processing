@@ -33,7 +33,9 @@ import rclpy
 import torch
 from diart import SpeakerDiarization, SpeakerDiarizationConfig
 from diart.inference import StreamingInference
-from hri_msgs.msg import AudioAndDeviceInfo, SpeechActivityDetection, Vad
+from hri_msgs.msg import AudioAndDeviceInfo, SpeechActivityDetection, Vad, IdsList
+from audio_common_msgs.msg import AudioData
+from std_msgs.msg import Bool
 from pyannote.core import Annotation
 from rclpy.node import Node
 from rx.core.observer.observer import Observer
@@ -81,6 +83,10 @@ class DiarizationObserver(Observer):
             self.node.get_logger().info(
                 "Database disabled - using session-only speaker tracking"
             )
+        
+        # ROS4HRI tracking with ID approach
+        self.ros4hri_enabled = self.node.ros4hri_enabled
+        self.active_voices = set() # Set of currently active EUT speaker IDs
 
         # Store embeddings in memory to save on shutdown
         self.pending_embeddings = {}  # Maps DIART speaker ID to embedding
@@ -409,7 +415,7 @@ class DiarizationObserver(Observer):
                     self.node.get_logger().debug(
                         f"Processing {len(pipeline_embeddings)} embeddings..."
                     )
-                    self._process_embeddings(pipeline_embeddings, current_diart_speaker)
+                    self._process_embeddings(pipeline_embeddings, current_diart_speaker, active_diart_speakers)
                 else:
                     self.node.get_logger().warn("No embeddings extracted from pipeline")
             except Exception as ex:
@@ -425,7 +431,7 @@ class DiarizationObserver(Observer):
         if self.db:
             self.db.close()
 
-    def _process_embeddings(self, pipeline_embeddings: Dict, current_diart_speaker):
+    def _process_embeddings(self, pipeline_embeddings: Dict, current_diart_speaker, active_diart_speakers: set):
         """
         Process embeddings extracted from the pipeline.
         Store them in memory to be saved on shutdown instead of saving immediately.
@@ -586,7 +592,69 @@ class DiarizationObserver(Observer):
         self.node.get_logger().info(
             f"Final eut_speaker_id value: {self.node.eut_speaker_id}"
         )
+
+        if self.ros4hri_enabled:
+            self._handle_ros4hri_publishing(active_diart_speakers)
+
         self.node.get_logger().debug("*" * 80)
+
+    def _handle_ros4hri_publishing(self, active_diart_speakers):
+        """Handle ROS4HRI standard publishing for voices"""
+        current_eut_speakers = set()
+        current_ros4hri_ids = set()  # IDs without EUT_ prefix for ROS4HRI
+        
+        # Map active DIART speakers to EUT speakers
+        for d_speaker in active_diart_speakers:
+            if d_speaker in self.diart_to_eut_mapping:
+                eut_id = self.diart_to_eut_mapping[d_speaker]
+                current_eut_speakers.add(eut_id)
+                # Remove EUT_ prefix for ROS4HRI standard
+                ros4hri_id = eut_id.replace("EUT_", "")
+                current_ros4hri_ids.add(ros4hri_id)
+        
+        # Publish tracked voices list (without EUT_ prefix)
+        ids_msg = IdsList()
+        ids_msg.header.stamp = self.node.get_clock().now().to_msg()
+        ids_msg.ids = list(current_ros4hri_ids)
+        self.node.ids_pub.publish(ids_msg)
+        
+        # Handle individual voice publishers
+        for eut_id in current_eut_speakers:
+            # Remove EUT_ prefix for ROS4HRI topic names
+            ros4hri_id = eut_id.replace("EUT_", "")
+            
+            # Create publishers if they don't exist (using ros4hri_id for topics)
+            if ros4hri_id not in self.node.voice_publishers:
+                self.node.create_voice_publishers(ros4hri_id)
+            
+            # Publish is_speaking = True
+            bool_msg = Bool()
+            bool_msg.data = True
+            self.node.voice_publishers[ros4hri_id]['is_speaking'].publish(bool_msg)
+            
+            # Publish audio
+            # Get last emitted block from source
+            if self.node.source and self.node.source.last_emitted_block is not None:
+                audio_data = self.node.source.last_emitted_block
+                
+                # Convert float32 audio to int16 for AudioData (assuming standard PCM)
+                # Float32 is usually -1.0 to 1.0
+                audio_int16 = (audio_data * 32767).clip(-32768, 32767).astype(np.int16)
+                
+                audio_msg = AudioData()
+                audio_msg.data = audio_int16.tobytes()
+                self.node.voice_publishers[ros4hri_id]['audio'].publish(audio_msg)
+        
+        # Handle voices that stopped speaking
+        for eut_id in self.active_voices:
+            if eut_id not in current_eut_speakers:
+                ros4hri_id = eut_id.replace("EUT_", "")
+                if ros4hri_id in self.node.voice_publishers:
+                    bool_msg = Bool()
+                    bool_msg.data = False
+                    self.node.voice_publishers[ros4hri_id]['is_speaking'].publish(bool_msg)
+        
+        self.active_voices = current_eut_speakers
 
     def _save_pending_embeddings(self):
         """Save all pending embeddings to the database. Called on node shutdown.
@@ -717,6 +785,9 @@ class DiarizationNode(Node):
         self.declare_parameter(
             "use_database", True
         )  # Whether to use the database for speaker tracking
+        self.declare_parameter(
+            "ros4hri_with_id", True
+        ) # Enable ROS4HRI standard publishing with ID approach
 
         # Get parameter values
         self.chunk_duration = (
@@ -737,6 +808,9 @@ class DiarizationNode(Node):
         )
         self.use_database = (
             self.get_parameter("use_database").get_parameter_value().bool_value
+        )
+        self.ros4hri_enabled = (
+            self.get_parameter("ros4hri_with_id").get_parameter_value().bool_value
         )
 
         # Initialize device info
@@ -785,6 +859,11 @@ class DiarizationNode(Node):
             SpeechActivityDetection, "speech_activity_detection", 10
         )
 
+        # ROS4HRI Publishers
+        self.voice_publishers = {} # Map eut_id to dict of publishers
+        if self.ros4hri_enabled:
+            self.ids_pub = self.create_publisher(IdsList, "/humans/voices/tracked", 1)
+
         # Select device (CPU or GPU)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.get_logger().info(f"Using device: {self.device}")
@@ -805,6 +884,17 @@ class DiarizationNode(Node):
         self.get_logger().info(
             "Diarization node initialized, waiting for device and VAD info..."
         )
+
+    def create_voice_publishers(self, voice_id):
+        """Create publishers for a specific voice ID"""
+        base_topic = f"/humans/voices/{voice_id}"
+        self.voice_publishers[voice_id] = {
+            'audio': self.create_publisher(AudioData, f"{base_topic}/audio", 10),
+            'is_speaking': self.create_publisher(Bool, f"{base_topic}/is_speaking", 10),
+            # Note: 'speech' publisher is created in ASR node when needed
+            # 'features': TODO
+        }
+        self.get_logger().info(f"Created ROS4HRI publishers for {voice_id}")
 
     def audio_and_device_info_callback(self, msg: AudioAndDeviceInfo):
         """Callback for audio device info updates"""
