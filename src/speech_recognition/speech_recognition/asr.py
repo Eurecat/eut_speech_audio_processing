@@ -28,6 +28,8 @@ class ASRNode(Node):
             "pre_buffer_duration", 0.3
         )  # seconds of audio to prepend
         self.declare_parameter("ros4hri_with_id", True)
+        self.declare_parameter("cleanup_inactive_topics", False)
+        self.declare_parameter("inactive_topic_timeout", 10.0)
 
         # Get parameter values
         self.model_size = (
@@ -54,6 +56,12 @@ class ASRNode(Node):
         )
         self.ros4hri_enabled = (
             self.get_parameter("ros4hri_with_id").get_parameter_value().bool_value
+        )
+        self.cleanup_inactive_topics = (
+            self.get_parameter("cleanup_inactive_topics").get_parameter_value().bool_value
+        )
+        self.inactive_topic_timeout = (
+            self.get_parameter("inactive_topic_timeout").get_parameter_value().double_value
         )
 
         self.get_logger().info(f"Using VAD: {self.vad_threshold}")
@@ -187,8 +195,31 @@ class ASRNode(Node):
         
         # ROS4HRI Publishers
         self.voice_publishers = {} # Map speaker_id to dict of publishers
+        self.voice_publishers_activity = {} # Map speaker_id to last activity timestamp
+
+        # Cleanup timer
+        if self.cleanup_inactive_topics:
+            self.create_timer(1.0, self.cleanup_topics_callback)
+            self.get_logger().info(f"Topic cleanup enabled with timeout: {self.inactive_topic_timeout}s")
 
         self.get_logger().info("ASR Node initialized, waiting for audio...")
+
+    def cleanup_topics_callback(self):
+        """Check for inactive topics and destroy them"""
+        current_time = time.time()
+        speakers_to_remove = []
+
+        for speaker_id, last_active in self.voice_publishers_activity.items():
+            if current_time - last_active > self.inactive_topic_timeout:
+                speakers_to_remove.append(speaker_id)
+
+        for speaker_id in speakers_to_remove:
+            self.get_logger().info(f"Destroying inactive publishers for {speaker_id}")
+            if speaker_id in self.voice_publishers:
+                self.destroy_publisher(self.voice_publishers[speaker_id])
+                del self.voice_publishers[speaker_id]
+            
+            del self.voice_publishers_activity[speaker_id]
 
     def audio_and_device_info_callback(self, msg: AudioAndDeviceInfo):
         """Process incoming audio data"""
@@ -276,6 +307,7 @@ class ASRNode(Node):
                 topic = f"/humans/voices/{self.speaker_id}/speech"
                 self.voice_publishers[self.speaker_id] = self.create_publisher(LiveSpeech, topic, 10)
                 self.get_logger().debug(f"Created speech publisher for speaker: {self.speaker_id}")
+            self.voice_publishers_activity[self.speaker_id] = time.time()
 
     def _process_speech_end(self):
         """Process speech when VAD goes from on to off"""
@@ -465,6 +497,8 @@ class ASRNode(Node):
         if speaker_id not in self.voice_publishers:
             topic = f"/humans/voices/{speaker_id}/speech"
             self.voice_publishers[speaker_id] = self.create_publisher(LiveSpeech, topic, 10)
+        
+        self.voice_publishers_activity[speaker_id] = time.time()
         
         msg = LiveSpeech()
         msg.header.stamp = self.get_clock().now().to_msg()

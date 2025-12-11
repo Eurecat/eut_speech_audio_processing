@@ -40,6 +40,8 @@ def _setup(context, *args, **kwargs):
     
     # Get ros4hri_with_id parameter
     ros4hri_with_id = LaunchConfiguration('ros4hri_with_id').perform(context).lower() == 'true'
+    cleanup_inactive_topics = LaunchConfiguration('cleanup_inactive_topics').perform(context).lower() == 'true'
+    inactive_topic_timeout = float(LaunchConfiguration('inactive_topic_timeout').perform(context))
 
     # Get package config directory
     config_dir = get_package_share_directory("speech_recognition")
@@ -174,7 +176,11 @@ def _setup(context, *args, **kwargs):
                         executable="diarization_node",
                         name="diarization_node",
                         output="screen",
-                        parameters=[diarization_config_file, {'ros4hri_with_id': ros4hri_with_id}],
+                        parameters=[diarization_config_file, {
+                            'ros4hri_with_id': ros4hri_with_id,
+                            'cleanup_inactive_topics': cleanup_inactive_topics,
+                            'inactive_topic_timeout': inactive_topic_timeout
+                        }],
                         condition=IfCondition(
                             LaunchConfiguration("enable_diarization")
                         ),
@@ -221,7 +227,11 @@ def _setup(context, *args, **kwargs):
                         executable="asr_node",
                         name="asr_node",
                         output="screen",
-                        parameters=[asr_config_file, {'ros4hri_with_id': ros4hri_with_id}],
+                        parameters=[asr_config_file, {
+                            'ros4hri_with_id': ros4hri_with_id,
+                            'cleanup_inactive_topics': cleanup_inactive_topics,
+                            'inactive_topic_timeout': inactive_topic_timeout
+                        }],
                         condition=IfCondition(LaunchConfiguration("enable_asr")),
                     ),
                 ],
@@ -272,6 +282,16 @@ def generate_launch_description():
                 "ros4hri_with_id",
                 default_value="false",
                 description="Enable ROS4HRI standard publishing with ID approach",
+            ),
+            DeclareLaunchArgument(
+                "cleanup_inactive_topics",
+                default_value="false",
+                description="Destroy topics for inactive speakers/voices",
+            ),
+            DeclareLaunchArgument(
+                "inactive_topic_timeout",
+                default_value="10.0",
+                description="Timeout in seconds before destroying inactive topics",
             ),
             # Add informational log message
             LogInfo(msg="[speech_recognition] Starting Speech Recognition Suite"),

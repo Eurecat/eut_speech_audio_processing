@@ -66,18 +66,25 @@ class DiarizationObserver(Observer):
 
         # Data base variables - only initialize if enabled
         if self.use_database:
-            self.db = DataBaseManager()
-            self.number_of_speakers = self.db.number_speakers()
-            # Initialize highest_eut_speaker_number from database
-            self.highest_eut_speaker_number = self.number_of_speakers
-            self.next_eut_speaker_id = self.number_of_speakers + 1
-            self.node.get_logger().info(
-                f"Database enabled - {self.number_of_speakers} speakers loaded"
-            )
-            self.node.get_logger().info(
-                f"Highest EUT speaker number initialized to: {self.highest_eut_speaker_number}"
-            )
-        else:
+            try:
+                self.db = DataBaseManager()
+                self.number_of_speakers = self.db.number_speakers()
+                # Initialize highest_eut_speaker_number from database
+                self.highest_eut_speaker_number = self.number_of_speakers
+                self.next_eut_speaker_id = self.number_of_speakers + 1
+                self.node.get_logger().info(
+                    f"Database enabled - {self.number_of_speakers} speakers loaded"
+                )
+                self.node.get_logger().info(
+                    f"Highest EUT speaker number initialized to: {self.highest_eut_speaker_number}"
+                )
+            except Exception as e:
+                self.node.get_logger().warn(f"Failed to connect to database: {e}")
+                self.node.get_logger().warn("Disabling database usage and falling back to session-only tracking.")
+                self.use_database = False
+                self.db = None
+
+        if not self.use_database:
             self.db = None
             self.number_of_speakers = 0
             self.node.get_logger().info(
@@ -627,6 +634,9 @@ class DiarizationObserver(Observer):
             if ros4hri_id not in self.node.voice_publishers:
                 self.node.create_voice_publishers(ros4hri_id)
             
+            # Update activity timestamp
+            self.node.voice_publishers_activity[ros4hri_id] = time.time()
+
             # Publish is_speaking = True
             bool_msg = Bool()
             bool_msg.data = True
@@ -653,6 +663,8 @@ class DiarizationObserver(Observer):
                     bool_msg = Bool()
                     bool_msg.data = False
                     self.node.voice_publishers[ros4hri_id]['is_speaking'].publish(bool_msg)
+                    # Update activity timestamp
+                    self.node.voice_publishers_activity[ros4hri_id] = time.time()
         
         self.active_voices = current_eut_speakers
 
@@ -788,6 +800,8 @@ class DiarizationNode(Node):
         self.declare_parameter(
             "ros4hri_with_id", True
         ) # Enable ROS4HRI standard publishing with ID approach
+        self.declare_parameter("cleanup_inactive_topics", False)
+        self.declare_parameter("inactive_topic_timeout", 10.0)
 
         # Get parameter values
         self.chunk_duration = (
@@ -811,6 +825,12 @@ class DiarizationNode(Node):
         )
         self.ros4hri_enabled = (
             self.get_parameter("ros4hri_with_id").get_parameter_value().bool_value
+        )
+        self.cleanup_inactive_topics = (
+            self.get_parameter("cleanup_inactive_topics").get_parameter_value().bool_value
+        )
+        self.inactive_topic_timeout = (
+            self.get_parameter("inactive_topic_timeout").get_parameter_value().double_value
         )
 
         # Initialize device info
@@ -861,8 +881,14 @@ class DiarizationNode(Node):
 
         # ROS4HRI Publishers
         self.voice_publishers = {} # Map eut_id to dict of publishers
+        self.voice_publishers_activity = {} # Map eut_id to last activity timestamp
         if self.ros4hri_enabled:
             self.ids_pub = self.create_publisher(IdsList, "/humans/voices/tracked", 1)
+        
+        # Cleanup timer
+        if self.cleanup_inactive_topics:
+            self.create_timer(1.0, self.cleanup_topics_callback)
+            self.get_logger().info(f"Topic cleanup enabled with timeout: {self.inactive_topic_timeout}s")
 
         # Select device (CPU or GPU)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -894,7 +920,27 @@ class DiarizationNode(Node):
             # Note: 'speech' publisher is created in ASR node when needed
             # 'features': TODO
         }
+        self.voice_publishers_activity[voice_id] = time.time()
         self.get_logger().info(f"Created ROS4HRI publishers for {voice_id}")
+
+    def cleanup_topics_callback(self):
+        """Check for inactive topics and destroy them"""
+        current_time = time.time()
+        speakers_to_remove = []
+
+        for voice_id, last_active in self.voice_publishers_activity.items():
+            if current_time - last_active > self.inactive_topic_timeout:
+                speakers_to_remove.append(voice_id)
+
+        for voice_id in speakers_to_remove:
+            self.get_logger().info(f"Destroying inactive publishers for {voice_id}")
+            if voice_id in self.voice_publishers:
+                publishers = self.voice_publishers[voice_id]
+                for pub in publishers.values():
+                    self.destroy_publisher(pub)
+                del self.voice_publishers[voice_id]
+            
+            del self.voice_publishers_activity[voice_id]
 
     def audio_and_device_info_callback(self, msg: AudioAndDeviceInfo):
         """Callback for audio device info updates"""
