@@ -270,7 +270,7 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument(
                 "ros4hri_with_id",
-                default_value="true",
+                default_value="false",
                 description="Enable ROS4HRI standard publishing with ID approach",
             ),
             # Add informational log message

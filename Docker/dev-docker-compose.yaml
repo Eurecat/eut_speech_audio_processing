@@ -1,36 +1,35 @@
 name: coghri_audio_dev
 
 services:
-  audio_device_manager_service:
-    container_name: "audio_device_manager"
-    network_mode: host
+  eut_audio_dev:
+    container_name: "eut_audio_dev"
+    network_mode: host 
     ipc: host
     shm_size: 1gb
     runtime: ${DOCKER_RUNTIME:-runc}
     image: ${BUILT_IMAGE}
     privileged: true
-    depends_on:
-      - mongodb_service
+    # user: "coghri"  # User will be created in the entrypoint script
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - ~/.xauth_docker/share/:/tmp/xauth/
       - ./.vscode:/workspace/.vscode
       - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
-      - ../src/audio_stream_manager_interfaces:/workspace/src/audio_stream_manager_interfaces
       - ../src/speech_recognition:/workspace/src/speech_recognition
-      - ../src/speech_recognition/speech_recognition/weights_pyannote:/root/.cache/torch/pyannote:rw
       - /dev:/dev
     tty: true
     stdin_open: true
     environment:
-      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}    
+      # - USER_ID=${USER_ID}
+      # - GROUP_ID=${GROUP_ID}
+      # - USERNAME=${USERNAME}
       - NVIDIA_VISIBLE_DEVICES=all 
       - NVIDIA_DRIVER_CAPABILITIES=all
       - DISPLAY=$DISPLAY
       - QT_X11_NO_MITSHM=1
       - XAUTHORITY=/tmp/xauth/.docker.xauth     
       - HF_TOKEN=${HF_TOKEN}      
-      - TORCH_HOME=/root/.cache/torch
+
     devices:
       - /dev/dri:/dev/dri
       - /dev/snd:/dev/snd
@@ -39,27 +38,10 @@ services:
       - 'c 180:* rwm'  # 180 is usb
       - 'c 189:* rwm' # 189 is usb_device
 
-    command: sleep infinity
-
-    stop_signal: SIGINT
-    stop_grace_period: 30s
-
-
-  mongodb_service:
-    image: mongo:7
-    container_name: "mongodb"
-    restart: unless-stopped
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/data/db
-    environment:
-      - MONGODB_INITDB_ROOT_USERNAME=eurecat
-      - MONGODB_INITDB_ROOT_PASSWORD=cerdanyola
-    stop_signal: SIGTERM
-    stop_grace_period: 60s
-
-volumes:
-  mongodb_data:
-    name: coghri_speakers_mongodb_data
-    driver: local
+    # cap_add:
+    #   - NET_RAW
+    #   - NET_ADMIN
+    # security_opt:
+    #   - seccomp:unconfined
+    command: bash -c "source /workspace/install/setup.bash && /bin/bash"
+    entrypoint: ["/entrypoint.sh"]
