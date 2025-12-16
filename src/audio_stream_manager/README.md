@@ -40,7 +40,7 @@ Ideal for production environments where audio devices may connect or disconnect 
 5. When disconnection is detected, automatically searches for a new working device
 6. Periodically checks if the primary device is available again and switches back when possible
 
-**Diagram:** [Open audio capturing workflow](src/audio_stream_manager/workflow_audio_capturing.mmd)
+**Diagram:** [Open audio capturing workflow](workflow_audio_capturing.mmd)
 
 
 
@@ -71,4 +71,4 @@ If the node starts while the preferred device is unavailable it will connect to 
 5. Uses FFmpeg to convert WAV to MP3 with libmp3lame codec (quality level 2)
 6. Cleans up temporary WAV file
 
-**Diagram:** [Open save MP3 workflow](src/audio_stream_manager/workflow_save_mp3.mmd)
+**Diagram:** [Open save MP3 workflow](workflow_save_mp3.mmd)
