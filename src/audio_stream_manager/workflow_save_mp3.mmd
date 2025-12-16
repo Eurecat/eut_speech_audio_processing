@@ -1,0 +1,21 @@
+flowchart TD
+    Start(["Start Node"]) --> Step1["Subscribe to topic:<br/> <b>/audio_and_device_info</b>"]
+    Step1 --> Step2["Accumulate all received<br/>audio chunks in memory"]
+    
+    Step2 --> NodeAlive{"Is Node<br/> still running?"}
+    NodeAlive -->|Yes| Step2
+    
+    NodeAlive -->|No| Step3["Convert accumulated float32<br/>samples to int16 PCM"]
+    Step3 --> Step4["Write PCM data to<br/>temporary WAV file"]
+    Step4 --> Step5["Use FFmpeg to convert<br/>WAV to MP3<br/>(libmp3lame codec, quality 2)"]
+    Step5 --> Step6["Clean up<br/>temporary WAV file"]
+    Step6 --> End(["End - MP3 Saved"])
+    
+    style Start fill:#FFA500
+    style Step1 fill:#FFA500
+    style Step2 fill:#FFA500
+    style Step3 fill:#FFA500
+    style Step4 fill:#FFA500
+    style Step5 fill:#FFA500
+    style Step6 fill:#FFA500
+    style End fill:#FFA500
