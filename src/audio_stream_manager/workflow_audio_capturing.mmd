@@ -1,0 +1,37 @@
+flowchart TD
+    Start(["Start Node"]) --> Step1["Search for devices<br/>matching <b>device_name</b>"]
+    Step1 --> CheckFound{"Device <br/> found?"}
+    CheckFound -->|Yes| Step2["Test each matching device<br/>to ensure it's receiving audio"]
+    CheckFound -->|No| Step3["Fallback to any<br/>available device"]
+    Step2 --> AudioWorking{"Is audio<br/>being <br/>received?"}
+    AudioWorking -->|Yes| StartStreaming["Start Audio Streaming"]
+    AudioWorking -->|No| Step3
+    
+    Step3 --> SampleRateMatch{"Sample rate of the <br> device match the target sample rate?"}
+    SampleRateMatch -->|Yes| StartStreaming
+    SampleRateMatch -->|No| Resample["Resamples audio <br> to a target sample rate"]    
+    Resample --> StartStreaming
+
+    StartStreaming --> PublishAudio["<b>Publish Audio Chunks</b><br/>Topic: /audio_and_device_info<br/>Type: AudioAndDeviceInfo<br/>Chunk Size: 512 samples (0.032s)<br/>Sample Rate: 16000 Hz"]
+    PublishAudio --> Monitor["Continuously monitor<br/>audio stream for disconnections"]
+    
+    Monitor --> Disconnected{"Disconnection<br/>detected?"}
+    
+    Disconnected -->|Yes| Step3 & CheckPrimary["Periodically check if<br/>primary device is <br/> available again"]
+    Disconnected -->|No| Monitor
+    
+    CheckPrimary --> PrimaryAvailable{"Primary device<br/>available?"}
+    PrimaryAvailable -->|Yes| SwitchBack["Switch back to<br/>primary device"]
+    PrimaryAvailable -->|No| Monitor
+    SwitchBack --> StartStreaming
+    
+    style Start fill:#FFA500
+    style Step1 fill:#FFA500
+    style Step2 fill:#FFA500
+    style Step3 fill:#FFA500
+    style SwitchBack fill:#FFA500
+    style StartStreaming fill:#FFA500
+    style PublishAudio fill:#FFA500
+    style Monitor fill:#FFA500
+    style CheckPrimary fill:#FFA500
+    style Resample fill:#FFA500
