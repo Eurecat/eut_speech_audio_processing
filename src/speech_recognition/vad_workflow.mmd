@@ -1,0 +1,9 @@
+flowchart TD
+    A[Subscription to topic: <b>/audio_and_device_info</b>] --> B[VAD model:<br> <b>snakers4/silero-vad</b>]
+    B --> C[Compute VAD probability]
+    C -->|probability| D[Publish <b>/vad</b> topic:<br>std_msgs/Header header <br> float32 vad_probability]
+
+    style A fill:#FFA500
+    style B fill:#FFA500
+    style C fill:#FFA500
+    style D fill:#FFA500
