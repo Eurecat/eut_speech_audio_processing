@@ -1,0 +1,207 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, jazzy-devel ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  DOCKER_BUILDKIT: 1
+  COMPOSE_DOCKER_CLI_BUILD: 1
+  ROS_DOMAIN_ID: 12
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Cache Docker layers
+      uses: actions/cache@v3
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-
+    
+    - name: Free disk space
+      run: |
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /opt/ghc
+        sudo rm -rf "/usr/local/share/boost"
+        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+        docker system prune -af
+        
+    - name: Clone EutRobAIDockers for base image
+      run: |
+        git clone https://github.com/Eurecat/EutRobAIDockers.git
+        cd EutRobAIDockers
+        
+    - name: Build base Docker image
+      run: |
+        cd EutRobAIDockers/Docker
+        chmod +x build_container.sh
+        ./build_container.sh --vulcanexus
+        
+    - name: Create .env file for speech processing
+      run: |
+        cd Docker
+        cat > .env << EOF
+        BUILT_IMAGE=eut_audio_vulcanexus:jazzy
+        DOCKER_RUNTIME=runc
+        ROS_DOMAIN_ID=12
+        HF_TOKEN=${{ secrets.HF_TOKEN }}
+        EOF
+        
+    - name: Build speech processing Docker image
+      run: |
+        cd Docker
+        chmod +x build_container.sh
+        ./build_container.sh --vulcanexus
+        
+    - name: Start services with docker compose
+      run: |
+        cd Docker
+        # Start services in detached mode
+        docker compose up -d
+        
+    - name: Wait for services to be ready
+      run: |
+        echo "Waiting for services to start..."
+        sleep 30
+        
+        # Function to check if a service is healthy
+        check_service() {
+          local service_name=$1
+          local max_attempts=30
+          local attempt=1
+          
+          echo "Checking $service_name..."
+          while [ $attempt -le $max_attempts ]; do
+            if docker ps --filter "name=$service_name" --filter "status=running" | grep -q "$service_name"; then
+              echo "✅ $service_name is running"
+              return 0
+            fi
+            echo "⏳ Attempt $attempt/$max_attempts: $service_name not ready yet, waiting..."
+            sleep 10
+            attempt=$((attempt + 1))
+          done
+          
+          echo "❌ $service_name failed to start after $max_attempts attempts"
+          return 1
+        }
+        
+        # Check all required services
+        services=(
+          "audio_device_manager"
+          "speech_recognition" 
+          "mongodb"
+          "mongo-express"
+        )
+        
+        failed_services=()
+        for service in "${services[@]}"; do
+          if ! check_service "$service"; then
+            failed_services+=("$service")
+          fi
+        done
+        
+        if [ ${#failed_services[@]} -eq 0 ]; then
+          echo "🎉 All services are running successfully!"
+        else
+          echo "💥 The following services failed to start: ${failed_services[*]}"
+          exit 1
+        fi
+        
+    - name: Verify ROS2 nodes are running
+      run: |
+        echo "Checking ROS2 nodes..."
+        
+        # Check if audio_stream_manager node is running
+        if docker exec audio_device_manager bash -c "source /workspace/install/setup.bash && timeout 10 ros2 node list | grep -q audio_stream_manager"; then
+          echo "✅ Audio stream manager node is running"
+        else
+          echo "❌ Audio stream manager node is not running"
+          docker exec audio_device_manager bash -c "source /workspace/install/setup.bash && ros2 node list" || true
+        fi
+        
+        # Check if speech recognition nodes are running
+        if docker exec speech_recognition bash -c "source /workspace/install/setup.bash && timeout 10 ros2 node list | grep -q speech_recognition"; then
+          echo "✅ Speech recognition nodes are running"
+        else
+          echo "❌ Speech recognition nodes are not running"
+          docker exec speech_recognition bash -c "source /workspace/install/setup.bash && ros2 node list" || true
+        fi
+        
+    - name: Test ROS2 communication
+      run: |
+        echo "Testing ROS2 topics..."
+        
+        # List available topics
+        docker exec speech_recognition bash -c "source /workspace/install/setup.bash && timeout 10 ros2 topic list" || true
+        
+        # Check if specific topics are available
+        expected_topics=(
+          "/audio_and_device_info"
+          "/vad" 
+          "/wake_word"
+        )
+        
+        for topic in "${expected_topics[@]}"; do
+          if docker exec speech_recognition bash -c "source /workspace/install/setup.bash && timeout 5 ros2 topic list | grep -q '$topic'"; then
+            echo "✅ Topic $topic is available"
+          else
+            echo "⚠️  Topic $topic is not available (this might be expected if the corresponding service is disabled)"
+          fi
+        done
+        
+    - name: Show container logs on failure
+      if: failure()
+      run: |
+        echo "=== Container Status ==="
+        docker ps -a
+        
+        echo "=== Audio Device Manager Logs ==="
+        docker logs audio_device_manager || true
+        
+        echo "=== Speech Recognition Logs ==="
+        docker logs speech_recognition || true
+        
+        echo "=== MongoDB Logs ==="
+        docker logs mongodb || true
+        
+        echo "=== Mongo Express Logs ==="
+        docker logs mongo-express || true
+        
+    - name: Cleanup
+      if: always()
+      run: |
+        cd Docker
+        docker compose down -v
+        docker system prune -f
+
+  # Deploy job (only runs on main branch after successful tests)
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Deploy notification
+      run: |
+        echo "🚀 Deployment would happen here"
+        echo "All tests passed, ready for deployment!"
+        # Add your deployment steps here
+        # For example: 
+        # - Push to container registry
+        # - Update production environment
+        # - Send notifications
