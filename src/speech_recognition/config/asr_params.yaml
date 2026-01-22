@@ -5,12 +5,28 @@ asr_node:
   ros__parameters:
     # Model Configuration
     model_size: "turbo"                      # Whisper model size (tiny, base, small, medium, large, turbo)
+    compute_type: "int8_float16"                  # Compute type: float32, float16, int8, int8_float32, int8_float16, int16
+    
+    # Language Configuration
+    language: "auto"                         # Language options:
+                                            #   - "auto": Auto-detect language
+                                            #   - "en": English only
+                                            #   - "es,fr,de": Comma-separated list of allowed languages # now limited to en, ca, es only in code
+                                            
+    # Batched Inference Configuration
+    use_batched_inference: true             # Enable batched inference for better throughput
+    batch_size: 16                           # Batch size for batched inference
     
     # VAD and Speech Detection
-    vad_threshold: 0.95                       # VAD probability threshold for speech detection
+    vad_threshold: 0.95                      # VAD probability threshold for speech detection
     silence_detection_threshold: 0.00001     # RMS threshold for silence detection
     
     # Timing Parameters
     min_silence_duration: 1.0                # Minimum silence duration (seconds) before processing speech
     max_chunk_duration: 30.0                 # Maximum duration (seconds) of a single speech chunk
     pre_buffer_duration: 0.3                 # Duration (seconds) of audio to prepend to speech chunks
+    
+    # ROS4HRI Configuration
+    ros4hri_with_id: true                    # Enable ROS4HRI LiveSpeech messages
+    cleanup_inactive_topics: false           # Clean up inactive speaker topics
+    inactive_topic_timeout: 10.0             # Timeout for inactive topic cleanup

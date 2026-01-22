@@ -1,6 +1,7 @@
 numpy
 sounddevice
-librosa
+librosa==0.10.1
+numba>=0.57.0
 torchaudio
 faster-whisper
 openwakeword

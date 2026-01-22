@@ -1,4 +1,5 @@
 import os
+import shutil
 import threading
 import time
 from collections import deque
@@ -6,7 +7,7 @@ from collections import deque
 import numpy as np
 import rclpy
 import torch
-from faster_whisper import WhisperModel
+from faster_whisper import WhisperModel, BatchedInferencePipeline
 from rclpy.node import Node
 
 from hri_msgs.msg import AudioAndDeviceInfo, SpeechActivityDetection, SpeechResult, Vad, LiveSpeech
@@ -18,6 +19,10 @@ class ASRNode(Node):
 
         # Declare parameters
         self.declare_parameter("model_size", "turbo")
+        self.declare_parameter("compute_type", "float32")
+        self.declare_parameter("language", "auto")
+        self.declare_parameter("use_batched_inference", False)
+        self.declare_parameter("batch_size", 16)
         self.declare_parameter("vad_threshold", 0.5)
         self.declare_parameter("min_silence_duration", 1.0)  # seconds
         self.declare_parameter("max_chunk_duration", 30.0)  # seconds
@@ -34,6 +39,18 @@ class ASRNode(Node):
         # Get parameter values
         self.model_size = (
             self.get_parameter("model_size").get_parameter_value().string_value
+        )
+        self.compute_type = (
+            self.get_parameter("compute_type").get_parameter_value().string_value
+        )
+        self.language = (
+            self.get_parameter("language").get_parameter_value().string_value
+        )
+        self.use_batched_inference = (
+            self.get_parameter("use_batched_inference").get_parameter_value().bool_value
+        )
+        self.batch_size = (
+            self.get_parameter("batch_size").get_parameter_value().integer_value
         )
         self.vad_threshold = (
             self.get_parameter("vad_threshold").get_parameter_value().double_value
@@ -117,6 +134,8 @@ class ASRNode(Node):
         # Model setup - try to find a local snapshot under weights/ and use it,
         # otherwise fall back to using the HF repo id with download_root.
         resolved_model_path = None
+        model_bin_found = False
+        
         for name in os.listdir(weights_dir):
             if name == model_path:
                 resolved_model_path = os.path.join(weights_dir, name)
@@ -127,30 +146,53 @@ class ASRNode(Node):
                 for root, _, files in os.walk(resolved_model_path):
                     if "model.bin" in files:
                         resolved_model_path = root
+                        model_bin_found = True
                         break
+                
+                # If we found the directory but no model.bin, it's incomplete
+                if not model_bin_found:
+                    self.get_logger().warn(
+                        f"Incomplete model snapshot found at {resolved_model_path}, missing model.bin"
+                    )
+                    self.get_logger().info("Removing incomplete model directory and re-downloading...")
+                    try:
+                        shutil.rmtree(resolved_model_path)
+                        resolved_model_path = None
+                    except Exception as e:
+                        self.get_logger().error(f"Failed to remove incomplete model directory: {e}")
+                break
 
-        if resolved_model_path and os.path.isdir(resolved_model_path):
+        if resolved_model_path and model_bin_found and os.path.isdir(resolved_model_path):
             self.get_logger().info(
                 f"Using local snapshot for model: {resolved_model_path}"
             )
             model_arg = resolved_model_path
             # when passing a snapshot folder, no need to set download_root
             self.model = WhisperModel(
-                model_arg, device=self.device, compute_type="float32"
+                model_arg, device=self.device, compute_type=self.compute_type
             )
         else:
             self.get_logger().info(
-                f"No local snapshot found, using HuggingFace repo id: {self.model_size} (download_root={weights_dir})"
+                f"No valid local snapshot found, using HuggingFace repo id: {self.model_size} (download_root={weights_dir})"
             )
             self.model = WhisperModel(
                 self.model_size,
                 device=self.device,
-                compute_type="float32",
+                compute_type=self.compute_type,
                 download_root=weights_dir,
             )
+        
+        # Setup batched inference if enabled
+        if self.use_batched_inference:
+            self.batched_model = BatchedInferencePipeline(model=self.model)
+        else:
+            self.batched_model = None
+            
         green = "\033[92m"
         reset = "\033[0m"
-        self.get_logger().info(f"{green}Model {self.model_size} loaded.{reset}")
+        # Check if model is actually on GPU
+        device_info = "GPU" if self.device == "cuda" and torch.cuda.is_available() else "CPU"
+        self.get_logger().info(f"{green}Model {self.model_size} loaded on {device_info} with compute_type {self.compute_type}.{reset}")
 
         # Audio processing variables
         self.sample_rate = None
@@ -203,6 +245,41 @@ class ASRNode(Node):
             self.get_logger().info(f"Topic cleanup enabled with timeout: {self.inactive_topic_timeout}s")
 
         self.get_logger().info("ASR Node initialized, waiting for audio...")
+
+    def _detect_language(self, audio_data, allowed_languages=None):
+        """Detect language from audio data"""
+        if allowed_languages is None:
+            allowed_languages = ["en", "es", "ca"]
+        
+        try:
+            # Use the model's detect_language method
+            language, language_probability, all_language_probs = self.model.detect_language(audio_data)
+            filtered_languages = [
+                (lang, f"{prob:.4f}")
+                for lang, prob in all_language_probs
+                if lang in allowed_languages
+            ]
+            self.get_logger().info(
+                f"Detected languages (filtered): {filtered_languages}"
+            )
+            # If we have a list of allowed languages, find the best match
+            if allowed_languages and len(allowed_languages) > 0:
+                best_score = 0
+                detected_language = "en"  # fallback
+                
+                for language_code, language_prob in all_language_probs:
+                    if language_code in allowed_languages:
+                        if language_prob > best_score:
+                            best_score = language_prob
+                            detected_language = language_code
+                
+                return detected_language
+            else:
+                return language
+                
+        except Exception as e:
+            self.get_logger().warn(f"Language detection failed: {e}, falling back to 'en'")
+            return "en"
 
     def cleanup_topics_callback(self):
         """Check for inactive topics and destroy them"""
@@ -439,14 +516,40 @@ class ASRNode(Node):
             f"Transcribing {len(audio_data) / self.sample_rate:.2f}s of audio"
         )
 
+        # Determine language to use for transcription
+        transcription_language = self.language
+        
+        # Handle language detection/selection
+        if self.language == "auto":
+            # Auto-detect language
+            transcription_language = self._detect_language(audio_data)
+        elif "," in self.language:
+            # List of allowed languages provided
+            allowed_languages = [lang.strip() for lang in self.language.split(",")]
+            transcription_language = self._detect_language(audio_data, allowed_languages)
+        elif self.model_size.endswith(".en"):
+            # Model is English-only, force English
+            transcription_language = "en"
+
         # Perform transcription
         try:
-            segments, info = self.model.transcribe(
-                audio_data,
-                vad_filter=True,
-                word_timestamps=False,
-                language="en",
-            )
+            if self.use_batched_inference and self.batched_model:
+                # Use batched inference
+                segments, info = self.batched_model.transcribe(
+                    audio_data,
+                    batch_size=self.batch_size,
+                    vad_filter=True,
+                    word_timestamps=False,
+                    language=transcription_language,
+                )
+            else:
+                # Use regular inference
+                segments, info = self.model.transcribe(
+                    audio_data,
+                    vad_filter=True,
+                    word_timestamps=False,
+                    language=transcription_language,
+                )
 
             # Combine all segments into one transcript
             transcript_parts = []
@@ -462,7 +565,7 @@ class ASRNode(Node):
                 asr_msg.transcript = transcript
                 asr_msg.speaker_id = self.speaker_id if self.speaker_id else "unknown"
                 asr_msg.language_code = (
-                    info.language if hasattr(info, "language") else "unknown"
+                    info.language if hasattr(info, "language") else transcription_language
                 )
                 # Set default confidence since faster-whisper might not return per-transcript confidence easily aggregated
                 # Or we can take average of segment avg_logprob converted to prob, but 0.0 is consistent with existing code

@@ -18,7 +18,7 @@ setup(
         ("share/" + package_name + "/config", ["config/diarization_params.yaml"]),
         ("share/" + package_name + "/config", ["config/vad_params.yaml"]),
     ],
-    install_requires=["setuptools", "numpy", "torch", "diart", "openwakeword"],
+    install_requires=["setuptools", "numpy", "torch", "diart", "openwakeword", "faster-whisper"],
     zip_safe=True,
     maintainer="root",
     maintainer_email="joan.omedes@eurecat.org",
