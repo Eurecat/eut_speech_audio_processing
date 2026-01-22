@@ -68,7 +68,7 @@ class AudioToMp3(Node):
             "2",  # quality (2 is high quality VBR)
             mp3_path,
         ]
-        self.get_logger().info(f'Running: {" ".join(cmd)}')
+        self.get_logger().info(f"Running: {' '.join(cmd)}")
         subprocess.run(cmd, check=True)
         self.get_logger().info(f"MP3 written to {mp3_path}")
 

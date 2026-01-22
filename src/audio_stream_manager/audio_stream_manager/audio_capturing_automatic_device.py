@@ -160,7 +160,7 @@ class AudioCapturingNode(Node):
                 test_stream.close()
 
             # Check if device is receiving audio (RMS > 0)
-            rms = float(np.sqrt(np.mean(audio_data ** 2)))
+            rms = float(np.sqrt(np.mean(audio_data**2)))
             if rms > 0:
                 self.device = device
                 self.get_logger().debug(
@@ -352,7 +352,7 @@ class AudioCapturingNode(Node):
         if status:
             self.get_logger().warn(f"Stream status: {status}")
 
-        rms = float(np.sqrt(np.mean(indata ** 2)))
+        rms = float(np.sqrt(np.mean(indata**2)))
         self.get_logger().debug(
             f"Audio buffer noise level (RMS): {rms:.6f}"
         )  # , throttle_duration_sec=10.0)

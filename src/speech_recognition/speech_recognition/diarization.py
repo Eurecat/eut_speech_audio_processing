@@ -541,9 +541,9 @@ class DiarizationObserver(Observer):
                             )
 
                             # Create mapping
-                            self.diart_to_eut_mapping[
-                                diart_speaker_id
-                            ] = self.node.eut_speaker_id
+                            self.diart_to_eut_mapping[diart_speaker_id] = (
+                                self.node.eut_speaker_id
+                            )
 
                             self.node.get_logger().debug(
                                 f"    ✗✗✗ NEW SPEAKER detected"
@@ -594,9 +594,9 @@ class DiarizationObserver(Observer):
                         self.node.eut_speaker_id = (
                             f"EUT_speaker{new_eut_speaker_number}"
                         )
-                        self.diart_to_eut_mapping[
-                            diart_speaker_id
-                        ] = self.node.eut_speaker_id
+                        self.diart_to_eut_mapping[diart_speaker_id] = (
+                            self.node.eut_speaker_id
+                        )
                         self.next_eut_speaker_id += 1
                         self.node.get_logger().debug(
                             f"    Created new mapping: DIART {diart_speaker_id} -> {self.node.eut_speaker_id} (number: {new_eut_speaker_number})"
@@ -1118,7 +1118,7 @@ class DiarizationNode(Node):
         vad_rms = 0.0
         if len(self.vad_buffer) >= self.vad_buffer_size:
             vad_array = np.array(self.vad_buffer)
-            vad_rms = float(np.sqrt(np.mean(vad_array ** 2)))
+            vad_rms = float(np.sqrt(np.mean(vad_array**2)))
 
         if (
             len(self.vad_buffer) >= self.vad_buffer_size
