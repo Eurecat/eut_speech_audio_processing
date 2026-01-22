@@ -116,3 +116,77 @@ db.speakers.find()
 To delete the database, remove the associated Docker volume.
 
 You can also manage entries via the web interface at [http://0.0.0.0:8081/db/speaker_recognition/speakers](http://0.0.0.0:8081/db/speaker_recognition/speakers).
+
+## CI/CD Testing with Act
+
+To test the GitHub Actions CI/CD pipeline locally without pushing to GitHub, you can use [Act](https://github.com/nektos/act), which runs GitHub Actions locally using Docker.
+
+### Prerequisites
+
+1. **Install Go** (if not already installed):
+   - Follow the installation guide at: https://go.dev/doc/install
+
+2. **Install Act**:
+   ```bash
+   # Clone and install Act
+   git clone https://github.com/nektos/act.git
+   cd act
+   ./install.sh
+   ```
+
+### Setup for Local Testing
+
+1. **Configure secrets** (if needed for your workflow):
+   ```bash
+   # Create a secrets file
+   touch .secrets
+   
+   # Add your secrets (example):
+   echo "HF_TOKEN=your_huggingface_token_here" >> .secrets
+   ```
+
+   ⚠️ **Important**: Don't commit the `.secrets` file to GitHub! Add it to `.gitignore`:
+   ```bash
+   echo ".secrets" >> .gitignore
+   ```
+
+### Running CI/CD Locally
+
+1. **Run the complete workflow**:
+   ```bash
+   ./act/bin/act
+   ```
+
+2. **Select runner size** when prompted:
+   - Choose **Medium** for most cases (recommended)
+   - Use **Large** for resource-intensive builds
+   - Use **Micro** for simple tests
+
+3. **Run specific job**:
+   ```bash
+   # List available jobs first
+   ./act/bin/act --list
+   
+   # Run only the test job
+   ./act/bin/act -j test
+   
+   # Run only the deploy job
+   ./act/bin/act -j deploy
+   
+   # Run with secrets file
+   ./act/bin/act --secret-file .secrets
+   
+   # Run specific job with secrets
+   ./act/bin/act -j test --secret-file .secrets
+   ```
+
+### Benefits of Local Testing
+
+- **Faster feedback**: Test your CI/CD changes without pushing to GitHub
+- **Cost-effective**: No GitHub Actions minutes consumed
+- **Debugging**: Easier to debug workflow issues locally
+- **Iterative development**: Quickly iterate on workflow changes
+
+This allows you to validate your CI/CD pipeline changes before committing and pushing to the repository.
+
+
