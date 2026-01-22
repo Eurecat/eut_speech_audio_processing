@@ -46,6 +46,7 @@ jobs:
     - name: Build base Docker image
       run: |
         cd EutRobAIDockers/Docker
+        eval "$(ssh-agent -s)"
         chmod +x build_container.sh
         ./build_container.sh --vulcanexus
         
