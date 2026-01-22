@@ -40,7 +40,7 @@ class ROSAudioSource(AudioSource):
 
         # Buffer to accumulate audio until we have a full block
         self.audio_buffer = np.array([], dtype=np.float32)
-        
+
         # Store last emitted block for external synchronization
         self.last_emitted_block = None
 

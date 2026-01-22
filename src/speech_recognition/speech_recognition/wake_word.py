@@ -28,23 +28,35 @@ class WakeWordDetectorNode(Node):
             # Use get_parameter().value for string arrays instead of string_array_value
             wake_word_param = self.get_parameter("wake_word_model_names")
             self.wake_word_models = wake_word_param.value
-            
+
             # Debug log the parameter retrieval
-            self.get_logger().info(f"Retrieved wake_word_model_names parameter: {self.wake_word_models}")
+            self.get_logger().info(
+                f"Retrieved wake_word_model_names parameter: {self.wake_word_models}"
+            )
             self.get_logger().debug(f"Parameter type: {type(self.wake_word_models)}")
-            
+
             # If parameter is empty or None, fallback to default
             if not self.wake_word_models or not isinstance(self.wake_word_models, list):
-                self.get_logger().warning("wake_word_model_names parameter is empty or invalid, using default")
+                self.get_logger().warning(
+                    "wake_word_model_names parameter is empty or invalid, using default"
+                )
                 self.wake_word_models = ["hey_jana"]
-                
+
         except Exception as e:
-            self.get_logger().error(f"Error retrieving wake_word_model_names parameter: {e}")
+            self.get_logger().error(
+                f"Error retrieving wake_word_model_names parameter: {e}"
+            )
             self.wake_word_models = ["hey_jana"]  # fallback
-        
-        self.window_duration = self.get_parameter("window_duration").get_parameter_value().double_value
-        self.step_duration = self.get_parameter("step_duration").get_parameter_value().double_value
-        self.log_time = self.get_parameter("log_interval").get_parameter_value().double_value
+
+        self.window_duration = (
+            self.get_parameter("window_duration").get_parameter_value().double_value
+        )
+        self.step_duration = (
+            self.get_parameter("step_duration").get_parameter_value().double_value
+        )
+        self.log_time = (
+            self.get_parameter("log_interval").get_parameter_value().double_value
+        )
 
         self.get_logger().info(f"Using wake word models: {self.wake_word_models}")
         self.get_logger().info(f"Number of models loaded: {len(self.wake_word_models)}")
@@ -98,11 +110,11 @@ class WakeWordDetectorNode(Node):
 
             # Check if all model files exist
             import os
-            
+
             valid_model_paths = []
             for i, model_path in enumerate(self.model_paths):
                 model_name = self.wake_word_models[i]
-                
+
                 if not os.path.exists(model_path):
                     self.get_logger().warning(f"Model file not found: {model_path}")
                     continue
@@ -122,8 +134,12 @@ class WakeWordDetectorNode(Node):
 
             # Load all models at once - OpenWakeWord Model can handle multiple ONNX files
             self.oww_model = Model(wakeword_model_paths=valid_model_paths)
-            self.get_logger().info("\033[92mOpenWakeWord model loaded successfully with {} ONNX models\033[0m".format(len(valid_model_paths)))
-            
+            self.get_logger().info(
+                "\033[92mOpenWakeWord model loaded successfully with {} ONNX models\033[0m".format(
+                    len(valid_model_paths)
+                )
+            )
+
         except Exception as e:
             self.get_logger().error(f"Failed to load OpenWakeWord models: {e}")
             self.oww_model = None
@@ -222,28 +238,35 @@ class WakeWordDetectorNode(Node):
             try:
                 # Get predictions from OpenWakeWord
                 predictions = self.oww_model.predict(audio_int16)
-                
+
                 for model_name, confidence_score in predictions.items():
                     all_scores[model_name] = confidence_score
-                    
+
                     # Track the maximum confidence score and which model achieved it
                     if confidence_score > max_confidence_score:
                         max_confidence_score = confidence_score
                         winning_model = model_name
-                        
+
             except Exception as e:
                 self.get_logger().error(f"Error processing models: {e}")
 
             # Log confidence scores periodically
             current_time = time.time()
-            if current_time - self.last_confidence_log_time >= self.log_time and all_scores:
-                scores_str = ", ".join([f"{name}: {score:.6f}" for name, score in all_scores.items()])
+            if (
+                current_time - self.last_confidence_log_time >= self.log_time
+                and all_scores
+            ):
+                scores_str = ", ".join(
+                    [f"{name}: {score:.6f}" for name, score in all_scores.items()]
+                )
                 if winning_model:
                     self.get_logger().info(
                         f"Wake word confidences [{scores_str}] - MAX: {max_confidence_score:.6f} from '{winning_model}'"
                     )
                 else:
-                    self.get_logger().info(f"Wake word confidences [{scores_str}] - No detection")
+                    self.get_logger().info(
+                        f"Wake word confidences [{scores_str}] - No detection"
+                    )
                 self.last_confidence_log_time = current_time
 
             return max_confidence_score
@@ -270,7 +293,6 @@ class WakeWordDetectorNode(Node):
                     msg.wake_word_probability = float(wake_word_probability)
 
                     self.wake_word_publisher.publish(msg)
-                    
 
                     # Reset for next detection
                     self.wake_word_detected = False
@@ -284,6 +306,7 @@ class WakeWordDetectorNode(Node):
                 self.get_logger().error(f"Error in audio processing thread: {e}")
                 # Add more detailed error information
                 import traceback
+
                 self.get_logger().error(f"Traceback: {traceback.format_exc()}")
 
     def destroy_node(self):

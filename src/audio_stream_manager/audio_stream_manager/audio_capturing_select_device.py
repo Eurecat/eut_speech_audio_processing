@@ -189,7 +189,7 @@ class AudioCapturingNode(Node):
         if status:
             self.get_logger().warn(f"Stream status: {status}")
 
-        rms = float(np.sqrt(np.mean(indata**2)))
+        rms = float(np.sqrt(np.mean(indata ** 2)))
 
         if rms >= 0:
             # Create and publish the message

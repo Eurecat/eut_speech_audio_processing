@@ -24,8 +24,8 @@ def _setup(context, *args, **kwargs):
     new_py_path = site_pkgs if not existing else f"{site_pkgs}{os.pathsep}{existing}"
 
     # Get the path to the vad_params.yaml file
-    config_dir = get_package_share_directory('speech_recognition')
-    config_file = os.path.join(config_dir, 'config', 'vad_params.yaml')
+    config_dir = get_package_share_directory("speech_recognition")
+    config_file = os.path.join(config_dir, "config", "vad_params.yaml")
 
     return [
         LogInfo(msg=f"[speech_recognition] Using AI venv: {VENV_PATH}"),

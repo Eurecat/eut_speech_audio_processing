@@ -10,7 +10,13 @@ import torch
 from faster_whisper import WhisperModel, BatchedInferencePipeline
 from rclpy.node import Node
 
-from hri_msgs.msg import AudioAndDeviceInfo, SpeechActivityDetection, SpeechResult, Vad, LiveSpeech
+from hri_msgs.msg import (
+    AudioAndDeviceInfo,
+    SpeechActivityDetection,
+    SpeechResult,
+    Vad,
+    LiveSpeech,
+)
 
 
 class ASRNode(Node):
@@ -75,10 +81,14 @@ class ASRNode(Node):
             self.get_parameter("ros4hri_with_id").get_parameter_value().bool_value
         )
         self.cleanup_inactive_topics = (
-            self.get_parameter("cleanup_inactive_topics").get_parameter_value().bool_value
+            self.get_parameter("cleanup_inactive_topics")
+            .get_parameter_value()
+            .bool_value
         )
         self.inactive_topic_timeout = (
-            self.get_parameter("inactive_topic_timeout").get_parameter_value().double_value
+            self.get_parameter("inactive_topic_timeout")
+            .get_parameter_value()
+            .double_value
         )
 
         self.get_logger().info(f"Using VAD: {self.vad_threshold}")
@@ -135,7 +145,7 @@ class ASRNode(Node):
         # otherwise fall back to using the HF repo id with download_root.
         resolved_model_path = None
         model_bin_found = False
-        
+
         for name in os.listdir(weights_dir):
             if name == model_path:
                 resolved_model_path = os.path.join(weights_dir, name)
@@ -148,21 +158,29 @@ class ASRNode(Node):
                         resolved_model_path = root
                         model_bin_found = True
                         break
-                
+
                 # If we found the directory but no model.bin, it's incomplete
                 if not model_bin_found:
                     self.get_logger().warn(
                         f"Incomplete model snapshot found at {resolved_model_path}, missing model.bin"
                     )
-                    self.get_logger().info("Removing incomplete model directory and re-downloading...")
+                    self.get_logger().info(
+                        "Removing incomplete model directory and re-downloading..."
+                    )
                     try:
                         shutil.rmtree(resolved_model_path)
                         resolved_model_path = None
                     except Exception as e:
-                        self.get_logger().error(f"Failed to remove incomplete model directory: {e}")
+                        self.get_logger().error(
+                            f"Failed to remove incomplete model directory: {e}"
+                        )
                 break
 
-        if resolved_model_path and model_bin_found and os.path.isdir(resolved_model_path):
+        if (
+            resolved_model_path
+            and model_bin_found
+            and os.path.isdir(resolved_model_path)
+        ):
             self.get_logger().info(
                 f"Using local snapshot for model: {resolved_model_path}"
             )
@@ -181,18 +199,22 @@ class ASRNode(Node):
                 compute_type=self.compute_type,
                 download_root=weights_dir,
             )
-        
+
         # Setup batched inference if enabled
         if self.use_batched_inference:
             self.batched_model = BatchedInferencePipeline(model=self.model)
         else:
             self.batched_model = None
-            
+
         green = "\033[92m"
         reset = "\033[0m"
         # Check if model is actually on GPU
-        device_info = "GPU" if self.device == "cuda" and torch.cuda.is_available() else "CPU"
-        self.get_logger().info(f"{green}Model {self.model_size} loaded on {device_info} with compute_type {self.compute_type}.{reset}")
+        device_info = (
+            "GPU" if self.device == "cuda" and torch.cuda.is_available() else "CPU"
+        )
+        self.get_logger().info(
+            f"{green}Model {self.model_size} loaded on {device_info} with compute_type {self.compute_type}.{reset}"
+        )
 
         # Audio processing variables
         self.sample_rate = None
@@ -234,15 +256,17 @@ class ASRNode(Node):
 
         # Publishers
         self.asr_pub = self.create_publisher(SpeechResult, "speech_result", 10)
-        
+
         # ROS4HRI Publishers
-        self.voice_publishers = {} # Map speaker_id to dict of publishers
-        self.voice_publishers_activity = {} # Map speaker_id to last activity timestamp
+        self.voice_publishers = {}  # Map speaker_id to dict of publishers
+        self.voice_publishers_activity = {}  # Map speaker_id to last activity timestamp
 
         # Cleanup timer
         if self.cleanup_inactive_topics:
             self.create_timer(1.0, self.cleanup_topics_callback)
-            self.get_logger().info(f"Topic cleanup enabled with timeout: {self.inactive_topic_timeout}s")
+            self.get_logger().info(
+                f"Topic cleanup enabled with timeout: {self.inactive_topic_timeout}s"
+            )
 
         self.get_logger().info("ASR Node initialized, waiting for audio...")
 
@@ -250,10 +274,14 @@ class ASRNode(Node):
         """Detect language from audio data"""
         if allowed_languages is None:
             allowed_languages = ["en", "es", "ca"]
-        
+
         try:
             # Use the model's detect_language method
-            language, language_probability, all_language_probs = self.model.detect_language(audio_data)
+            (
+                language,
+                language_probability,
+                all_language_probs,
+            ) = self.model.detect_language(audio_data)
             filtered_languages = [
                 (lang, f"{prob:.4f}")
                 for lang, prob in all_language_probs
@@ -266,19 +294,21 @@ class ASRNode(Node):
             if allowed_languages and len(allowed_languages) > 0:
                 best_score = 0
                 detected_language = "en"  # fallback
-                
+
                 for language_code, language_prob in all_language_probs:
                     if language_code in allowed_languages:
                         if language_prob > best_score:
                             best_score = language_prob
                             detected_language = language_code
-                
+
                 return detected_language
             else:
                 return language
-                
+
         except Exception as e:
-            self.get_logger().warn(f"Language detection failed: {e}, falling back to 'en'")
+            self.get_logger().warn(
+                f"Language detection failed: {e}, falling back to 'en'"
+            )
             return "en"
 
     def cleanup_topics_callback(self):
@@ -295,7 +325,7 @@ class ASRNode(Node):
             if speaker_id in self.voice_publishers:
                 self.destroy_publisher(self.voice_publishers[speaker_id])
                 del self.voice_publishers[speaker_id]
-            
+
             del self.voice_publishers_activity[speaker_id]
 
     def audio_and_device_info_callback(self, msg: AudioAndDeviceInfo):
@@ -377,13 +407,17 @@ class ASRNode(Node):
     def speech_activity_callback(self, msg: SpeechActivityDetection):
         """Process speech activity detection results"""
         self.speaker_id = msg.speaker_id
-        
+
         # Create speech publisher for ROS4HRI when a new speaker is detected
         if self.ros4hri_enabled and self.speaker_id and self.speaker_id != "unknown":
             if self.speaker_id not in self.voice_publishers:
                 topic = f"/humans/voices/{self.speaker_id}/speech"
-                self.voice_publishers[self.speaker_id] = self.create_publisher(LiveSpeech, topic, 10)
-                self.get_logger().debug(f"Created speech publisher for speaker: {self.speaker_id}")
+                self.voice_publishers[self.speaker_id] = self.create_publisher(
+                    LiveSpeech, topic, 10
+                )
+                self.get_logger().debug(
+                    f"Created speech publisher for speaker: {self.speaker_id}"
+                )
             self.voice_publishers_activity[self.speaker_id] = time.time()
 
     def _process_speech_end(self):
@@ -518,7 +552,7 @@ class ASRNode(Node):
 
         # Determine language to use for transcription
         transcription_language = self.language
-        
+
         # Handle language detection/selection
         if self.language == "auto":
             # Auto-detect language
@@ -526,7 +560,9 @@ class ASRNode(Node):
         elif "," in self.language:
             # List of allowed languages provided
             allowed_languages = [lang.strip() for lang in self.language.split(",")]
-            transcription_language = self._detect_language(audio_data, allowed_languages)
+            transcription_language = self._detect_language(
+                audio_data, allowed_languages
+            )
         elif self.model_size.endswith(".en"):
             # Model is English-only, force English
             transcription_language = "en"
@@ -565,18 +601,26 @@ class ASRNode(Node):
                 asr_msg.transcript = transcript
                 asr_msg.speaker_id = self.speaker_id if self.speaker_id else "unknown"
                 asr_msg.language_code = (
-                    info.language if hasattr(info, "language") else transcription_language
+                    info.language
+                    if hasattr(info, "language")
+                    else transcription_language
                 )
                 # Set default confidence since faster-whisper might not return per-transcript confidence easily aggregated
                 # Or we can take average of segment avg_logprob converted to prob, but 0.0 is consistent with existing code
-                asr_msg.transcript_confidence = 0.0 
+                asr_msg.transcript_confidence = 0.0
                 asr_msg.speaker_id_confidence = 0.0
 
                 self.asr_pub.publish(asr_msg)
 
                 # Handle ROS4HRI LiveSpeech
-                if self.ros4hri_enabled and asr_msg.speaker_id and asr_msg.speaker_id != "unknown":
-                    self._publish_ros4hri_speech(asr_msg.speaker_id, transcript, asr_msg.language_code)
+                if (
+                    self.ros4hri_enabled
+                    and asr_msg.speaker_id
+                    and asr_msg.speaker_id != "unknown"
+                ):
+                    self._publish_ros4hri_speech(
+                        asr_msg.speaker_id, transcript, asr_msg.language_code
+                    )
 
                 # Print info log in yellow color
                 yellow = "\033[93m"
@@ -599,17 +643,19 @@ class ASRNode(Node):
         # Ensure publisher exists
         if speaker_id not in self.voice_publishers:
             topic = f"/humans/voices/{speaker_id}/speech"
-            self.voice_publishers[speaker_id] = self.create_publisher(LiveSpeech, topic, 10)
-        
+            self.voice_publishers[speaker_id] = self.create_publisher(
+                LiveSpeech, topic, 10
+            )
+
         self.voice_publishers_activity[speaker_id] = time.time()
-        
+
         msg = LiveSpeech()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.final = transcript
-        msg.incremental = "" # We only have final result here
-        msg.confidence = 0.0 # Placeholder
-        msg.locale = language_code # Using language code as locale for now
-        
+        msg.incremental = ""  # We only have final result here
+        msg.confidence = 0.0  # Placeholder
+        msg.locale = language_code  # Using language code as locale for now
+
         self.voice_publishers[speaker_id].publish(msg)
 
     def destroy_node(self):

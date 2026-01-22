@@ -50,7 +50,9 @@ class DataBaseManager:
         for speaker in all_speakers:
             saved_embedding = np.array(speaker["embedding"])
             distance = cosine(embedding, saved_embedding)
-            loggefunc.info(f"\033[93mDistance to {speaker['speaker_name']}: {distance}\033[0m")
+            loggefunc.info(
+                f"\033[93mDistance to {speaker['speaker_name']}: {distance}\033[0m"
+            )
 
             if distance < best_distance:
                 best_distance = distance

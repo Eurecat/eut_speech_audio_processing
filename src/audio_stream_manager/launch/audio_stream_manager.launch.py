@@ -26,10 +26,10 @@ def generate_launch_description():
     config_file = os.path.join(config_dir, "config", "audio_params.yaml")
 
     # Load defaults from YAML
-    with open(config_file, 'r') as f:
+    with open(config_file, "r") as f:
         params_yaml = yaml.safe_load(f)
-        
-    defaults = params_yaml['audio_capturing_automatic_device_node']['ros__parameters']
+
+    defaults = params_yaml["audio_capturing_automatic_device_node"]["ros__parameters"]
 
     # Setup environment
     site_pkgs = _venv_site_packages(VENV_PATH)
@@ -42,15 +42,15 @@ def generate_launch_description():
 
     # Define parameters to expose
     params_to_expose = [
-        'device_name',
-        'dtype',
-        'channels',
-        'chunk',
-        'target_samplerate',
-        'disconnection_timeout',
-        'disconnection_check_interval',
-        'test_stream_duration',
-        'primary_device_check_interval'
+        "device_name",
+        "dtype",
+        "channels",
+        "chunk",
+        "target_samplerate",
+        "disconnection_timeout",
+        "disconnection_check_interval",
+        "test_stream_duration",
+        "primary_device_check_interval",
     ]
 
     for param in params_to_expose:
@@ -59,14 +59,14 @@ def generate_launch_description():
                 DeclareLaunchArgument(
                     param,
                     default_value=str(defaults[param]),
-                    description=f'Parameter {param} from audio_params.yaml'
+                    description=f"Parameter {param} from audio_params.yaml",
                 )
             )
             node_params[param] = LaunchConfiguration(param)
 
     return LaunchDescription(
-        launch_args +
-        [
+        launch_args
+        + [
             LogInfo(msg=f"[audio_stream_manager] Using AI venv: {VENV_PATH}"),
             LogInfo(msg=f"[audio_stream_manager] Injecting site-packages: {site_pkgs}"),
             LogInfo(msg=f"[audio_stream_manager] Loading config from: {config_file}"),

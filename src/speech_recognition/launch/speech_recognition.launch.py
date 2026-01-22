@@ -37,11 +37,18 @@ def _setup(context, *args, **kwargs):
     enable_asr = LaunchConfiguration("enable_asr").perform(context)
     diarization_delay = float(LaunchConfiguration("diarization_delay").perform(context))
     asr_delay = float(LaunchConfiguration("asr_delay").perform(context))
-    
+
     # Get ros4hri_with_id parameter
-    ros4hri_with_id = LaunchConfiguration('ros4hri_with_id').perform(context).lower() == 'true'
-    cleanup_inactive_topics = LaunchConfiguration('cleanup_inactive_topics').perform(context).lower() == 'true'
-    inactive_topic_timeout = float(LaunchConfiguration('inactive_topic_timeout').perform(context))
+    ros4hri_with_id = (
+        LaunchConfiguration("ros4hri_with_id").perform(context).lower() == "true"
+    )
+    cleanup_inactive_topics = (
+        LaunchConfiguration("cleanup_inactive_topics").perform(context).lower()
+        == "true"
+    )
+    inactive_topic_timeout = float(
+        LaunchConfiguration("inactive_topic_timeout").perform(context)
+    )
 
     # Get package config directory
     config_dir = get_package_share_directory("speech_recognition")
@@ -100,10 +107,13 @@ def _setup(context, *args, **kwargs):
 
         # Wake word parameters - List of ONNX model names (without .onnx extension)
         wake_word_params = {
-            'wake_word_model_names': ['hey_jana', 'jana'],  # Multiple models will be loaded
-            'window_duration': 2.0,        # Duration of the sliding window in seconds
-            'step_duration': 0.5,          # Step size for sliding window in seconds
-            'log_interval': 1.0,           # Interval for logging confidence scores in seconds
+            "wake_word_model_names": [
+                "hey_jana",
+                "jana",
+            ],  # Multiple models will be loaded
+            "window_duration": 2.0,  # Duration of the sliding window in seconds
+            "step_duration": 0.5,  # Step size for sliding window in seconds
+            "log_interval": 1.0,  # Interval for logging confidence scores in seconds
         }
 
         log_messages.extend(
@@ -161,7 +171,9 @@ def _setup(context, *args, **kwargs):
                 LogInfo(
                     msg=f"[speech_recognition] Diarization: Will start with {diarization_delay} second delay"
                 ),
-                LogInfo(msg=f"[speech_recognition] Diarization: ROS4HRI with ID: {'enabled' if ros4hri_with_id else 'disabled'}"),
+                LogInfo(
+                    msg=f"[speech_recognition] Diarization: ROS4HRI with ID: {'enabled' if ros4hri_with_id else 'disabled'}"
+                ),
             ]
         )
 
@@ -176,11 +188,14 @@ def _setup(context, *args, **kwargs):
                         executable="diarization_node",
                         name="diarization_node",
                         output="screen",
-                        parameters=[diarization_config_file, {
-                            'ros4hri_with_id': ros4hri_with_id,
-                            'cleanup_inactive_topics': cleanup_inactive_topics,
-                            'inactive_topic_timeout': inactive_topic_timeout
-                        }],
+                        parameters=[
+                            diarization_config_file,
+                            {
+                                "ros4hri_with_id": ros4hri_with_id,
+                                "cleanup_inactive_topics": cleanup_inactive_topics,
+                                "inactive_topic_timeout": inactive_topic_timeout,
+                            },
+                        ],
                         condition=IfCondition(
                             LaunchConfiguration("enable_diarization")
                         ),
@@ -212,7 +227,9 @@ def _setup(context, *args, **kwargs):
                 LogInfo(
                     msg=f"[speech_recognition] ASR: Will start with {asr_delay} second delay"
                 ),
-                LogInfo(msg=f"[speech_recognition] ASR: ROS4HRI with ID: {'enabled' if ros4hri_with_id else 'disabled'}"),
+                LogInfo(
+                    msg=f"[speech_recognition] ASR: ROS4HRI with ID: {'enabled' if ros4hri_with_id else 'disabled'}"
+                ),
             ]
         )
 
@@ -227,11 +244,14 @@ def _setup(context, *args, **kwargs):
                         executable="asr_node",
                         name="asr_node",
                         output="screen",
-                        parameters=[asr_config_file, {
-                            'ros4hri_with_id': ros4hri_with_id,
-                            'cleanup_inactive_topics': cleanup_inactive_topics,
-                            'inactive_topic_timeout': inactive_topic_timeout
-                        }],
+                        parameters=[
+                            asr_config_file,
+                            {
+                                "ros4hri_with_id": ros4hri_with_id,
+                                "cleanup_inactive_topics": cleanup_inactive_topics,
+                                "inactive_topic_timeout": inactive_topic_timeout,
+                            },
+                        ],
                         condition=IfCondition(LaunchConfiguration("enable_asr")),
                     ),
                 ],

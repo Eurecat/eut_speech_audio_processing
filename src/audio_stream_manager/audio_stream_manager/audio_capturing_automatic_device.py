@@ -129,9 +129,12 @@ class AudioCapturingNode(Node):
     def test_device_connection(self, device_index):
         """Test if a device can be successfully opened and used, and is receiving audio (RMS > 0)."""
         try:
-            device_index, device, device_samplerate, device_channels = (
-                self.get_device_parameters(device_index)
-            )
+            (
+                device_index,
+                device,
+                device_samplerate,
+                device_channels,
+            ) = self.get_device_parameters(device_index)
 
             # Get parameters
             dtype_param = self.get_parameter("dtype").get_parameter_value().string_value
@@ -157,7 +160,7 @@ class AudioCapturingNode(Node):
                 test_stream.close()
 
             # Check if device is receiving audio (RMS > 0)
-            rms = float(np.sqrt(np.mean(audio_data**2)))
+            rms = float(np.sqrt(np.mean(audio_data ** 2)))
             if rms > 0:
                 self.device = device
                 self.get_logger().debug(
@@ -181,9 +184,12 @@ class AudioCapturingNode(Node):
     def create_audio_stream(self, device_index):
         """Create and start an audio input stream for the given device."""
         try:
-            device_index, device, device_samplerate, device_channels = (
-                self.get_device_parameters(device_index)
-            )
+            (
+                device_index,
+                device,
+                device_samplerate,
+                device_channels,
+            ) = self.get_device_parameters(device_index)
 
             self.get_logger().debug(
                 f"Selected device: {device['name']}; Samplerate: {device_samplerate}; Channels: {device_channels}"
@@ -346,8 +352,10 @@ class AudioCapturingNode(Node):
         if status:
             self.get_logger().warn(f"Stream status: {status}")
 
-        rms = float(np.sqrt(np.mean(indata**2)))
-        self.get_logger().debug(f"Audio buffer noise level (RMS): {rms:.6f}")#, throttle_duration_sec=10.0)  
+        rms = float(np.sqrt(np.mean(indata ** 2)))
+        self.get_logger().debug(
+            f"Audio buffer noise level (RMS): {rms:.6f}"
+        )  # , throttle_duration_sec=10.0)
 
         # if rms < 0.01:
         #     #then make audio data FULLY silent
