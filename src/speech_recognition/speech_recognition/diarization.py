@@ -911,8 +911,9 @@ class DiarizationNode(Node):
 
         # Select device (CPU or GPU)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.get_logger().info(f"Using device: {self.device}")
-
+        light_green = "\033[38;5;82m"
+        reset = "\033[0m"
+        self.get_logger().info(f"{light_green}Using device on diarization: {self.device}{reset}")
         # Add ANSI color helpers for logging
         self._COLOR_GREEN = "\033[92m"
         self._COLOR_RESET = "\033[0m"

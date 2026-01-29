@@ -129,7 +129,9 @@ class ASRNode(Node):
 
         # Device setup
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.get_logger().info(f"Using device: {self.device}")
+        light_green = "\033[38;5;82m"
+        reset = "\033[0m"
+        self.get_logger().info(f"{light_green}Using device on ASR: {self.device}{reset}")
 
         # Search model inside "weights" folder (next to this file)
         # If "weights" folder does not exist, it will be created automatically by faster-whisper
@@ -213,7 +215,7 @@ class ASRNode(Node):
             "GPU" if self.device == "cuda" and torch.cuda.is_available() else "CPU"
         )
         self.get_logger().info(
-            f"{green}Model {self.model_size} loaded on {device_info} with compute_type {self.compute_type}.{reset}"
+            f"{green}Faster whisper model  {self.model_size} loaded on {device_info} with compute_type {self.compute_type}.{reset}"
         )
 
         # Audio processing variables

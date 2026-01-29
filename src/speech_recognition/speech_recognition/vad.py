@@ -59,11 +59,14 @@ class VADNode(Node):
 
         # Select device
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.get_logger().info(f"Using device: {self.device}")
+        light_green = "\033[38;5;82m"
+        reset = "\033[0m"
+        self.get_logger().info(f"{light_green}Using device on VAD: {self.device}{reset}")
         self.model.to(self.device)
-
+        green = "\033[32m"
+        reset = "\033[0m"
         self.get_logger().info(
-            "VAD node initialized, waiting for audio device information..."
+            f"{green}VAD node initialized, waiting for audio device information...{reset}"
         )
 
     def listener_callback(self, msg):

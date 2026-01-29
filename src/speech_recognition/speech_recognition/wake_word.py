@@ -63,7 +63,9 @@ class WakeWordDetectorNode(Node):
 
         # Select device (CPU or GPU)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.get_logger().info(f"Using device: {self.device}")
+        light_green = "\033[38;5;82m"
+        reset = "\033[0m"
+        self.get_logger().info(f"{light_green}Using device on wake word detection: {self.device}{reset}")
 
         # Audio buffer for continuous processing
         self.audio_queue = queue.Queue()
