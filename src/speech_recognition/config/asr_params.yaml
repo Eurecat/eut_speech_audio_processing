@@ -27,6 +27,6 @@ asr_node:
     pre_buffer_duration: 0.3                 # Duration (seconds) of audio to prepend to speech chunks
     
     # ROS4HRI Configuration
-    ros4hri_with_id: true                    # Enable ROS4HRI LiveSpeech messages
+    ros4hri_with_id: false                    # Enable ROS4HRI LiveSpeech messages
     cleanup_inactive_topics: false           # Clean up inactive speaker topics
     inactive_topic_timeout: 10.0             # Timeout for inactive topic cleanup
