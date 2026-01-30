@@ -45,9 +45,6 @@ services:
     command: >
       bash -c "source /workspace/install/setup.bash &&
       exec ros2 launch audio_stream_manager audio_stream_manager.launch.py"
-    entrypoint: ["/entrypoint.sh"]
-    stop_signal: SIGINT
-    stop_grace_period: 30s
 
 
   speech_recognition_service:
@@ -98,7 +95,7 @@ services:
       bash -c "source /workspace/install/setup.bash &&
       exec ros2 launch speech_recognition speech_recognition.launch.py"
     # exec ros2 launch speech_recognition speech_recognition.launch.py ros4hri_with_id:=true"
-    entrypoint: ["/entrypoint.sh"]
+
     stop_signal: SIGINT
     stop_grace_period: 30s
 
