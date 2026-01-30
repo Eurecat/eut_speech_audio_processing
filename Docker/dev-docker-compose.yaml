@@ -14,6 +14,9 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - ~/.xauth_docker/share/:/tmp/xauth/
       - ./.vscode:/workspace/.vscode
+      # Logs volume for easy access from VS Code
+      - ./logs:/workspace/log
+      #MAP DEPS if needed
       - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
       - ../src/speech_recognition:/workspace/src/speech_recognition
       - /dev:/dev
