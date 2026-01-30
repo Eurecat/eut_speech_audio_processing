@@ -1,5 +1,24 @@
 # eut_speech_audio_processing
 
+## What This Repository Does
+
+**eut_speech_audio_processing** provides comprehensive audio perception capabilities for robotic systems, enabling robots to hear, understand, and interact with their acoustic environment. It processes audio streams through a sophisticated pipeline that detects speech activity, identifies speakers, recognizes wake words, and transcribes spoken language into text for natural human-robot interaction.
+
+<p align="center">
+  <img src="Docker/imgs/perceptionstack_diagram.jpeg" alt="Audio Processing Architecture" width="800"/>
+</p>
+
+## Key Characteristics
+
+- 🎤 **Audio Stream Management**: Hardware-isolated audio capture with robust error handling
+- 🗣️ **Voice Activity Detection (VAD)**: Real-time detection of speech segments in audio streams
+- 👥 **Speaker Diarization**: Multi-speaker identification and temporal segmentation
+- 📝 **Speech Transcription**: High-accuracy ASR using state-of-the-art Whisper models
+- 🔊 **Wake Word Detection**: Configurable keyword spotting for voice activation
+- 🗄️ **Speaker Database**: MongoDB-based speaker embedding storage and recognition
+- 🐳 **Docker Containerization**: Fully containerized with decoupled services for reliability
+- ⚙️ **Modular Design**: Enable/disable components independently based on deployment needs
+
 ## Overview
 
 This repository contains the **speech and audio processing module** for the perception layer of robotic systems. The module provides comprehensive audio processing capabilities designed to enable robots to understand and interact with their acoustic environment.
