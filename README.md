@@ -56,6 +56,24 @@ git clone git@github.com:Eurecat/eut_speech_audio_processing.git
 cd eut_speech_audio_processing
 ```
 
+#### Step 1.5: Setup Pre-commit Hooks (Optional but Recommended)
+
+This repository uses **Ruff** for automatic Python code formatting via pre-commit hooks.
+
+**Quick Setup:**
+
+```bash
+# Install pre-commit
+pip install pre-commit
+
+# Install the git hooks
+pre-commit install
+```
+
+Now Ruff will automatically format your code before each commit. If formatting changes are made, review them with `git diff`, then stage and commit again.
+
+**📖 For detailed setup, VS Code integration, and troubleshooting, see [PRECOMMIT.md](PRECOMMIT.md)**
+
 #### Step 2: Build Application Image
 
 For Vulcanexus-based installations:

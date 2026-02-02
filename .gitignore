@@ -221,3 +221,6 @@ src/audio_stream_manager/recording.mp3
 weights_pyannote/
 .secrets
 bin/act
+
+# Pre-commit
+.pre-commit-cache/
