@@ -1,8 +1,9 @@
-from diart.sources import AudioSource
-import numpy as np
 import queue
 import threading
-from typing import Optional, Text
+from typing import Optional
+
+import numpy as np
+from diart.sources import AudioSource
 
 
 class ROSAudioSource(AudioSource):
@@ -12,9 +13,7 @@ class ROSAudioSource(AudioSource):
     programming patterns (Subject) to stream audio data received from ROS2 topics.
     """
 
-    def __init__(
-        self, sample_rate: int, block_duration: float = 0.5, uri: Optional[Text] = None
-    ):
+    def __init__(self, sample_rate: int, block_duration: float = 0.5, uri: Optional[str] = None):
         """
         Initialize ROS audio source.
 
