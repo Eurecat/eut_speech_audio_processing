@@ -1,0 +1,44 @@
+[tool.ruff]
+# Ruff configuration for Python code quality
+
+# Target Python 3.8+ (adjust based on your project requirements)
+target-version = "py38"
+
+# Include only the src directory
+include = ["src/**/*.py"]
+
+# Line length
+line-length = 100
+
+[tool.ruff.lint]
+# Enable specific linting rules
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort (import sorting)
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+]
+
+# Ignore specific rules if needed
+ignore = []
+
+# Allow autofix for all enabled rules
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.format]
+# Use double quotes for strings
+quote-style = "double"
+
+# Indent with spaces
+indent-style = "space"
+
+# Respect magic trailing commas
+skip-magic-trailing-comma = false
+
+# Auto-detect line ending
+line-ending = "auto"
