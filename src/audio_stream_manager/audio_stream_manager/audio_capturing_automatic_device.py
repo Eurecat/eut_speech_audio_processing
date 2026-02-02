@@ -325,7 +325,7 @@ class AudioCapturingNode(Node):
                 time.sleep(2)
 
     # Callback for audio input stream. Whenever new audio data is available, this function is called.
-    def input_callback(self, indata, frames, time, status):
+    def input_callback(self, indata, frames, time_input, status):
         with self.disconnection_check_lock:
             self.last_callback_time = time.time()
 
