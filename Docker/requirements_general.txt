@@ -1,8 +1,9 @@
-numpy
-sounddevice
+numpy==2.3.5
+sounddevice==0.5.5
 librosa==0.10.1
-numba>=0.57.0
-torchaudio
-faster-whisper
-openwakeword
-onnxruntime-gpu>1.20.1
+numba==0.63.1
+coverage==7.13.2
+torchaudio==2.10.0
+faster-whisper==1.2.1
+openwakeword==0.4.0
+onnxruntime-gpu==1.23.2

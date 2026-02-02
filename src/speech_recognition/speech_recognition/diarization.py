@@ -1015,6 +1015,11 @@ class DiarizationNode(Node):
                 segmentation = m.SegmentationModel.from_pretrained(
                     self.segmentation_model_name, use_hf_token=hf_token
                 )
+                if segmentation is None:
+                    self.get_logger().error(
+                        "[Diarization] Failed to load segmentation model. It is None."
+                    )
+                    return
                 self.get_logger().info(
                     f"[Diarization] Segmentation model loaded: {type(segmentation).__name__}"
                 )
@@ -1024,6 +1029,11 @@ class DiarizationNode(Node):
                 embedding = m.EmbeddingModel.from_pretrained(
                     self.embedding_model_name, use_hf_token=hf_token
                 )
+                if embedding is None:
+                    self.get_logger().error(
+                        "[Diarization] Failed to load embedding model. It is None."
+                    )
+                    return
                 self.get_logger().info(
                     f"[Diarization] Embedding model loaded: {type(embedding).__name__}"
                 )

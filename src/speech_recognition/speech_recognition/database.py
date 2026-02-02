@@ -14,14 +14,15 @@ logger = logging.getLogger(__name__)
 class DataBaseManager:
     """Manages MongoDB operations for speaker embeddings."""
 
-    def __init__(self, mongo_uri: str = "mongodb://localhost:27017/"):
+    def __init__(self, mongo_uri: str = "mongodb://eurecat:cerdanyola@localhost:27017/?authSource=admin&serverSelectionTimeoutMS=5000"):
         try:
-            self.client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
+            self.client = MongoClient(mongo_uri)
             self.client.admin.command("ping")
             self.db = self.client["speaker_recognition"]
             self.speakers = self.db["speakers"]
             self.speakers.create_index("speaker_name", unique=True)
             logger.info("Connected to MongoDB\n")
+            logger.info(f"[INFO] Connected to MongoDB at {mongo_uri}, database: speaker_recognition, collection: speakers")
         except ConnectionFailure:
             logger.error("Could not connect to MongoDB. Is it running?\n")
             raise
