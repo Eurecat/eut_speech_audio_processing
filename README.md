@@ -66,10 +66,15 @@ This repository uses **Ruff** for automatic Python code formatting via pre-commi
 # Install pre-commit
 pip install pre-commit
 
-# Install the git hooks
-pre-commit install
-```
+# Install the git hooks 
+pre-commit install # Runs on changed files only by default when git commit
 
+# (Optional) Run on all existing files
+pre-commit run --all-files
+
+#If you need to commit urgently and skip the pre-commit checks
+git commit -m "urgent fix" --no-verify
+```
 Now Ruff will automatically format your code before each commit. If formatting changes are made, review them with `git diff`, then stage and commit again.
 
 **📖 For detailed setup, VS Code integration, and troubleshooting, see [PRECOMMIT.md](PRECOMMIT.md)**

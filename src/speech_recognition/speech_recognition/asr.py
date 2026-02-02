@@ -7,16 +7,15 @@ from collections import deque
 import numpy as np
 import rclpy
 import torch
-from faster_whisper import WhisperModel, BatchedInferencePipeline
-from rclpy.node import Node
-
+from faster_whisper import BatchedInferencePipeline, WhisperModel
 from hri_msgs.msg import (
     AudioAndDeviceInfo,
+    LiveSpeech,
     SpeechActivityDetection,
     SpeechResult,
     Vad,
-    LiveSpeech,
 )
+from rclpy.node import Node
 
 
 class ASRNode(Node):
@@ -35,44 +34,28 @@ class ASRNode(Node):
         self.declare_parameter(
             "silence_detection_threshold", 0.00001
         )  # RMS threshold for silence detection
-        self.declare_parameter(
-            "pre_buffer_duration", 0.3
-        )  # seconds of audio to prepend
+        self.declare_parameter("pre_buffer_duration", 0.3)  # seconds of audio to prepend
         self.declare_parameter("ros4hri_with_id", True)
         self.declare_parameter("cleanup_inactive_topics", False)
         self.declare_parameter("inactive_topic_timeout", 10.0)
 
         # Get parameter values
-        self.model_size = (
-            self.get_parameter("model_size").get_parameter_value().string_value
-        )
-        self.compute_type = (
-            self.get_parameter("compute_type").get_parameter_value().string_value
-        )
-        self.language = (
-            self.get_parameter("language").get_parameter_value().string_value
-        )
+        self.model_size = self.get_parameter("model_size").get_parameter_value().string_value
+        self.compute_type = self.get_parameter("compute_type").get_parameter_value().string_value
+        self.language = self.get_parameter("language").get_parameter_value().string_value
         self.use_batched_inference = (
             self.get_parameter("use_batched_inference").get_parameter_value().bool_value
         )
-        self.batch_size = (
-            self.get_parameter("batch_size").get_parameter_value().integer_value
-        )
-        self.vad_threshold = (
-            self.get_parameter("vad_threshold").get_parameter_value().double_value
-        )
+        self.batch_size = self.get_parameter("batch_size").get_parameter_value().integer_value
+        self.vad_threshold = self.get_parameter("vad_threshold").get_parameter_value().double_value
         self.min_silence_duration = (
-            self.get_parameter("min_silence_duration")
-            .get_parameter_value()
-            .double_value
+            self.get_parameter("min_silence_duration").get_parameter_value().double_value
         )
         self.max_chunk_duration = (
             self.get_parameter("max_chunk_duration").get_parameter_value().double_value
         )
         self.silence_detection_threshold = (
-            self.get_parameter("silence_detection_threshold")
-            .get_parameter_value()
-            .double_value
+            self.get_parameter("silence_detection_threshold").get_parameter_value().double_value
         )
         self.pre_buffer_duration = (
             self.get_parameter("pre_buffer_duration").get_parameter_value().double_value
@@ -81,14 +64,10 @@ class ASRNode(Node):
             self.get_parameter("ros4hri_with_id").get_parameter_value().bool_value
         )
         self.cleanup_inactive_topics = (
-            self.get_parameter("cleanup_inactive_topics")
-            .get_parameter_value()
-            .bool_value
+            self.get_parameter("cleanup_inactive_topics").get_parameter_value().bool_value
         )
         self.inactive_topic_timeout = (
-            self.get_parameter("inactive_topic_timeout")
-            .get_parameter_value()
-            .double_value
+            self.get_parameter("inactive_topic_timeout").get_parameter_value().double_value
         )
 
         self.get_logger().info(f"Using VAD: {self.vad_threshold}")
@@ -135,9 +114,7 @@ class ASRNode(Node):
 
         # Search model inside "weights" folder (next to this file)
         # If "weights" folder does not exist, it will be created automatically by faster-whisper
-        weights_dir = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "weights")
-        )
+        weights_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "weights"))
 
         if not os.path.exists(weights_dir):
             os.makedirs(weights_dir, exist_ok=True)
@@ -151,9 +128,7 @@ class ASRNode(Node):
         for name in os.listdir(weights_dir):
             if name == model_path:
                 resolved_model_path = os.path.join(weights_dir, name)
-                self.get_logger().info(
-                    f"Found local snapshot for model: {resolved_model_path}"
-                )
+                self.get_logger().info(f"Found local snapshot for model: {resolved_model_path}")
                 # Walk through subdirectories to find the actual model folder (model.bin)
                 for root, _, files in os.walk(resolved_model_path):
                     if "model.bin" in files:
@@ -173,24 +148,14 @@ class ASRNode(Node):
                         shutil.rmtree(resolved_model_path)
                         resolved_model_path = None
                     except Exception as e:
-                        self.get_logger().error(
-                            f"Failed to remove incomplete model directory: {e}"
-                        )
+                        self.get_logger().error(f"Failed to remove incomplete model directory: {e}")
                 break
 
-        if (
-            resolved_model_path
-            and model_bin_found
-            and os.path.isdir(resolved_model_path)
-        ):
-            self.get_logger().info(
-                f"Using local snapshot for model: {resolved_model_path}"
-            )
+        if resolved_model_path and model_bin_found and os.path.isdir(resolved_model_path):
+            self.get_logger().info(f"Using local snapshot for model: {resolved_model_path}")
             model_arg = resolved_model_path
             # when passing a snapshot folder, no need to set download_root
-            self.model = WhisperModel(
-                model_arg, device=self.device, compute_type=self.compute_type
-            )
+            self.model = WhisperModel(model_arg, device=self.device, compute_type=self.compute_type)
         else:
             self.get_logger().info(
                 f"No valid local snapshot found, using HuggingFace repo id: {self.model_size} (download_root={weights_dir})"
@@ -211,9 +176,7 @@ class ASRNode(Node):
         green = "\033[92m"
         reset = "\033[0m"
         # Check if model is actually on GPU
-        device_info = (
-            "GPU" if self.device == "cuda" and torch.cuda.is_available() else "CPU"
-        )
+        device_info = "GPU" if self.device == "cuda" and torch.cuda.is_available() else "CPU"
         self.get_logger().info(
             f"{green}Faster whisper model  {self.model_size} loaded on {device_info} with compute_type {self.compute_type}.{reset}"
         )
@@ -289,9 +252,7 @@ class ASRNode(Node):
                 for lang, prob in all_language_probs
                 if lang in allowed_languages
             ]
-            self.get_logger().info(
-                f"Detected languages (filtered): {filtered_languages}"
-            )
+            self.get_logger().info(f"Detected languages (filtered): {filtered_languages}")
             # If we have a list of allowed languages, find the best match
             if allowed_languages and len(allowed_languages) > 0:
                 best_score = 0
@@ -308,9 +269,7 @@ class ASRNode(Node):
                 return language
 
         except Exception as e:
-            self.get_logger().warn(
-                f"Language detection failed: {e}, falling back to 'en'"
-            )
+            self.get_logger().warn(f"Language detection failed: {e}, falling back to 'en'")
             return "en"
 
     def cleanup_topics_callback(self):
@@ -358,9 +317,7 @@ class ASRNode(Node):
         new_vad_state = msg.vad_probability > self.vad_threshold
 
         if new_vad_state != self.vad_state:
-            self.get_logger().debug(
-                f"VAD state changed: {self.vad_state} -> {new_vad_state}"
-            )
+            self.get_logger().debug(f"VAD state changed: {self.vad_state} -> {new_vad_state}")
 
             if new_vad_state:
                 # Speech started or reactivated
@@ -384,13 +341,8 @@ class ASRNode(Node):
                 self.speech_cancelled.clear()
 
                 # Start processing thread if not already running
-                if (
-                    self.processing_thread is None
-                    or not self.processing_thread.is_alive()
-                ):
-                    self.processing_thread = threading.Thread(
-                        target=self._process_speech_end
-                    )
+                if self.processing_thread is None or not self.processing_thread.is_alive():
+                    self.processing_thread = threading.Thread(target=self._process_speech_end)
                     self.processing_thread.daemon = True
                     self.processing_thread.start()
 
@@ -417,16 +369,12 @@ class ASRNode(Node):
                 self.voice_publishers[self.speaker_id] = self.create_publisher(
                     LiveSpeech, topic, 10
                 )
-                self.get_logger().debug(
-                    f"Created speech publisher for speaker: {self.speaker_id}"
-                )
+                self.get_logger().debug(f"Created speech publisher for speaker: {self.speaker_id}")
             self.voice_publishers_activity[self.speaker_id] = time.time()
 
     def _process_speech_end(self):
         """Process speech when VAD goes from on to off"""
-        self.get_logger().debug(
-            f"Started silence timer, waiting {self.min_silence_duration}s"
-        )
+        self.get_logger().debug(f"Started silence timer, waiting {self.min_silence_duration}s")
 
         # Wait for min_silence_duration or until cancelled (VAD reactivated)
         was_cancelled = self.speech_cancelled.wait(timeout=self.min_silence_duration)
@@ -501,9 +449,7 @@ class ASRNode(Node):
             # Determine split time and extract audio data
             if best_split_time and min_rms < self.silence_detection_threshold:
                 split_time = best_split_time
-                self.get_logger().debug(
-                    f"Found silence at {best_split_time}, splitting chunk"
-                )
+                self.get_logger().debug(f"Found silence at {best_split_time}, splitting chunk")
             else:
                 split_time = current_time
                 self.get_logger().debug("No silence found, splitting at current time")
@@ -519,9 +465,7 @@ class ASRNode(Node):
     def _transcribe_speech_chunk(self, end_time=None):
         """Transcribe the accumulated speech chunk"""
         if end_time is None:
-            end_time = (
-                self.last_silence_time if self.last_silence_time > 0 else time.time()
-            )
+            end_time = self.last_silence_time if self.last_silence_time > 0 else time.time()
 
         # Extract audio data with lock
         with self.buffer_lock:
@@ -540,17 +484,11 @@ class ASRNode(Node):
         # Check if we have enough audio (at least 0.01 seconds)
         min_duration = 0.01
 
-        if self.sample_rate is None or len(audio_data) < int(
-            self.sample_rate * min_duration
-        ):
-            self.get_logger().warn(
-                "Audio chunk too short for transcription or sample rate not set"
-            )
+        if self.sample_rate is None or len(audio_data) < int(self.sample_rate * min_duration):
+            self.get_logger().warn("Audio chunk too short for transcription or sample rate not set")
             return
 
-        self.get_logger().info(
-            f"Transcribing {len(audio_data) / self.sample_rate:.2f}s of audio"
-        )
+        self.get_logger().info(f"Transcribing {len(audio_data) / self.sample_rate:.2f}s of audio")
 
         # Determine language to use for transcription
         transcription_language = self.language
@@ -562,9 +500,7 @@ class ASRNode(Node):
         elif "," in self.language:
             # List of allowed languages provided
             allowed_languages = [lang.strip() for lang in self.language.split(",")]
-            transcription_language = self._detect_language(
-                audio_data, allowed_languages
-            )
+            transcription_language = self._detect_language(audio_data, allowed_languages)
         elif self.model_size.endswith(".en"):
             # Model is English-only, force English
             transcription_language = "en"
@@ -603,9 +539,7 @@ class ASRNode(Node):
                 asr_msg.transcript = transcript
                 asr_msg.speaker_id = self.speaker_id if self.speaker_id else "unknown"
                 asr_msg.language_code = (
-                    info.language
-                    if hasattr(info, "language")
-                    else transcription_language
+                    info.language if hasattr(info, "language") else transcription_language
                 )
                 # Set default confidence since faster-whisper might not return per-transcript confidence easily aggregated
                 # Or we can take average of segment avg_logprob converted to prob, but 0.0 is consistent with existing code
@@ -615,11 +549,7 @@ class ASRNode(Node):
                 self.asr_pub.publish(asr_msg)
 
                 # Handle ROS4HRI LiveSpeech
-                if (
-                    self.ros4hri_enabled
-                    and asr_msg.speaker_id
-                    and asr_msg.speaker_id != "unknown"
-                ):
+                if self.ros4hri_enabled and asr_msg.speaker_id and asr_msg.speaker_id != "unknown":
                     self._publish_ros4hri_speech(
                         asr_msg.speaker_id, transcript, asr_msg.language_code
                     )
@@ -645,9 +575,7 @@ class ASRNode(Node):
         # Ensure publisher exists
         if speaker_id not in self.voice_publishers:
             topic = f"/humans/voices/{speaker_id}/speech"
-            self.voice_publishers[speaker_id] = self.create_publisher(
-                LiveSpeech, topic, 10
-            )
+            self.voice_publishers[speaker_id] = self.create_publisher(LiveSpeech, topic, 10)
 
         self.voice_publishers_activity[speaker_id] = time.time()
 

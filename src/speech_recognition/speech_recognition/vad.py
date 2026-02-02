@@ -1,11 +1,11 @@
-import numpy as np
 import os
+import time
+
+import numpy as np
 import rclpy
 import torch
-import time
-from pathlib import Path
-from rclpy.node import Node
 from hri_msgs.msg import AudioAndDeviceInfo, Vad
+from rclpy.node import Node
 
 
 class VADNode(Node):
@@ -21,12 +21,8 @@ class VADNode(Node):
         )
 
         # Get parameter values
-        self.repo_model = (
-            self.get_parameter("repo_model").get_parameter_value().string_value
-        )
-        self.model_name = (
-            self.get_parameter("model_name").get_parameter_value().string_value
-        )
+        self.repo_model = self.get_parameter("repo_model").get_parameter_value().string_value
+        self.model_name = self.get_parameter("model_name").get_parameter_value().string_value
         self.weights_dir = os.path.abspath(
             self.get_parameter("weights_dir").get_parameter_value().string_value
         )

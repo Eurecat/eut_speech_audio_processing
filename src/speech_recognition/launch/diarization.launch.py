@@ -4,10 +4,10 @@ import subprocess
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
-    OpaqueFunction,
-    LogInfo,
-    SetEnvironmentVariable,
     DeclareLaunchArgument,
+    LogInfo,
+    OpaqueFunction,
+    SetEnvironmentVariable,
 )
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -34,21 +34,14 @@ def _setup(context, *args, **kwargs):
     config_file = os.path.join(config_dir, "config", "diarization_params.yaml")
 
     # Get debug parameter
-    enable_debug = (
-        LaunchConfiguration("enable_debug_output").perform(context).lower() == "true"
-    )
+    enable_debug = LaunchConfiguration("enable_debug_output").perform(context).lower() == "true"
 
     # Get ros4hri_with_id parameter
-    ros4hri_with_id = (
-        LaunchConfiguration("ros4hri_with_id").perform(context).lower() == "true"
-    )
+    ros4hri_with_id = LaunchConfiguration("ros4hri_with_id").perform(context).lower() == "true"
     cleanup_inactive_topics = (
-        LaunchConfiguration("cleanup_inactive_topics").perform(context).lower()
-        == "true"
+        LaunchConfiguration("cleanup_inactive_topics").perform(context).lower() == "true"
     )
-    inactive_topic_timeout = float(
-        LaunchConfiguration("inactive_topic_timeout").perform(context)
-    )
+    inactive_topic_timeout = float(LaunchConfiguration("inactive_topic_timeout").perform(context))
 
     # Prepare arguments - add debug log level if debug output is enabled
     node_arguments = []
@@ -59,9 +52,7 @@ def _setup(context, *args, **kwargs):
     return [
         LogInfo(msg=f"[speech_recognition] Using AI venv: {VENV_PATH}"),
         LogInfo(msg=f"[speech_recognition] Injecting site-packages: {site_pkgs}"),
-        LogInfo(
-            msg=f"[speech_recognition] Loading Diarization config from: {config_file}"
-        ),
+        LogInfo(msg=f"[speech_recognition] Loading Diarization config from: {config_file}"),
         LogInfo(
             msg=f"[speech_recognition] Debug logging: {'enabled' if enable_debug else 'disabled'}"
         ),

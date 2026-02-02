@@ -24,7 +24,9 @@ select = [
 ]
 
 # Ignore specific rules if needed
-ignore = []
+ignore = [
+    "E501",  # Line too long (let black/ruff-format handle line length)
+]
 
 # Allow autofix for all enabled rules
 fixable = ["ALL"]

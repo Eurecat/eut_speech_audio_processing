@@ -4,10 +4,10 @@ import subprocess
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
-    OpaqueFunction,
-    LogInfo,
-    SetEnvironmentVariable,
     DeclareLaunchArgument,
+    LogInfo,
+    OpaqueFunction,
+    SetEnvironmentVariable,
     TimerAction,
 )
 from launch.conditions import IfCondition
@@ -39,16 +39,11 @@ def _setup(context, *args, **kwargs):
     asr_delay = float(LaunchConfiguration("asr_delay").perform(context))
 
     # Get ros4hri_with_id parameter
-    ros4hri_with_id = (
-        LaunchConfiguration("ros4hri_with_id").perform(context).lower() == "true"
-    )
+    ros4hri_with_id = LaunchConfiguration("ros4hri_with_id").perform(context).lower() == "true"
     cleanup_inactive_topics = (
-        LaunchConfiguration("cleanup_inactive_topics").perform(context).lower()
-        == "true"
+        LaunchConfiguration("cleanup_inactive_topics").perform(context).lower() == "true"
     )
-    inactive_topic_timeout = float(
-        LaunchConfiguration("inactive_topic_timeout").perform(context)
-    )
+    inactive_topic_timeout = float(LaunchConfiguration("inactive_topic_timeout").perform(context))
 
     # Get package config directory
     config_dir = get_package_share_directory("speech_recognition")
@@ -69,15 +64,9 @@ def _setup(context, *args, **kwargs):
 
         log_messages.extend(
             [
-                LogInfo(
-                    msg=f"[speech_recognition] VAD: Using AI venv: {VENV_PATH_DEFAULT}"
-                ),
-                LogInfo(
-                    msg=f"[speech_recognition] VAD: Injecting site-packages: {site_pkgs_vad}"
-                ),
-                LogInfo(
-                    msg=f"[speech_recognition] VAD: Loading config from: {vad_config_file}"
-                ),
+                LogInfo(msg=f"[speech_recognition] VAD: Using AI venv: {VENV_PATH_DEFAULT}"),
+                LogInfo(msg=f"[speech_recognition] VAD: Injecting site-packages: {site_pkgs_vad}"),
+                LogInfo(msg=f"[speech_recognition] VAD: Loading config from: {vad_config_file}"),
             ]
         )
 
@@ -100,9 +89,7 @@ def _setup(context, *args, **kwargs):
         site_pkgs_wake_word = _venv_site_packages(VENV_PATH_DEFAULT)
         existing = os.environ.get("PYTHONPATH", "")
         new_py_path_wake_word = (
-            site_pkgs_wake_word
-            if not existing
-            else f"{site_pkgs_wake_word}{os.pathsep}{existing}"
+            site_pkgs_wake_word if not existing else f"{site_pkgs_wake_word}{os.pathsep}{existing}"
         )
 
         # Wake word parameters - List of ONNX model names (without .onnx extension)
@@ -118,9 +105,7 @@ def _setup(context, *args, **kwargs):
 
         log_messages.extend(
             [
-                LogInfo(
-                    msg=f"[speech_recognition] Wake Word: Using AI venv: {VENV_PATH_DEFAULT}"
-                ),
+                LogInfo(msg=f"[speech_recognition] Wake Word: Using AI venv: {VENV_PATH_DEFAULT}"),
                 LogInfo(
                     msg=f"[speech_recognition] Wake Word: Injecting site-packages: {site_pkgs_wake_word}"
                 ),
@@ -153,9 +138,7 @@ def _setup(context, *args, **kwargs):
             if not existing
             else f"{site_pkgs_diarization}{os.pathsep}{existing}"
         )
-        diarization_config_file = os.path.join(
-            config_dir, "config", "diarization_params.yaml"
-        )
+        diarization_config_file = os.path.join(config_dir, "config", "diarization_params.yaml")
 
         log_messages.extend(
             [
@@ -196,9 +179,7 @@ def _setup(context, *args, **kwargs):
                                 "inactive_topic_timeout": inactive_topic_timeout,
                             },
                         ],
-                        condition=IfCondition(
-                            LaunchConfiguration("enable_diarization")
-                        ),
+                        condition=IfCondition(LaunchConfiguration("enable_diarization")),
                     ),
                 ],
             )
@@ -215,18 +196,10 @@ def _setup(context, *args, **kwargs):
 
         log_messages.extend(
             [
-                LogInfo(
-                    msg=f"[speech_recognition] ASR: Using AI venv: {VENV_PATH_DEFAULT}"
-                ),
-                LogInfo(
-                    msg=f"[speech_recognition] ASR: Injecting site-packages: {site_pkgs_asr}"
-                ),
-                LogInfo(
-                    msg=f"[speech_recognition] ASR: Loading config from: {asr_config_file}"
-                ),
-                LogInfo(
-                    msg=f"[speech_recognition] ASR: Will start with {asr_delay} second delay"
-                ),
+                LogInfo(msg=f"[speech_recognition] ASR: Using AI venv: {VENV_PATH_DEFAULT}"),
+                LogInfo(msg=f"[speech_recognition] ASR: Injecting site-packages: {site_pkgs_asr}"),
+                LogInfo(msg=f"[speech_recognition] ASR: Loading config from: {asr_config_file}"),
+                LogInfo(msg=f"[speech_recognition] ASR: Will start with {asr_delay} second delay"),
                 LogInfo(
                     msg=f"[speech_recognition] ASR: ROS4HRI with ID: {'enabled' if ros4hri_with_id else 'disabled'}"
                 ),

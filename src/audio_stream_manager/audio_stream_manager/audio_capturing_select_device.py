@@ -1,13 +1,12 @@
 import threading
-import time as T
+import time
 
 import numpy as np
 import rclpy
 import sounddevice as sd
+from hri_msgs.msg import AudioAndDeviceInfo
 from rclpy.node import Node
 from std_msgs.msg import Bool
-
-from hri_msgs.msg import AudioAndDeviceInfo
 
 DTYPE = "float32"
 CHANNELS = 1
@@ -22,9 +21,7 @@ class AudioCapturingNode(Node):
         super().__init__("audio_capturing_node")
 
         # Publishers
-        self.device_disconnected_pub = self.create_publisher(
-            Bool, "device_disconnected", 10
-        )
+        self.device_disconnected_pub = self.create_publisher(Bool, "device_disconnected", 10)
         self.audio_and_device_info_pub = self.create_publisher(
             AudioAndDeviceInfo, "audio_and_device_info", 10
         )
@@ -51,7 +48,7 @@ class AudioCapturingNode(Node):
         self.setup_working_device()
 
         # Initialize last callback time
-        self.last_callback_time = T.time()
+        self.last_callback_time = time.time()
 
         # Start disconnection check in a separate thread
         self.disconnection_thread = threading.Thread(
@@ -84,7 +81,7 @@ class AudioCapturingNode(Node):
                 latency="low",
             )
             test_stream.start()
-            T.sleep(TEST_STREAM_DURATION)
+            time.sleep(TEST_STREAM_DURATION)
             test_stream.stop()
             test_stream.close()
             return True
@@ -143,9 +140,7 @@ class AudioCapturingNode(Node):
             self.get_logger().info("Available devices:")
             for i in available_devices:
                 dev = self.devices[i]
-                self.get_logger().info(
-                    f"{i}: {dev['name']} ({dev['max_input_channels']} channels)"
-                )
+                self.get_logger().info(f"{i}: {dev['name']} ({dev['max_input_channels']} channels)")
 
             while True:
                 try:
@@ -161,26 +156,20 @@ class AudioCapturingNode(Node):
                             )
                             # Refresh device list and break inner loop to show updated list
                             self.devices = sd.query_devices()
-                            available_devices = self.get_available_input_devices(
-                                self.devices
-                            )
+                            available_devices = self.get_available_input_devices(self.devices)
                             break
                     else:
-                        self.get_logger().warn(
-                            f"Invalid index. Choose from {available_devices}"
-                        )
+                        self.get_logger().warn(f"Invalid index. Choose from {available_devices}")
                 except KeyboardInterrupt:
                     self.get_logger().info("Operation cancelled.")
                     raise
                 except Exception:
-                    self.get_logger().warn(
-                        f"Invalid index. Choose from {available_devices}"
-                    )
+                    self.get_logger().warn(f"Invalid index. Choose from {available_devices}")
 
     # Callback for audio input stream. Whenever new audio data is available, this function is called.
     def input_callback(self, indata, frames, time, status):
         with self.disconnection_check_lock:
-            self.last_callback_time = T.time()
+            self.last_callback_time = time.time()
 
         # For mono: indata[:, 0] gives all samples from channel 0
         # For multichannel: indata[:, CHANNEL] gives all samples from specific channel
@@ -209,19 +198,16 @@ class AudioCapturingNode(Node):
         """Continuously check for device disconnection in a separate thread."""
         while self.disconnection_check_running:
             self.check_disconnection()
-            T.sleep(DISCONNECTION_CHECK_INTERVAL)
+            time.sleep(DISCONNECTION_CHECK_INTERVAL)
 
     def check_disconnection(self):
         with self.disconnection_check_lock:
-            time_since_last_callback = T.time() - self.last_callback_time
+            time_since_last_callback = time.time() - self.last_callback_time
             self.get_logger().debug(
                 f"Time since last callback: {time_since_last_callback:.2f} seconds"
             )
 
-        if (
-            time_since_last_callback > DISCONNECTION_TIMEOUT
-            and not self.handling_disconnection
-        ):
+        if time_since_last_callback > DISCONNECTION_TIMEOUT and not self.handling_disconnection:
             # Publish device status as True (disconnected)
             msg = Bool()
             msg.data = True
@@ -229,9 +215,7 @@ class AudioCapturingNode(Node):
 
             self.handling_disconnection = True
 
-            self.get_logger().error(
-                "No callback for 5 seconds. Device may be disconnected."
-            )
+            self.get_logger().error("No callback for 5 seconds. Device may be disconnected.")
 
             # Stop the input stream safely
             if self.stream is not None:
@@ -256,7 +240,7 @@ class AudioCapturingNode(Node):
                 # Reset disconnection handling flag and update last callback time
                 with self.disconnection_check_lock:
                     self.handling_disconnection = False
-                    self.last_callback_time = T.time()
+                    self.last_callback_time = time.time()
 
             except KeyboardInterrupt:
                 self.get_logger().info("Device selection cancelled by user.")
@@ -274,10 +258,7 @@ def main(args=None):
     finally:
         # Stop the disconnection check thread
         node.disconnection_check_running = False
-        if (
-            hasattr(node, "disconnection_thread")
-            and node.disconnection_thread.is_alive()
-        ):
+        if hasattr(node, "disconnection_thread") and node.disconnection_thread.is_alive():
             node.disconnection_thread.join(timeout=2.0)
 
         # Stop the audio stream

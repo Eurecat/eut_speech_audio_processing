@@ -1,12 +1,11 @@
-import rclpy
-from rclpy.node import Node
-
-from std_msgs.msg import Float32MultiArray  # adjust if your message type differs
-from hri_msgs.msg import AudioAndDeviceInfo
-import numpy as np
-import wave
-import subprocess
 import os
+import subprocess
+import wave
+
+import numpy as np
+import rclpy
+from hri_msgs.msg import AudioAndDeviceInfo
+from rclpy.node import Node
 
 # sudo apt-get install ffmpeg
 
@@ -50,9 +49,7 @@ class AudioToMp3(Node):
             wf.setframerate(SAMPLE_RATE)
             wf.writeframes(samples_int16.tobytes())
 
-        self.get_logger().info(
-            f"WAV written to {wav_path}, {len(samples_int16)} samples"
-        )
+        self.get_logger().info(f"WAV written to {wav_path}, {len(samples_int16)} samples")
         return True
 
     def convert_wav_to_mp3(self, wav_path: str, mp3_path: str):
