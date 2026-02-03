@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libcudnn9-cuda-12 \
     libcudnn9-dev-cuda-12 \
     ffmpeg \
+    python3-pytest python3-pytest-cov \
 && rm -rf /var/lib/apt/lists/*
  
 # Set working directory
@@ -63,6 +64,10 @@ RUN rosdep install --from-paths src --ignore-src -r -y
 # Build workspace
 # ------------------------------------------------------------
 RUN /bin/bash -c "source /opt/ros/${ROS_DISTRO}/setup.bash; colcon build --event-handlers console_direct+ --symlink-install;"
+
+# Copy coverage script for automated testing within CI/CD
+COPY ci_cd_coverage.sh /ci_cd_coverage.sh
+RUN chmod +x /ci_cd_coverage.sh
 
 
 # Copy and set up the entrypoint script
