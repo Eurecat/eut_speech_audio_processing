@@ -22,6 +22,35 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       
+      # Clone EutRobAIDockers repository to build base image
+      - name: Clone EutRobAIDockers repository
+        run: |
+          git clone https://github.com/Eurecat/EutRobAIDockers.git
+          cd EutRobAIDockers
+          echo "✅ EutRobAIDockers repository cloned successfully"
+      
+      # Build the base image (eut_ros_vulcanexus_torch:jazzy)
+      - name: Build base image from EutRobAIDockers
+        run: |
+          cd EutRobAIDockers/Docker
+          chmod +x build_container.sh
+          ./build_container.sh --vulcanexus
+        env:
+          DOCKER_BUILDKIT: 1
+      
+      # Verify base image was built successfully
+      - name: Verify base image was built
+        run: |
+          if docker images | grep -q "eut_ros_vulcanexus_torch.*jazzy"; then
+            echo "✅ Base image eut_ros_vulcanexus_torch:jazzy successfully built"
+            docker images eut_ros_vulcanexus_torch:jazzy
+          else
+            echo "❌ Base image eut_ros_vulcanexus_torch:jazzy not found"
+            echo "Available images:"
+            docker images
+            exit 1
+          fi
+      
       # Not needed atm, also because this approach would allow just a git op within the same repo (useless) 
       # we should setup Multiple Repos Using a GitHub App
       # - name: Set up SSH agent
@@ -35,18 +64,19 @@ jobs:
       - name: Make build script executable
         run: chmod +x Docker/build_container.sh
       
-      - name: Build Docker image with SSH
+      # Build the eut_speech Docker image (depends on base image)
+      - name: Build eut_speech Docker image
         run: cd ./Docker && ./build_container.sh
         env:
           DOCKER_BUILDKIT: 1
       
-      - name: Verify image was built
+      - name: Verify eut_speech image was built
         run: |
           if docker images | grep -q "eut_ros_torch.*jazzy"; then
-            echo "✅ Image eut_ros_torch:jazzy successfully built"
+            echo "✅ eut_speech image eut_ros_torch:jazzy successfully built"
             docker images eut_ros_torch:jazzy
           else
-            echo "❌ Image eut_ros_torch:jazzy not found"
+            echo "❌ eut_speech image eut_ros_torch:jazzy not found"
             echo "Available images:"
             docker images
             exit 1

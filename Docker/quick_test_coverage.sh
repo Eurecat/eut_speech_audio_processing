@@ -189,13 +189,30 @@ fi
 
 set -e
 
-# Step 3: Build C++ packages with coverage flags
+# Step 3: Build dependencies first
+print_header "🔨 Step 3: Build Dependencies"
+print_info "Building all dependencies first to ensure proper environment..."
+
+# Always build common dependencies that most packages need
+COMMON_DEPS=("hri_msgs" "audio_common_msgs" "audio_stream_manager")
+for dep in "${COMMON_DEPS[@]}"; do
+    if [ -d "src/$dep" ]; then
+        print_info "Building dependency: $dep"
+        colcon build --symlink-install --packages-select "$dep"
+        if [ $? -ne 0 ]; then
+            print_error "Failed to build dependency: $dep"
+            exit 1
+        fi
+    fi
+done
+
+# Step 4: Build C++ packages with coverage flags
 if [ ${#CPP_PACKAGES[@]} -gt 0 ]; then
-    print_header "🔨 Step 3: Build C++ Packages with Coverage"
+    print_header "🔨 Step 4: Build C++ Packages with Coverage"
     for pkg in "${CPP_PACKAGES[@]}"; do
         print_info "Building C++ package: $pkg"
         colcon build --symlink-install \
-            --packages-select "$pkg" \
+            --packages-up-to "$pkg" \
             --cmake-args \
                 -DCMAKE_CXX_FLAGS='--coverage' \
                 -DCMAKE_C_FLAGS='--coverage' \
@@ -212,9 +229,9 @@ else
     print_info "No C++ packages to build"
 fi
 
-# Step 4: Build Python packages
+# Step 5: Build Python packages
 if [ ${#PY_PACKAGES[@]} -gt 0 ]; then
-    print_header "🔨 Step 4: Build Python Packages"
+    print_header "🔨 Step 5: Build Python Packages"
     # Build Python packages (excluding C++ ones already built)
     PY_ONLY_PACKAGES=()
     for pkg in "${PY_PACKAGES[@]}"; do
@@ -226,8 +243,8 @@ if [ ${#PY_PACKAGES[@]} -gt 0 ]; then
     
     if [ ${#PY_ONLY_PACKAGES[@]} -gt 0 ]; then
         for pkg in "${PY_ONLY_PACKAGES[@]}"; do
-            print_info "Building Python package: $pkg"
-            colcon build --symlink-install --packages-select "$pkg"
+            print_info "Building Python package: $pkg (with dependencies)"
+            colcon build --symlink-install --packages-up-to "$pkg"
             
             if [ $? -eq 0 ]; then
                 print_success "$pkg built successfully"
@@ -243,8 +260,8 @@ else
     print_info "No Python packages to build"
 fi
 
-# Step 5: Run tests
-print_header "🧪 Step 5: Run All Tests"
+# Step 6: Run tests
+print_header "🧪 Step 6: Run All Tests"
 set +e  # Don't exit on test failures
 
 ALL_PKG_LIST=()
@@ -258,17 +275,62 @@ for pkg in "${PY_PACKAGES[@]}"; do
 done
 
 if [ ${#ALL_PKG_LIST[@]} -gt 0 ]; then
-    PACKAGES_SELECT=$(IFS=,; echo "${ALL_PKG_LIST[*]}")
-    colcon test \
-        --packages-select $PACKAGES_SELECT \
-        --event-handlers console_direct+ \
-        --pytest-args '-v' \
-        --return-code-on-test-failure
-    TEST_EXIT_CODE=$?
+    # Set up environment variables for different packages
+    export PYTHONDONTWRITEBYTECODE=1  # Prevent .pyc files during testing
+    
+    # For speech_recognition, ensure diarization environment is available
+    if [[ " ${PY_PACKAGES[@]} " =~ " speech_recognition " ]]; then
+        if [ -d "/opt/ros_python_diarization_env" ]; then
+            export SPEECH_RECOGNITION_VENV="/opt/ros_python_diarization_env"
+            print_info "Using diarization environment for speech_recognition tests"
+        else
+            print_warning "Diarization environment not found, tests will use mocks"
+        fi
+    fi
+    
+    # For audio_stream_manager, use ros_python_env
+    if [[ " ${PY_PACKAGES[@]} " =~ " audio_stream_manager " ]]; then
+        if [ -d "/opt/ros_python_env" ]; then
+            export AI_VENV="/opt/ros_python_env"
+            print_info "Using ros_python_env for audio_stream_manager tests"
+        fi
+    fi
+    
+    # Build pytest args with coverage for Python packages
+    # Note: pytest.ini already includes "-v --tb=short" in addopts
+    PYTEST_ARGS_ARRAY=()
+    if [ ${#PY_PACKAGES[@]} -gt 0 ]; then
+        # Add coverage for Python packages (pytest.ini handles -v and --tb=short)
+        for pkg in "${PY_PACKAGES[@]}"; do
+            PYTEST_ARGS_ARRAY+=("--cov=$pkg")
+        done
+        PYTEST_ARGS_ARRAY+=("--cov-report=html" "--cov-report=term")
+    fi
+    
+    # Convert array to string for display and execution
+    PYTEST_ARGS_STR="${PYTEST_ARGS_ARRAY[*]}"
+    if [ -n "$PYTEST_ARGS_STR" ]; then
+        print_info "Running tests with additional pytest args: $PYTEST_ARGS_STR"
+        # Use the coverage args (pytest.ini will add -v --tb=short automatically)
+        colcon test \
+            --packages-select "${ALL_PKG_LIST[@]}" \
+            --event-handlers console_direct+ \
+            --pytest-args "${PYTEST_ARGS_STR}" \
+            --return-code-on-test-failure
+        TEST_EXIT_CODE=$?
+    else
+        print_info "Running tests with default pytest configuration (from pytest.ini)"
+        # No additional args needed - pytest.ini handles everything
+        colcon test \
+            --packages-select "${ALL_PKG_LIST[@]}" \
+            --event-handlers console_direct+ \
+            --return-code-on-test-failure
+        TEST_EXIT_CODE=$?
+    fi
 else
+    print_info "Running tests for all packages with default pytest configuration"
     colcon test \
         --event-handlers console_direct+ \
-        --pytest-args '-v' \
         --return-code-on-test-failure
     TEST_EXIT_CODE=$?
 fi
@@ -281,8 +343,8 @@ else
     print_error "Some tests failed (exit code: $TEST_EXIT_CODE)"
 fi
 
-# Step 6: Generate test summary
-print_header "📊 Step 6: Generate Test Summary"
+# Step 7: Generate test summary
+print_header "📊 Step 7: Generate Test Summary"
 colcon test-result --all --verbose > test_summary.txt
 cat test_summary.txt
 
@@ -305,24 +367,41 @@ if [ -f test_summary.txt ]; then
     fi
 fi
 
-# Step 7: Generate coverage reports
-print_header "📈 Step 7: Generate Coverage Reports"
+# Step 8: Generate coverage reports
+print_header "📈 Step 8: Generate Coverage Reports"
 
 # Python coverage
 for pkg in "${PY_PACKAGES[@]}"; do
     print_info "Generating Python coverage for: $pkg"
-    if [ -d "src/$pkg" ]; then
-        cd "src/$pkg"
-        if [ -f ".coverage" ] || [ -d "../../build/$pkg" ]; then
-            # Run coverage from the test results
-            python3 -m coverage html -d "../../$pkg/htmlcov" 2>/dev/null || true
-            python3 -m coverage report > "../../${pkg}_coverage.txt" 2>/dev/null || true
-            python3 -m coverage lcov -o "../../build/$pkg/coverage.lcov" 2>/dev/null || true
+    
+    # Check for coverage data in build directory (colcon puts it there)
+    build_dir="build/$pkg"
+    if [ -d "$build_dir" ]; then
+        cd "$build_dir"
+        
+        # Look for pytest coverage data
+        if [ -f ".coverage" ] || find . -name ".coverage*" -type f | grep -q .; then
+            # Generate HTML coverage report
+            python3 -c "
+import sys
+sys.path.insert(0, '/workspace/src/$pkg')
+try:
+    import coverage
+    cov = coverage.Coverage()
+    cov.load()
+    cov.html_report(directory='/workspace/${pkg}_htmlcov')
+    cov.report(file=open('/workspace/${pkg}_coverage.txt', 'w'))
+    print('Coverage generated for $pkg')
+except Exception as e:
+    print(f'Coverage generation failed: {e}')
+" 2>/dev/null || echo "No coverage data to process"
             print_success "$pkg Python coverage generated"
         else
             print_info "No Python coverage data found for $pkg"
         fi
         cd /workspace
+    else
+        print_info "Build directory not found for $pkg"
     fi
 done
 
@@ -358,8 +437,8 @@ for pkg in "${CPP_PACKAGES[@]}"; do
     fi
 done
 
-# Step 8: Display coverage summary
-print_header "📊 Step 8: Coverage Summary"
+# Step 9: Display coverage summary
+print_header "📊 Step 9: Coverage Summary"
 
 # Python coverage summaries
 for pkg in "${PY_PACKAGES[@]}"; do
@@ -381,7 +460,7 @@ for pkg in "${CPP_PACKAGES[@]}"; do
     fi
 done
 
-# Step 9: Summary
+# Step 10: Summary
 print_header "✨ Pipeline Verification Complete!"
 
 echo -e "${BLUE}Generated Artifacts:${NC}"
