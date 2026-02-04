@@ -4,8 +4,8 @@
 # Target Python 3.8+ (adjust based on your project requirements)
 target-version = "py38"
 
-# Include only the src directory
-include = ["src/**/*.py"]
+# Include src and test directories
+include = ["src/**/*.py", "test/**/*.py"]
 
 # Line length
 line-length = 100
@@ -44,3 +44,81 @@ skip-magic-trailing-comma = false
 
 # Auto-detect line ending
 line-ending = "auto"
+
+[tool.pytest.ini_options]
+# Pytest configuration for the audio processing package
+testpaths = [
+    "src/audio_stream_manager/test",
+    "src/speech_recognition/test", 
+    "test"
+]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+
+# Exclude problematic directories from test collection
+norecursedirs = [
+    "weights", 
+    "*/weights/*", 
+    "__pycache__", 
+    ".git", 
+    ".pytest_cache", 
+    "build", 
+    "install", 
+    "log"
+]
+
+# Explicitly ignore weights directories
+collect_ignore = [
+    "src/speech_recognition/weights",
+    "src/speech_recognition/speech_recognition/weights", 
+    "*/weights/*"
+]
+
+# Markers for different test types
+markers = [
+    "unit: Unit tests for individual components",
+    "integration: Integration tests using launch_pytest",
+    "system: System-level end-to-end tests",
+    "performance: Performance and benchmark tests",
+    "slow: Tests that take longer to run"
+]
+
+# Test output configuration
+addopts = [
+    "-ra",                    # Show summary of all test outcomes
+    "--strict-markers",      # Require markers to be defined
+    "--strict-config",       # Require valid pytest configuration
+    "--tb=short",           # Shorter traceback format
+    "-v"                     # Verbose output
+]
+
+# Minimum version requirements
+minversion = "6.0"
+
+# Environment variables for testing
+env = [
+    "ROS_DOMAIN_ID=42",      # Avoid interference with other ROS systems
+    "PYTHONDONTWRITEBYTECODE=1"  # Don't create .pyc files during testing
+]
+
+[tool.coverage.run]
+# Coverage configuration for pytest-cov
+source = ["src"]
+omit = [
+    "*/test/*",
+    "*/tests/*",
+    "*/__pycache__/*",
+    "*/build/*",
+    "*/install/*"
+]
+
+[tool.coverage.report]
+# Coverage reporting configuration
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError", 
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:"
+]

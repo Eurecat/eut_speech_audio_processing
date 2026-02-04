@@ -14,7 +14,6 @@ services:
       - ~/.xauth_docker/share/:/tmp/xauth/
       - ./.vscode:/workspace/.vscode
       - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
-      - ../src/audio_stream_manager_interfaces:/workspace/src/audio_stream_manager_interfaces
       - ../src/speech_recognition:/workspace/src/speech_recognition
       - ../src/speech_recognition/speech_recognition/weights_pyannote:/root/.cache/torch/pyannote:rw
       - /dev:/dev
@@ -56,7 +55,6 @@ services:
       - ~/.xauth_docker/share/:/tmp/xauth/
       - ./.vscode:/workspace/.vscode
       - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
-      - ../src/audio_stream_manager_interfaces:/workspace/src/audio_stream_manager_interfaces
       - ../src/speech_recognition:/workspace/src/speech_recognition
       - ../src/speech_recognition/speech_recognition/weights_pyannote:/root/.cache/torch/pyannote:rw
       - /dev:/dev

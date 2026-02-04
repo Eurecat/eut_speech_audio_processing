@@ -52,7 +52,6 @@ COPY deps/hri_msgs /workspace/src/hri_msgs
 # Copy only audio_common_msgs from audio_common repository
 COPY deps/audio_common/audio_common_msgs /workspace/src/audio_common_msgs
 # COPY deps/eut_yolo/src/eut_yolo_core /workspace/src/eut_yolo_core
-# COPY deps/eut_yolo/src/eut_yolo_interfaces /workspace/src/eut_yolo_interfaces
 
 # ------------------------------------------------------------
 # Install dependencies
@@ -69,6 +68,9 @@ RUN /bin/bash -c "source /opt/ros/${ROS_DISTRO}/setup.bash; colcon build --event
 COPY ci_cd_coverage.sh /ci_cd_coverage.sh
 RUN chmod +x /ci_cd_coverage.sh
 
+# Copy coverage script for automated testing within CI/CD
+COPY quick_test_coverage.sh /quick_test_coverage.sh
+RUN chmod +x /quick_test_coverage.sh
 
 # Copy and set up the entrypoint script
 COPY entrypoint.sh /entrypoint.sh

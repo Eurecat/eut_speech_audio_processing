@@ -7,3 +7,6 @@ torchaudio==2.10.0
 faster-whisper==1.2.1
 openwakeword==0.4.0
 onnxruntime-gpu==1.20.1
+lark==1.3.1 # for hri_msgs
+empy==4.2 # for hri_msgs
+catkin_pkg
