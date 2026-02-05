@@ -61,6 +61,11 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       
+      - name: Install vcstool for dependency management
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-vcstool
+      
       - name: Make build script executable
         run: chmod +x Docker/build_container.sh
       
