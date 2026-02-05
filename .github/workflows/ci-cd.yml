@@ -72,7 +72,7 @@ jobs:
       
       # Build the eut_speech Docker image (depends on base image)
       - name: Build eut_speech Docker image
-        run: cd ./Docker && ./build_container.sh
+        run: cd ./Docker && ./build_container.sh --cpu
         env:
           DOCKER_BUILDKIT: 1
       

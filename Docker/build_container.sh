@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 #
-# Build script for EUT Entity Detection Docker container
+# Build script for EUT Speech Audio Processing Docker container
 #
 # Usage:
-# - Default (Vulcanexus): ./build_container.sh
-# - Standard ROS2: ./build_container.sh --standard-ros
-# - Clean rebuild: ./build_container.sh --clean-rebuild [--standard-ros]
+# - Default (Vulcanexus with GPU): ./build_container.sh
+# - Vulcanexus with GPU: ./build_container.sh --vulcanexus
+# - CPU-only version: ./build_container.sh --cpu
+# - CPU-only Vulcanexus: ./build_container.sh --cpu --vulcanexus
+# - Clean rebuild: ./build_container.sh --clean-rebuild [--vulcanexus] [--cpu]
 #
 
 export DOCKER_BUILDKIT=1
@@ -30,7 +32,7 @@ fi
 
 # Check arguments
 BASE_IMAGE="eut_ros_torch:jazzy"
-# Check if --clean-rebuild is among the arguments
+CPU_ONLY="false"
 REBUILD=false
 NO_VCS=false
 for arg in "$@"; do
@@ -38,7 +40,19 @@ for arg in "$@"; do
         REBUILD=true
     fi
     if [ "$arg" == "--vulcanexus" ]; then
-        BASE_IMAGE="eut_ros_vulcanexus_torch:jazzy"
+        if [ "$CPU_ONLY" = "true" ]; then
+            BASE_IMAGE="eut_ros_vulcanexus:jazzy"
+        else
+            BASE_IMAGE="eut_ros_vulcanexus_torch:jazzy"
+        fi
+    fi
+    if [ "$arg" == "--cpu" ]; then
+        CPU_ONLY="true"
+        if [[ "$BASE_IMAGE" == *"vulcanexus"* ]]; then
+            BASE_IMAGE="eut_ros_vulcanexus:jazzy"
+        else
+            BASE_IMAGE="eut_ros:jazzy"
+        fi
     fi
     if [ "$arg" == "--no-vcs" ]; then
         NO_VCS=true
@@ -63,23 +77,34 @@ else
     echo "Skipping VCS operations..."
 fi
 
-# Set image name based on the base image choice
+# Set image name based on the base image choice and CPU flag
 if [[ "${BASE_IMAGE}" == *"vulcanexus"* ]]; then
-    IMAGE_NAME="eut_audio_vulcanexus:jazzy"
-    echo "Building with Vulcanexus Jazzy base image..."
+    if [ "$CPU_ONLY" = "true" ]; then
+        IMAGE_NAME="eut_audio_vulcanexus_cpu:jazzy"
+        echo "Building with Vulcanexus Jazzy CPU-only base image..."
+    else
+        IMAGE_NAME="eut_audio_vulcanexus:jazzy"
+        echo "Building with Vulcanexus Jazzy base image..."
+    fi
 else
-    IMAGE_NAME="eut_audio:jazzy"
-    echo "Building with standard ROS2 Jazzy base image..."
+    if [ "$CPU_ONLY" = "true" ]; then
+        IMAGE_NAME="eut_audio_cpu:jazzy"
+        echo "Building with standard ROS2 Jazzy CPU-only base image..."
+    else
+        IMAGE_NAME="eut_audio:jazzy"
+        echo "Building with standard ROS2 Jazzy base image..."
+    fi
 fi
 
 echo "Base image: ${BASE_IMAGE}"
+echo "CPU Only: ${CPU_ONLY}"
 echo "Output image: ${IMAGE_NAME}"
 
 if $REBUILD; then
     echo "Rebuilding the application Docker image..."
-    docker build --no-cache . --build-arg BASE_IMAGE="${BASE_IMAGE}" -t ${IMAGE_NAME} -f Dockerfile
+    docker build --no-cache . --build-arg BASE_IMAGE="${BASE_IMAGE}" --build-arg CPU_ONLY="${CPU_ONLY}" -t ${IMAGE_NAME} -f Dockerfile
 else
-    docker build . --build-arg BASE_IMAGE="${BASE_IMAGE}" -t ${IMAGE_NAME} -f Dockerfile
+    docker build . --build-arg BASE_IMAGE="${BASE_IMAGE}" --build-arg CPU_ONLY="${CPU_ONLY}" -t ${IMAGE_NAME} -f Dockerfile
 fi
 
 # Set or Update BUILT_IMAGE 
