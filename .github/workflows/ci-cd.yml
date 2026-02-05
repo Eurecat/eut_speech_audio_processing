@@ -64,7 +64,8 @@ jobs:
       - name: Install vcstool for dependency management
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-vcstool
+          sudo apt-get install -y python3-pip
+          pip3 install --break-system-packages vcstool
       
       - name: Make build script executable
         run: chmod +x Docker/build_container.sh
