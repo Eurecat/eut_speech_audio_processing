@@ -45,12 +45,13 @@ RUN if [ "$CPU_ONLY" = "true" ]; then \
         cp requirements_general.txt requirements_general_active.txt; \
     fi
 
-# Install PyTorch with correct variant (CPU or GPU)
+# Install PyTorch with correct variant (CPU or GPU) and clean up
 RUN if [ "$CPU_ONLY" = "true" ]; then \
-        /bin/bash -c "source /opt/ros_python_env/bin/activate && pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.10.0+cpu torchaudio==2.10.0+cpu"; \
+        /bin/bash -c "source /opt/ros_python_env/bin/activate && pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.10.0+cpu torchaudio==2.10.0+cpu --no-cache-dir && pip cache purge"; \
     fi
 
-RUN /bin/bash -c "source /opt/ros_python_env/bin/activate && uv pip install --no-cache -r requirements_general_active.txt"
+RUN /bin/bash -c "source /opt/ros_python_env/bin/activate && uv pip install --no-cache -r requirements_general_active.txt" && \
+    rm -rf /root/.cache/pip /tmp/* /var/tmp/*
 
 # Create a new virtual environment for diarization and install requirements
 RUN python3 -m venv /opt/ros_python_diarization_env
@@ -62,12 +63,14 @@ RUN if [ "$CPU_ONLY" = "true" ]; then \
         cp requirements_diarization.txt requirements_diarization_active.txt; \
     fi
 
-# Install PyTorch for diarization environment
+# Install PyTorch for diarization environment with space optimization
 RUN if [ "$CPU_ONLY" = "true" ]; then \
-        /bin/bash -c "source /opt/ros_python_diarization_env/bin/activate && pip install --extra-index-url https://download.pytorch.org/whl/cpu torch torchaudio"; \
+        /bin/bash -c "source /opt/ros_python_diarization_env/bin/activate && pip install --extra-index-url https://download.pytorch.org/whl/cpu torch torchaudio --no-cache-dir && pip cache purge"; \
     fi
 
-RUN /bin/bash -c "source /opt/ros_python_diarization_env/bin/activate && pip install --no-cache-dir -r requirements_diarization_active.txt"
+RUN /bin/bash -c "source /opt/ros_python_diarization_env/bin/activate && pip install --no-cache-dir -r requirements_diarization_active.txt" && \
+    rm -rf /root/.cache/pip /tmp/* /var/tmp/* && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # ------------------------------------------------------------
 # Setup rosdep
