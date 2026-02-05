@@ -150,8 +150,10 @@ class TestAudioToMp3:
         clipped = np.clip(test_samples, -1.0, 1.0)
         samples_int16 = (clipped * 32767.0).astype(np.int16)
         
-        # Verify conversion - note that -0.5 * 32767 = -16383.5 which rounds to -16383
+        # Verify conversion - note that -0.5 * 32767 = -16383.5 which truncates to -16383 when cast to int16
         # The int16 range is asymmetric: -32768 to 32767
+        # -1.0 * 32767 = -32767 (not -32768 because we multiply by 32767, not 32768)
+        # The key issue was that -16384 was expected but -16383 is correct due to truncation
         expected = np.array([0, 16383, -16383, 32767, -32767], dtype=np.int16)
         np.testing.assert_array_equal(samples_int16, expected)
     

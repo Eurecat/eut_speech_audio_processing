@@ -225,3 +225,4 @@ bin/act
 # Pre-commit
 .pre-commit-cache/
 src/audio_stream_manager/test.wav
+log/
