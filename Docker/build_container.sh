@@ -40,19 +40,7 @@ for arg in "$@"; do
         REBUILD=true
     fi
     if [ "$arg" == "--vulcanexus" ]; then
-        if [ "$CPU_ONLY" = "true" ]; then
-            BASE_IMAGE="eut_ros_vulcanexus:jazzy"
-        else
             BASE_IMAGE="eut_ros_vulcanexus_torch:jazzy"
-        fi
-    fi
-    if [ "$arg" == "--cpu" ]; then
-        CPU_ONLY="true"
-        if [[ "$BASE_IMAGE" == *"vulcanexus"* ]]; then
-            BASE_IMAGE="eut_ros_vulcanexus:jazzy"
-        else
-            BASE_IMAGE="eut_ros:jazzy"
-        fi
     fi
     if [ "$arg" == "--no-vcs" ]; then
         NO_VCS=true
