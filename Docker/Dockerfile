@@ -1,25 +1,29 @@
-# Choose the base image at build time. Defaults to Vulcanexus.
+# Choose the base image at build time. Defaults to Vulcanexus with GPU support.
 ARG BASE_IMAGE="eut_ros_vulcanexus_torch:jazzy"
+ARG CPU_ONLY="false"
 
 FROM ${BASE_IMAGE}
 #https://github.com/Eurecat/EutRobAIDockers
 
-# (Optional) re-declare the arg if you want to use it in later instructions
+# (Optional) re-declare the args if you want to use them in later instructions
 ARG BASE_IMAGE
+ARG CPU_ONLY
 
 # Prevent interactive prompts during apt installs
 ENV DEBIAN_FRONTEND=noninteractive
  
-# Install this for audio dependencies
-RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
-RUN dpkg -i cuda-keyring_1.1-1_all.deb
+# Install CUDA dependencies only if not CPU_ONLY
+RUN if [ "$CPU_ONLY" = "false" ]; then \
+        wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb && \
+        dpkg -i cuda-keyring_1.1-1_all.deb; \
+    fi
 
+# Install audio dependencies (conditionally install CUDA libs)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     portaudio19-dev \
     libasound2-dev \
     libpulse-dev \
-    libcudnn9-cuda-12 \
-    libcudnn9-dev-cuda-12 \
+    $(if [ "$CPU_ONLY" = "false" ]; then echo "libcudnn9-cuda-12 libcudnn9-dev-cuda-12"; fi) \
     ffmpeg \
     python3-pytest python3-pytest-cov \
 && rm -rf /var/lib/apt/lists/*
@@ -27,14 +31,43 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set working directory
 WORKDIR /workspace
 
-# Copy requirements.txt and install Python dependencies in the virtual environment
+# Copy all requirements files
 COPY requirements_general.txt /workspace/requirements_general.txt
-RUN /bin/bash -c "source /opt/ros_python_env/bin/activate && uv pip install --no-cache -r requirements_general.txt"
+COPY requirements_general_cpu.txt /workspace/requirements_general_cpu.txt
+COPY requirements_diarization.txt /workspace/requirements_diarization.txt
+COPY requirements_diarization_cpu.txt /workspace/requirements_diarization_cpu.txt
+
+# Copy requirements.txt and install Python dependencies in the virtual environment
+# Use CPU or GPU requirements based on build arg
+RUN if [ "$CPU_ONLY" = "true" ]; then \
+        cp requirements_general_cpu.txt requirements_general_active.txt; \
+    else \
+        cp requirements_general.txt requirements_general_active.txt; \
+    fi
+
+# Install PyTorch with correct variant (CPU or GPU)
+RUN if [ "$CPU_ONLY" = "true" ]; then \
+        /bin/bash -c "source /opt/ros_python_env/bin/activate && pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.10.0+cpu torchaudio==2.10.0+cpu"; \
+    fi
+
+RUN /bin/bash -c "source /opt/ros_python_env/bin/activate && uv pip install --no-cache -r requirements_general_active.txt"
 
 # Create a new virtual environment for diarization and install requirements
 RUN python3 -m venv /opt/ros_python_diarization_env
-COPY requirements_diarization.txt /workspace/requirements_diarization.txt
-RUN /bin/bash -c "source /opt/ros_python_diarization_env/bin/activate && pip install --no-cache-dir -r requirements_diarization.txt"
+
+# Copy appropriate diarization requirements
+RUN if [ "$CPU_ONLY" = "true" ]; then \
+        cp requirements_diarization_cpu.txt requirements_diarization_active.txt; \
+    else \
+        cp requirements_diarization.txt requirements_diarization_active.txt; \
+    fi
+
+# Install PyTorch for diarization environment
+RUN if [ "$CPU_ONLY" = "true" ]; then \
+        /bin/bash -c "source /opt/ros_python_diarization_env/bin/activate && pip install --extra-index-url https://download.pytorch.org/whl/cpu torch torchaudio"; \
+    fi
+
+RUN /bin/bash -c "source /opt/ros_python_diarization_env/bin/activate && pip install --no-cache-dir -r requirements_diarization_active.txt"
 
 # ------------------------------------------------------------
 # Setup rosdep

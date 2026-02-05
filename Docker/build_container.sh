@@ -3,12 +3,9 @@
 # Build script for EUT Speech Audio Processing Docker container
 #
 # Usage:
-# - Default (Vulcanexus with GPU): ./build_container.sh
-# - Vulcanexus with GPU: ./build_container.sh --vulcanexus
-# - CPU-only version: ./build_container.sh --cpu
-# - With Humble: ./build_container.sh --humble
-# - CPU-only Vulcanexus: ./build_container.sh --cpu --vulcanexus
-# - Clean rebuild: ./build_container.sh --clean-rebuild [--vulcanexus] [--cpu] [--humble]
+# - Default (Vulcanexus): ./build_container.sh
+# - Standard ROS2: ./build_container.sh --standard-ros
+# - Clean rebuild: ./build_container.sh --clean-rebuild [--standard-ros]
 #
 
 export DOCKER_BUILDKIT=1
@@ -32,9 +29,8 @@ if [ ! -d $DEPS_DIR ]; then
 fi
 
 # Check arguments
-TARGET_DISTRO="jazzy"
-BASE_IMAGE="eut_ros_torch:${TARGET_DISTRO}"
-CPU_ONLY="false"
+BASE_IMAGE="eut_ros_torch:jazzy"
+# Check if --clean-rebuild is among the arguments
 REBUILD=false
 NO_VCS=false
 USE_VULCANEXUS=false
@@ -44,16 +40,7 @@ for arg in "$@"; do
         REBUILD=true
     fi
     if [ "$arg" == "--vulcanexus" ]; then
-        BASE_IMAGE="eut_ros_vulcanexus_torch:${TARGET_DISTRO}"
-        USE_VULCANEXUS=true
-    fi
-    if [ "$arg" == "--cpu" ]; then
-        CPU_ONLY="true"
-    fi
-    if [ "$arg" == "--humble" ]; then
-        TARGET_DISTRO="humble"
-        BASE_IMAGE="eut_ros_torch:${TARGET_DISTRO}"
-        USE_HUMBLE=true
+        BASE_IMAGE="eut_ros_vulcanexus_torch:jazzy"
     fi
     if [ "$arg" == "--no-vcs" ]; then
         NO_VCS=true
@@ -94,26 +81,13 @@ else
     echo "Skipping VCS operations..."
 fi
 
-# Display build configuration
+# Set image name based on the base image choice
 if [[ "${BASE_IMAGE}" == *"vulcanexus"* ]]; then
-    echo "Building with Vulcanexus ${TARGET_DISTRO} base image..."
+    IMAGE_NAME="eut_audio_vulcanexus:jazzy"
+    echo "Building with Vulcanexus Jazzy base image..."
 else
-    echo "Building with standard ROS2 ${TARGET_DISTRO} base image..."
-fi
-
-# Set image name based on the base image choice and CPU flag
-if [[ "${BASE_IMAGE}" == *"vulcanexus"* ]]; then
-    if [ "$CPU_ONLY" = "true" ]; then
-        IMAGE_NAME="eut_audio_vulcanexus_cpu:${TARGET_DISTRO}"
-    else
-        IMAGE_NAME="eut_audio_vulcanexus:${TARGET_DISTRO}"
-    fi
-else
-    if [ "$CPU_ONLY" = "true" ]; then
-        IMAGE_NAME="eut_audio_cpu:${TARGET_DISTRO}"
-    else
-        IMAGE_NAME="eut_audio:${TARGET_DISTRO}"
-    fi
+    IMAGE_NAME="eut_audio:jazzy"
+    echo "Building with standard ROS2 Jazzy base image..."
 fi
 
 echo "Base image: ${BASE_IMAGE}"
