@@ -130,7 +130,7 @@ Configures the AI/ML testing environment:
 - **Early Mock Setup**: Prevents import errors during test collection
 
 ```python
-DIARIZATION_ENV_PATH = "/opt/ros_python_diarization_env"
+DIARIZATION_ENV_PATH = "/opt/ros_python_env"
 
 # Mock heavy AI/ML dependencies
 mock_silero = MagicMock()
@@ -145,8 +145,8 @@ sys.modules['silero_vad.data'] = mock_silero.data
 The tests require access to AI/ML processing libraries:
 
 ```bash
-# Set the diarization environment path  
-export AI_VENV="/opt/ros_python_diarization_env"
+# Set the unified environment path  
+export AI_VENV="/opt/ros_python_env"
 
 # Ensure AI dependencies are installed in the environment:
 # - torch (PyTorch)

@@ -16,7 +16,7 @@ from launch_ros.actions import Node
 
 # Default virtual environment paths for each node type
 VENV_PATH_DEFAULT = os.environ.get("AI_VENV", "/opt/ros_python_env")
-VENV_PATH_DIARIZATION = os.environ.get("AI_VENV", "/opt/ros_python_diarization_env")
+VENV_PATH_DIARIZATION = os.environ.get("AI_VENV", "/opt/ros_python_env")
 
 
 def _venv_site_packages(venv_path: str) -> str:

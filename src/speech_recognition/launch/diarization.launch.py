@@ -13,7 +13,7 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 VENV_PATH = os.environ.get(
-    "AI_VENV", "/opt/ros_python_diarization_env"
+    "AI_VENV", "/opt/ros_python_env"
 )  # set AI_VENV or uses default
 
 

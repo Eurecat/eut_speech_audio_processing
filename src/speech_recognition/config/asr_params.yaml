@@ -5,7 +5,7 @@ asr_node:
   ros__parameters:
     # Model Configuration
     model_size: "turbo"                      # Whisper model size (tiny, base, small, medium, large, turbo)
-    compute_type: "int8_float16"                  # Compute type: float32, float16, int8, int8_float32, int8_float16, int16
+    compute_type: "float32"                  # Compute type: float32, float16, int8, int8_float32, int8_float16, int16
     
     # Language Configuration
     language: "auto"                         # Language options:
