@@ -10,14 +10,14 @@ from unittest.mock import MagicMock
 mock_silero_data = MagicMock()
 sys.modules['silero_vad.data'] = mock_silero_data
 
-# Setup environment for speech_recognition (uses ros_python_diarization_env)
-DIARIZATION_ENV_PATH = "/opt/ros_python_diarization_env"
+# Setup environment for speech_recognition (uses unified ros_python_env)
+DIARIZATION_ENV_PATH = "/opt/ros_python_env"
 if os.path.exists(DIARIZATION_ENV_PATH):
     # Add diarization venv site-packages to Python path
     diarization_site_packages = os.path.join(DIARIZATION_ENV_PATH, "lib/python3.12/site-packages")
     if os.path.exists(diarization_site_packages) and diarization_site_packages not in sys.path:
         sys.path.insert(0, diarization_site_packages)
-        print(f"[pytest] Using diarization environment: {DIARIZATION_ENV_PATH}")
+        print(f"[pytest] Using unified environment: {DIARIZATION_ENV_PATH}")
 
 # Add src to Python path for tests
 src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))

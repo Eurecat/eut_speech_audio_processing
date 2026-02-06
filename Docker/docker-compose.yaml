@@ -32,6 +32,7 @@ services:
       - XAUTHORITY=/tmp/xauth/.docker.xauth     
       - HF_TOKEN=${HF_TOKEN}      
       - TORCH_HOME=/root/.cache/torch
+      - AI_VENV=/opt/ros_python_env
 
     devices:
       - /dev/dri:/dev/dri
@@ -78,6 +79,7 @@ services:
       - XAUTHORITY=/tmp/xauth/.docker.xauth     
       - HF_TOKEN=${HF_TOKEN}
       - TORCH_HOME=/root/.cache/torch
+      - AI_VENV=/opt/ros_python_env
 
     devices:
       - /dev/dri:/dev/dri

@@ -29,23 +29,23 @@ jobs:
           cd EutRobAIDockers
           echo "✅ EutRobAIDockers repository cloned successfully"
       
-      # Build the base image (eut_ros_torch:jazzy)
+      # Build the base image (eut_ros_torch_cpu:jazzy)
       - name: Build base image from EutRobAIDockers
         run: |
           cd EutRobAIDockers/Docker
           chmod +x build_container.sh
-          ./build_container.sh
+          ./build_container.sh --cpu
         env:
           DOCKER_BUILDKIT: 1
       
       # Verify base image was built successfully
       - name: Verify base image was built
         run: |
-          if docker images | grep -q "eut_ros_torch.*jazzy"; then
-            echo "✅ Base image eut_ros_torch:jazzy successfully built"
-            docker images eut_ros_torch:jazzy
+          if docker images | grep -q "eut_ros_torch_cpu.*jazzy"; then
+            echo "✅ Base image eut_ros_torch_cpu:jazzy successfully built"
+            docker images eut_ros_torch_cpu:jazzy
           else
-            echo "❌ Base image eut_ros_torch:jazzy not found"
+            echo "❌ Base image eut_ros_torch_cpu:jazzy not found"
             echo "Available images:"
             docker images
             exit 1
@@ -78,11 +78,11 @@ jobs:
       
       - name: Verify eut_speech image was built
         run: |
-          if docker images | grep -q "eut_ros_torch.*jazzy"; then
-            echo "✅ eut_speech image eut_ros_torch:jazzy successfully built"
-            docker images eut_ros_torch:jazzy
+          if docker images | grep -q "eut_audio_cpu.*jazzy"; then
+            echo "✅ eut_speech image eut_audio_cpu:jazzy successfully built"
+            docker images eut_audio_cpu:jazzy
           else
-            echo "❌ eut_speech image eut_ros_torch:jazzy not found"
+            echo "❌ eut_speech image eut_audio_cpu:jazzy not found"
             echo "Available images:"
             docker images
             exit 1

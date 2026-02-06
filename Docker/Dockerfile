@@ -34,8 +34,6 @@ WORKDIR /workspace
 # Copy all requirements files
 COPY requirements_general.txt /workspace/requirements_general.txt
 COPY requirements_general_cpu.txt /workspace/requirements_general_cpu.txt
-COPY requirements_diarization.txt /workspace/requirements_diarization.txt
-COPY requirements_diarization_cpu.txt /workspace/requirements_diarization_cpu.txt
 
 # Copy requirements.txt and install Python dependencies in the virtual environment
 # Use CPU or GPU requirements based on build arg
@@ -45,32 +43,18 @@ RUN if [ "$CPU_ONLY" = "true" ]; then \
         cp requirements_general.txt requirements_general_active.txt; \
     fi
 
-# Install PyTorch with correct variant (CPU or GPU) and clean up
+
+# Install all packages in the single ros_python_env
 RUN if [ "$CPU_ONLY" = "true" ]; then \
-        /bin/bash -c "source /opt/ros_python_env/bin/activate && pip install --extra-index-url https://download.pytorch.org/whl/cpu torch==2.10.0+cpu torchaudio==2.10.0+cpu --no-cache-dir && pip cache purge"; \
-    fi
-
-RUN /bin/bash -c "source /opt/ros_python_env/bin/activate && uv pip install --no-cache -r requirements_general_active.txt" && \
-    rm -rf /root/.cache/pip /tmp/* /var/tmp/*
-
-# Create a new virtual environment for diarization and install requirements
-RUN python3 -m venv /opt/ros_python_diarization_env
-
-# Copy appropriate diarization requirements
-RUN if [ "$CPU_ONLY" = "true" ]; then \
-        cp requirements_diarization_cpu.txt requirements_diarization_active.txt; \
+        /bin/bash -c "source /opt/ros_python_env/bin/activate && \
+        uv pip install -r requirements_general_active.txt"; \
     else \
-        cp requirements_diarization.txt requirements_diarization_active.txt; \
+        /bin/bash -c "source /opt/ros_python_env/bin/activate && \
+        uv pip install -r requirements_general_active.txt && \
+        uv pip uninstall onnxruntime && \
+        uv pip install onnxruntime-gpu==1.24.1"; \
     fi
-
-# Install PyTorch for diarization environment with space optimization
-RUN if [ "$CPU_ONLY" = "true" ]; then \
-        /bin/bash -c "source /opt/ros_python_diarization_env/bin/activate && pip install --extra-index-url https://download.pytorch.org/whl/cpu torch torchaudio --no-cache-dir && pip cache purge"; \
-    fi
-
-RUN /bin/bash -c "source /opt/ros_python_diarization_env/bin/activate && pip install --no-cache-dir -r requirements_diarization_active.txt" && \
-    rm -rf /root/.cache/pip /tmp/* /var/tmp/* && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+#we need to install onnxruntime separately because openwakeword has a dependency on onnxruntime, and we want to ensure the GPU version is installed if no using cpu flag
 
 # ------------------------------------------------------------
 # Setup rosdep

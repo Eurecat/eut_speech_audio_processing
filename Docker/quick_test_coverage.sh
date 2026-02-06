@@ -280,8 +280,8 @@ if [ ${#ALL_PKG_LIST[@]} -gt 0 ]; then
     
     # For speech_recognition, ensure diarization environment is available
     if [[ " ${PY_PACKAGES[@]} " =~ " speech_recognition " ]]; then
-        if [ -d "/opt/ros_python_diarization_env" ]; then
-            export SPEECH_RECOGNITION_VENV="/opt/ros_python_diarization_env"
+        if [ -d "/opt/ros_python_env" ]; then
+            export SPEECH_RECOGNITION_VENV="/opt/ros_python_env"
             print_info "Using diarization environment for speech_recognition tests"
         else
             print_warning "Diarization environment not found, tests will use mocks"

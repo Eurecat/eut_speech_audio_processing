@@ -50,6 +50,15 @@ for arg in "$@"; do
     fi
 done
 
+# Update base image for CPU variant
+if [ "$CPU_ONLY" = "true" ]; then
+    if [[ "${BASE_IMAGE}" == *"vulcanexus"* ]]; then
+        BASE_IMAGE="eut_ros_vulcanexus_torch_cpu:jazzy"
+    else
+        BASE_IMAGE="eut_ros_torch_cpu:jazzy"
+    fi
+fi
+
 if $REBUILD; then
     echo "Rebuilding: cleaning up dependencies..."
     rm -rf $DEPS_DIR/*
