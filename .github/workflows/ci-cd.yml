@@ -101,28 +101,29 @@ jobs:
             bash -c "
               source /opt/ros/${TARGET_DISTRO}/setup.bash
               
-              echo '🔧 Setting up build environment for Python packages only...'
+              echo '🔧 Setting up build environment for Python packages...'
               
-              # Import external dependencies first
+              # Import external dependencies
               echo '📦 Importing external dependencies...'
               if [ -f Docker/deps.repos ]; then
                 mkdir -p deps
                 vcs import deps < Docker/deps.repos || echo 'Warning: VCS import failed'
               fi
               
-              # Build only hri_msgs dependency (skip audio_common_msgs to avoid GStreamer issues)
-              echo '🔨 Building core dependencies: hri_msgs only'
+              # Build only the essential packages from dependencies (skip problematic audio packages)
+              echo '🔨 Building essential dependencies: audio_common_msgs'
               colcon build --symlink-install \
-                --packages-select hri_msgs \
+                --packages-select audio_common_msgs \
+                --packages-skip audio_capture audio_play sound_play \
                 --continue-on-error \
-                --event-handlers console_direct+ || echo 'Warning: hri_msgs failed to build'
+                --event-handlers console_direct+ || echo 'Warning: audio_common_msgs failed to build'
               
-              # Build C++ packages with coverage flags
+              # Build C++ packages with coverage flags (currently none specified)
               if [ '${{ env.CPP_PACKAGES }}' != '' ]; then
                 echo '🔨 Building C++ packages: ${{ env.CPP_PACKAGES }}'
                 colcon build --symlink-install \
                   --packages-select ${{ env.CPP_PACKAGES }} \
-                  --packages-skip audio_capture audio_play sound_play audio_common_msgs \
+                  --packages-skip audio_capture audio_play sound_play \
                   --cmake-args -DCMAKE_CXX_FLAGS='--coverage' \
                                -DCMAKE_C_FLAGS='--coverage' \
                                -DCMAKE_EXE_LINKER_FLAGS='--coverage'
@@ -133,7 +134,7 @@ jobs:
                 echo '🔨 Building Python packages: ${{ env.PY_PACKAGES }}'
                 colcon build --symlink-install \
                   --packages-select ${{ env.PY_PACKAGES }} \
-                  --packages-skip audio_capture audio_play sound_play audio_common_msgs
+                  --packages-skip audio_capture audio_play sound_play
               fi
               
               # Source the workspace to make built packages available
