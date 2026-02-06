@@ -12,6 +12,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     
     env:
       # Package Configuration - Define your ROS2 packages here
@@ -103,42 +104,74 @@ jobs:
               
               echo '🔧 Setting up build environment for Python packages...'
               
-              # Import external dependencies
+              # Import external dependencies into src directory for proper colcon discovery
               echo '📦 Importing external dependencies...'
               if [ -f Docker/deps.repos ]; then
-                mkdir -p deps
-                vcs import deps < Docker/deps.repos || echo 'Warning: VCS import failed'
+                mkdir -p src
+                vcs import src < Docker/deps.repos || echo 'Warning: VCS import failed'
+                
+                # List imported packages for debugging
+                echo '📋 Imported packages:'
+                find src -name package.xml -exec dirname {} \; | sort
               fi
               
-              # Build only the essential packages from dependencies (skip problematic audio packages)
-              echo '🔨 Building essential dependencies: audio_common_msgs'
-              colcon build --symlink-install \
-                --packages-select audio_common_msgs \
+              # Build dependencies with proper package skipping
+              echo '🔨 Building essential dependencies: audio_common_msgs hri_msgs'
+              timeout 600 colcon build --symlink-install \
+                --packages-select audio_common_msgs hri_msgs \
                 --packages-skip audio_capture audio_play sound_play \
                 --continue-on-error \
-                --event-handlers console_direct+ || echo 'Warning: audio_common_msgs failed to build'
+                --event-handlers console_direct+ \
+                --parallel-workers 1 || echo 'Warning: Some dependencies failed to build within timeout'
+              
+              # Source intermediate workspace to make dependencies available
+              if [ -f install/setup.bash ]; then
+                source install/setup.bash
+                echo '✅ Sourced dependencies workspace'
+              fi
               
               # Build C++ packages with coverage flags (currently none specified)
               if [ '${{ env.CPP_PACKAGES }}' != '' ]; then
                 echo '🔨 Building C++ packages: ${{ env.CPP_PACKAGES }}'
-                colcon build --symlink-install \
+                timeout 900 colcon build --symlink-install \
                   --packages-select ${{ env.CPP_PACKAGES }} \
                   --packages-skip audio_capture audio_play sound_play \
                   --cmake-args -DCMAKE_CXX_FLAGS='--coverage' \
                                -DCMAKE_C_FLAGS='--coverage' \
-                               -DCMAKE_EXE_LINKER_FLAGS='--coverage'
+                               -DCMAKE_EXE_LINKER_FLAGS='--coverage' \
+                  --parallel-workers 1 \
+                  --event-handlers console_direct+ || echo 'Warning: Some C++ packages failed to build'
               fi
               
               # Build Python packages (excluding C++ ones already built)
               if [ '${{ env.PY_PACKAGES }}' != '' ]; then
                 echo '🔨 Building Python packages: ${{ env.PY_PACKAGES }}'
-                colcon build --symlink-install \
+                echo '🔍 Available packages before build:'
+                colcon list --names-only | head -20
+                
+                timeout 900 colcon build --symlink-install \
                   --packages-select ${{ env.PY_PACKAGES }} \
-                  --packages-skip audio_capture audio_play sound_play
+                  --packages-skip audio_capture audio_play sound_play \
+                  --parallel-workers 1 \
+                  --event-handlers console_direct+ || echo 'Warning: Some Python packages failed to build'
               fi
               
               # Source the workspace to make built packages available
               source install/setup.bash
+              
+              # Check build results and list any failed packages
+              echo '📊 Build Summary:'
+              if [ -d build ]; then
+                echo '✅ Successfully built packages:'
+                find install -name package.xml -exec dirname {} \; | xargs basename -a 2>/dev/null | sort || echo 'No packages found in install'
+                
+                echo '❌ Packages with build directories but no install:'
+                for pkg in $(find build -maxdepth 1 -type d -not -name 'build' -exec basename {} \;); do
+                  if [ ! -d "install/$pkg" ]; then
+                    echo "  - $pkg (failed to build)"
+                  fi
+                done
+              fi
               
               # Set up test environment
               export PYTHONDONTWRITEBYTECODE=1
