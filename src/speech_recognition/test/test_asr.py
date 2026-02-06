@@ -13,8 +13,13 @@ class TestASRNode:
     """Test suite for ASRNode class"""
     
     @patch('rclpy.node.Node.__init__')
-    def test_node_initialization(self, mock_node_init):
+    @patch('faster_whisper.WhisperModel')
+    def test_node_initialization(self, mock_whisper_model, mock_node_init):
         """Test that the ASR node initializes correctly"""
+        # Mock the WhisperModel
+        mock_model = MagicMock()
+        mock_whisper_model.return_value = mock_model
+        
         get_param_mock = MagicMock()
         
         # Mock parameter values with valid model_size
@@ -22,8 +27,10 @@ class TestASRNode:
             mock_param = MagicMock()
             if param_name == "model_size":
                 mock_param.get_parameter_value.return_value.string_value = "turbo"
-            elif param_name in ["compute_type", "language"]:
-                mock_param.get_parameter_value.return_value.string_value = "test_value"
+            elif param_name == "compute_type":
+                mock_param.get_parameter_value.return_value.string_value = "float32"
+            elif param_name == "language":
+                mock_param.get_parameter_value.return_value.string_value = "auto"
             elif param_name in ["use_batched_inference", "ros4hri_with_id", "cleanup_inactive_topics"]:
                 mock_param.get_parameter_value.return_value.bool_value = False
             elif param_name == "batch_size":
@@ -46,8 +53,13 @@ class TestASRNode:
             mock_node_init.assert_called_once_with("asr_node")
     
     @patch('rclpy.node.Node.__init__')
-    def test_parameter_declarations(self, mock_node_init):
+    @patch('faster_whisper.WhisperModel')
+    def test_parameter_declarations(self, mock_whisper_model, mock_node_init):
         """Test that all required parameters are declared"""
+        # Mock the WhisperModel
+        mock_model = MagicMock()
+        mock_whisper_model.return_value = mock_model
+        
         declare_param_mock = MagicMock()
         get_param_mock = MagicMock()
         
@@ -56,8 +68,10 @@ class TestASRNode:
             mock_param = MagicMock()
             if param_name == "model_size":
                 mock_param.get_parameter_value.return_value.string_value = "turbo"
-            elif param_name in ["compute_type", "language"]:
-                mock_param.get_parameter_value.return_value.string_value = "test_value"
+            elif param_name == "compute_type":
+                mock_param.get_parameter_value.return_value.string_value = "float32"
+            elif param_name == "language":
+                mock_param.get_parameter_value.return_value.string_value = "auto"
             elif param_name in ["use_batched_inference", "ros4hri_with_id", "cleanup_inactive_topics"]:
                 mock_param.get_parameter_value.return_value.bool_value = False
             elif param_name == "batch_size":
@@ -111,8 +125,10 @@ class TestASRNode:
             mock_param = MagicMock()
             if param_name == "model_size":
                 mock_param.get_parameter_value.return_value.string_value = "turbo"
-            elif param_name in ["compute_type", "language"]:
-                mock_param.get_parameter_value.return_value.string_value = "test_value"
+            elif param_name == "compute_type":
+                mock_param.get_parameter_value.return_value.string_value = "float32"
+            elif param_name == "language":
+                mock_param.get_parameter_value.return_value.string_value = "auto"
             elif param_name in ["use_batched_inference", "ros4hri_with_id", "cleanup_inactive_topics"]:
                 mock_param.get_parameter_value.return_value.bool_value = False
             elif param_name == "batch_size":
@@ -221,18 +237,23 @@ class TestASRNodeROS:
     """Test suite for ASRNode ROS functionality"""
     
     @patch('rclpy.node.Node.__init__')
-    def test_subscription_creation(self, mock_node_init):
+    @patch('faster_whisper.WhisperModel')
+    def test_subscription_creation(self, mock_whisper_model, mock_node_init):
         """Test that subscriptions are created"""
-        create_sub_mock = MagicMock()
-        get_param_mock = MagicMock()
+        # Mock the WhisperModel
+        mock_model = MagicMock()
+        mock_whisper_model.return_value = mock_model
         
-        # Mock parameter values with valid model_size
+        create_sub_mock = MagicMock()
+        get_param_mock = MagicMock()        # Mock parameter values with valid model_size
         def mock_get_parameter(param_name):
             mock_param = MagicMock()
             if param_name == "model_size":
                 mock_param.get_parameter_value.return_value.string_value = "turbo"
-            elif param_name in ["compute_type", "language"]:
-                mock_param.get_parameter_value.return_value.string_value = "test_value"
+            elif param_name == "compute_type":
+                mock_param.get_parameter_value.return_value.string_value = "float32"
+            elif param_name == "language":
+                mock_param.get_parameter_value.return_value.string_value = "auto"
             elif param_name in ["use_batched_inference", "ros4hri_with_id", "cleanup_inactive_topics"]:
                 mock_param.get_parameter_value.return_value.bool_value = False
             elif param_name == "batch_size":
@@ -255,8 +276,13 @@ class TestASRNodeROS:
             assert create_sub_mock.call_count >= 1
     
     @patch('rclpy.node.Node.__init__')
-    def test_publisher_creation(self, mock_node_init):
+    @patch('faster_whisper.WhisperModel')
+    def test_publisher_creation(self, mock_whisper_model, mock_node_init):
         """Test that publishers are created"""
+        # Mock the WhisperModel
+        mock_model = MagicMock()
+        mock_whisper_model.return_value = mock_model
+        
         create_pub_mock = MagicMock()
         get_param_mock = MagicMock()
         
@@ -265,8 +291,10 @@ class TestASRNodeROS:
             mock_param = MagicMock()
             if param_name == "model_size":
                 mock_param.get_parameter_value.return_value.string_value = "turbo"
-            elif param_name in ["compute_type", "language"]:
-                mock_param.get_parameter_value.return_value.string_value = "test_value"
+            elif param_name == "compute_type":
+                mock_param.get_parameter_value.return_value.string_value = "float32"
+            elif param_name == "language":
+                mock_param.get_parameter_value.return_value.string_value = "auto"
             elif param_name in ["use_batched_inference", "ros4hri_with_id", "cleanup_inactive_topics"]:
                 mock_param.get_parameter_value.return_value.bool_value = False
             elif param_name == "batch_size":
@@ -289,8 +317,13 @@ class TestASRNodeROS:
             assert create_pub_mock.call_count >= 1
     
     @patch('rclpy.node.Node.__init__')
-    def test_vad_integration(self, mock_node_init):
+    @patch('faster_whisper.WhisperModel')
+    def test_vad_integration(self, mock_whisper_model, mock_node_init):
         """Test VAD integration with ASR"""
+        # Mock the WhisperModel
+        mock_model = MagicMock()
+        mock_whisper_model.return_value = mock_model
+        
         get_param_mock = MagicMock()
         
         # Mock parameter values with valid model_size
@@ -298,8 +331,10 @@ class TestASRNodeROS:
             mock_param = MagicMock()
             if param_name == "model_size":
                 mock_param.get_parameter_value.return_value.string_value = "turbo"
-            elif param_name in ["compute_type", "language"]:
-                mock_param.get_parameter_value.return_value.string_value = "test_value"
+            elif param_name == "compute_type":
+                mock_param.get_parameter_value.return_value.string_value = "float32"
+            elif param_name == "language":
+                mock_param.get_parameter_value.return_value.string_value = "auto"
             elif param_name in ["use_batched_inference", "ros4hri_with_id", "cleanup_inactive_topics"]:
                 mock_param.get_parameter_value.return_value.bool_value = False
             elif param_name == "batch_size":
