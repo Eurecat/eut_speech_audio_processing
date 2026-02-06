@@ -163,12 +163,12 @@ jobs:
               echo '📊 Build Summary:'
               if [ -d build ]; then
                 echo '✅ Successfully built packages:'
-                find install -name package.xml -exec dirname {} \; | xargs basename -a 2>/dev/null | sort || echo 'No packages found in install'
+                find install -name package.xml -exec dirname {} \\; 2>/dev/null | while read dir; do basename \"\$dir\"; done | sort || echo 'No packages found in install'
                 
                 echo '❌ Packages with build directories but no install:'
-                for pkg in $(find build -maxdepth 1 -type d -not -name 'build' -exec basename {} \;); do
-                  if [ ! -d "install/$pkg" ]; then
-                    echo "  - $pkg (failed to build)"
+                find build -maxdepth 1 -type d -not -name 'build' -exec basename {} \\; | while read pkg; do
+                  if [ ! -d \"install/\$pkg\" ]; then
+                    echo \"  - \$pkg (failed to build)\"
                   fi
                 done
               fi
@@ -184,7 +184,7 @@ jobs:
                 # Build pytest coverage args for all Python packages
                 PY_PACKAGES_LIST='${{ env.PY_PACKAGES }}'
                 COV_ARGS=''
-                for pkg in \$PY_PACKAGES_LIST; do
+                for pkg in \${PY_PACKAGES_LIST}; do
                   COV_ARGS=\"\$COV_ARGS --cov=\$pkg\"
                 done
                 COV_ARGS=\"\$COV_ARGS --cov-report=html --cov-report=term --cov-report=xml\"
