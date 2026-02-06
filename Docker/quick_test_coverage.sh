@@ -193,8 +193,8 @@ set -e
 print_header "🔨 Step 3: Build Dependencies"
 print_info "Building all dependencies first to ensure proper environment..."
 
-# Always build common dependencies that most packages need
-COMMON_DEPS=("hri_msgs" "audio_common_msgs" "audio_stream_manager")
+# Always build common dependencies that most packages need (excluding problematic audio packages)
+COMMON_DEPS=("hri_msgs")
 for dep in "${COMMON_DEPS[@]}"; do
     if [ -d "src/$dep" ]; then
         print_info "Building dependency: $dep"
@@ -213,6 +213,7 @@ if [ ${#CPP_PACKAGES[@]} -gt 0 ]; then
         print_info "Building C++ package: $pkg"
         colcon build --symlink-install \
             --packages-up-to "$pkg" \
+            --packages-skip audio_capture audio_play sound_play audio_common_msgs \
             --cmake-args \
                 -DCMAKE_CXX_FLAGS='--coverage' \
                 -DCMAKE_C_FLAGS='--coverage' \
@@ -244,7 +245,9 @@ if [ ${#PY_PACKAGES[@]} -gt 0 ]; then
     if [ ${#PY_ONLY_PACKAGES[@]} -gt 0 ]; then
         for pkg in "${PY_ONLY_PACKAGES[@]}"; do
             print_info "Building Python package: $pkg (with dependencies)"
-            colcon build --symlink-install --packages-up-to "$pkg"
+            colcon build --symlink-install \
+                --packages-up-to "$pkg" \
+                --packages-skip audio_capture audio_play sound_play audio_common_msgs
             
             if [ $? -eq 0 ]; then
                 print_success "$pkg built successfully"
