@@ -101,6 +101,8 @@ jobs:
             bash -c "
               source /opt/ros/${TARGET_DISTRO}/setup.bash
               
+              echo '🔧 Setting up build environment for Python packages only...'
+              
               # Import external dependencies first
               echo '📦 Importing external dependencies...'
               if [ -f Docker/deps.repos ]; then
@@ -108,18 +110,19 @@ jobs:
                 vcs import deps < Docker/deps.repos || echo 'Warning: VCS import failed'
               fi
               
-              # Build only the required dependencies (avoid building audio_capture which has issues)
-              echo '🔨 Building core dependencies: hri_msgs audio_common_msgs'
+              # Build only hri_msgs dependency (skip audio_common_msgs to avoid GStreamer issues)
+              echo '🔨 Building core dependencies: hri_msgs only'
               colcon build --symlink-install \
-                --packages-select hri_msgs audio_common_msgs \
-                --packages-skip audio_capture || echo 'Warning: some dependencies failed to build'
+                --packages-select hri_msgs \
+                --continue-on-error \
+                --event-handlers console_direct+ || echo 'Warning: hri_msgs failed to build'
               
               # Build C++ packages with coverage flags
               if [ '${{ env.CPP_PACKAGES }}' != '' ]; then
                 echo '🔨 Building C++ packages: ${{ env.CPP_PACKAGES }}'
                 colcon build --symlink-install \
                   --packages-select ${{ env.CPP_PACKAGES }} \
-                  --packages-skip audio_capture \
+                  --packages-skip audio_capture audio_play sound_play audio_common_msgs \
                   --cmake-args -DCMAKE_CXX_FLAGS='--coverage' \
                                -DCMAKE_C_FLAGS='--coverage' \
                                -DCMAKE_EXE_LINKER_FLAGS='--coverage'
@@ -130,7 +133,7 @@ jobs:
                 echo '🔨 Building Python packages: ${{ env.PY_PACKAGES }}'
                 colcon build --symlink-install \
                   --packages-select ${{ env.PY_PACKAGES }} \
-                  --packages-skip audio_capture
+                  --packages-skip audio_capture audio_play sound_play audio_common_msgs
               fi
               
               # Source the workspace to make built packages available
@@ -144,10 +147,19 @@ jobs:
               # Run tests with coverage for Python packages
               echo '🧪 Running tests...'
               if [ '${{ env.PY_PACKAGES }}' != '' ]; then
+                # Build pytest coverage args for all Python packages
+                PY_PACKAGES_LIST='${{ env.PY_PACKAGES }}'
+                COV_ARGS=''
+                for pkg in \$PY_PACKAGES_LIST; do
+                  COV_ARGS=\"\$COV_ARGS --cov=\$pkg\"
+                done
+                COV_ARGS=\"\$COV_ARGS --cov-report=html --cov-report=term --cov-report=xml\"
+                echo \"Coverage args: \$COV_ARGS\"
+                
                 colcon test \
                   --packages-select ${{ env.PY_PACKAGES }} \
                   --event-handlers console_direct+ \
-                  --pytest-args '--cov=speech_recognition --cov-report=html --cov-report=term --cov-report=xml' \
+                  --pytest-args \"\$COV_ARGS\" \
                   --return-code-on-test-failure || true
               else
                 colcon test \
