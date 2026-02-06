@@ -112,7 +112,7 @@ jobs:
                 
                 # List imported packages for debugging
                 echo '📋 Imported packages:'
-                find src -name package.xml -exec dirname {} \; | sort
+                find src -name package.xml -exec dirname {} \\; | sort
               fi
               
               # Build dependencies with proper package skipping
@@ -403,7 +403,7 @@ jobs:
           done
           
           if [ "$PY_TOTAL_LINES_FOUND" -gt 0 ]; then
-            PY_COV_PCT=$(awk "BEGIN {printf \"%.0f\", ($PY_TOTAL_LINES_HIT/$PY_TOTAL_LINES_FOUND)*100}")
+            PY_COV_PCT=$(awk "BEGIN {printf \"%.0f\", (\$1/\$2)*100}" <<< "$PY_TOTAL_LINES_HIT $PY_TOTAL_LINES_FOUND")
             echo "✅ Total Python Coverage: $PY_COV_PCT%"
           else
             echo "⚠️ No Python coverage data found"
@@ -423,7 +423,7 @@ jobs:
                 -v ${{ github.workspace }}:/workspace \
                 -w /workspace \
                 ${BUILT_IMAGE} \
-                bash -c "lcov --summary build/${pkg}/coverage_filtered.info 2>&1 | grep 'lines' || echo 'lines......: 0.0%'")
+                bash -c "lcov --summary build/\${pkg}/coverage_filtered.info 2>&1 | grep 'lines' || echo 'lines......: 0.0%'")
               
               PKG_LINES=$(echo "$PKG_COV_DATA" | grep -oP '\d+ of \d+' || echo '0 of 0')
               PKG_LINES_HIT=$(echo "$PKG_LINES" | cut -d' ' -f1)
@@ -436,7 +436,7 @@ jobs:
           done
           
           if [ "$CPP_TOTAL_LINES_FOUND" -gt 0 ]; then
-            CPP_COV_PCT=$(awk "BEGIN {printf \"%.0f\", ($CPP_TOTAL_LINES_HIT/$CPP_TOTAL_LINES_FOUND)*100}")
+            CPP_COV_PCT=$(awk "BEGIN {printf \"%.0f\", (\$1/\$2)*100}" <<< "$CPP_TOTAL_LINES_HIT $CPP_TOTAL_LINES_FOUND")
             echo "✅ Total C++ Coverage: $CPP_COV_PCT%"
           else
             CPP_COV_PCT=0
