@@ -93,7 +93,7 @@ jobs:
         run: |
           source Docker/.env
           
-          # Build all packages
+          # Build all packages with proper dependency order
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
@@ -101,25 +101,49 @@ jobs:
             bash -c "
               source /opt/ros/${TARGET_DISTRO}/setup.bash
               
-              # Build all C++ packages with coverage flags (colcon handles multiple packages)
-              echo '🔨 Building C++ packages: ${{ env.CPP_PACKAGES }}'
+              # Build dependencies first (required for speech_recognition)
+              echo '🔨 Building dependencies: hri_msgs audio_common_msgs'
               colcon build --symlink-install \
-                --packages-select ${{ env.CPP_PACKAGES }} \
-                --cmake-args -DCMAKE_CXX_FLAGS='--coverage' \
-                             -DCMAKE_C_FLAGS='--coverage' \
-                             -DCMAKE_EXE_LINKER_FLAGS='--coverage'
+                --packages-select hri_msgs audio_common_msgs
               
-              # Build all Python packages
-              echo '🔨 Building Python packages: ${{ env.PY_PACKAGES }}'
-              colcon build --symlink-install \
-                --packages-select ${{ env.PY_PACKAGES }}
+              # Build C++ packages with coverage flags
+              if [ '${{ env.CPP_PACKAGES }}' != '' ]; then
+                echo '🔨 Building C++ packages: ${{ env.CPP_PACKAGES }}'
+                colcon build --symlink-install \
+                  --packages-select ${{ env.CPP_PACKAGES }} \
+                  --cmake-args -DCMAKE_CXX_FLAGS='--coverage' \
+                               -DCMAKE_C_FLAGS='--coverage' \
+                               -DCMAKE_EXE_LINKER_FLAGS='--coverage'
+              fi
               
-              # Run all tests
-              echo '🧪 Running tests for all packages...'
-              colcon test \
-                --event-handlers console_direct+ \
-                --pytest-args '-v' \
-                --return-code-on-test-failure || true
+              # Build Python packages (excluding C++ ones already built)
+              if [ '${{ env.PY_PACKAGES }}' != '' ]; then
+                echo '🔨 Building Python packages: ${{ env.PY_PACKAGES }}'
+                colcon build --symlink-install \
+                  --packages-select ${{ env.PY_PACKAGES }}
+              fi
+              
+              # Source the workspace to make built packages available
+              source install/setup.bash
+              
+              # Set up test environment
+              export PYTHONDONTWRITEBYTECODE=1
+              export SPEECH_RECOGNITION_VENV='/opt/ros_python_env'
+              export AI_VENV='/opt/ros_python_env'
+              
+              # Run tests with coverage for Python packages
+              echo '🧪 Running tests...'
+              if [ '${{ env.PY_PACKAGES }}' != '' ]; then
+                colcon test \
+                  --packages-select ${{ env.PY_PACKAGES }} \
+                  --event-handlers console_direct+ \
+                  --pytest-args '--cov=speech_recognition --cov-report=html --cov-report=term --cov-report=xml' \
+                  --return-code-on-test-failure || true
+              else
+                colcon test \
+                  --event-handlers console_direct+ \
+                  --return-code-on-test-failure || true
+              fi
             "
 
       # Generate human-readable test summary
@@ -131,8 +155,11 @@ jobs:
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
             ${BUILT_IMAGE} \
-            bash -c "source /opt/ros/${TARGET_DISTRO}/setup.bash && \
-                     colcon test-result --all --verbose" > test_summary.txt
+            bash -c "
+              source /opt/ros/${TARGET_DISTRO}/setup.bash
+              source install/setup.bash 2>/dev/null || true
+              colcon test-result --all --verbose
+            " > test_summary.txt
           
           # Display in logs
           cat test_summary.txt

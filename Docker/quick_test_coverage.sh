@@ -304,18 +304,20 @@ if [ ${#ALL_PKG_LIST[@]} -gt 0 ]; then
         for pkg in "${PY_PACKAGES[@]}"; do
             PYTEST_ARGS_ARRAY+=("--cov=$pkg")
         done
-        PYTEST_ARGS_ARRAY+=("--cov-report=html" "--cov-report=term")
+        PYTEST_ARGS_ARRAY+=("--cov-report=html" "--cov-report=term" "--cov-report=xml")
     fi
     
-    # Convert array to string for display and execution
-    PYTEST_ARGS_STR="${PYTEST_ARGS_ARRAY[*]}"
-    if [ -n "$PYTEST_ARGS_STR" ]; then
+    # Convert array to proper string for colcon
+    if [ ${#PYTEST_ARGS_ARRAY[@]} -gt 0 ]; then
+        # Join array elements with spaces for proper parsing
+        PYTEST_ARGS_STR=$(printf "%s " "${PYTEST_ARGS_ARRAY[@]}")
+        PYTEST_ARGS_STR=${PYTEST_ARGS_STR% }  # Remove trailing space
         print_info "Running tests with additional pytest args: $PYTEST_ARGS_STR"
         # Use the coverage args (pytest.ini will add -v --tb=short automatically)
         colcon test \
             --packages-select "${ALL_PKG_LIST[@]}" \
             --event-handlers console_direct+ \
-            --pytest-args "${PYTEST_ARGS_STR}" \
+            --pytest-args "$PYTEST_ARGS_STR" \
             --return-code-on-test-failure
         TEST_EXIT_CODE=$?
     else
