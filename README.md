@@ -163,6 +163,24 @@ To delete the database, remove the associated Docker volume.
 
 You can also manage entries via the web interface at [http://0.0.0.0:8081/db/speaker_recognition/speakers](http://0.0.0.0:8081/db/speaker_recognition/speakers).
 
+## Troubleshooting
+
+## Troubleshooting
+
+### Port 27017 Already in Use
+
+If you encounter the error `failed to bind host port for 0.0.0.0:27017:172.21.0.2:27017/tcp: address already in use`, this means another service is already occupying port 27017. The docker-compose MongoDB service cannot start because the port is blocked. To resolve this, identify and stop the conflicting service with `sudo lsof -i :27017` and kill the process if needed, then restart docker-compose. 
+
+```bash
+sudo lsof -ti:27017 | xargs -r sudo kill -9
+```
+### Container Name Conflicts
+
+If you switch between `dev-docker-compose.yaml` and `docker-compose.yaml`, you may encounter errors like `Conflict. The container name "/mongodb_faces" is already in use`. This happens because containers from the previous compose file are still running. To resolve this, remove all containers and restart: 
+```bash
+docker rm -f $(docker ps -aq)
+```
+then run `docker compose up` again. This cleanly removes all existing containers and allows the new composition to start fresh.
 ## CI/CD Testing with Act
 
 To test the GitHub Actions CI/CD pipeline locally without pushing to GitHub, you can use [Act](https://github.com/nektos/act), which runs GitHub Actions locally using Docker.
