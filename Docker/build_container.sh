@@ -122,9 +122,9 @@ echo "Output image: ${IMAGE_NAME}"
 
 if $REBUILD; then
     echo "Rebuilding the application Docker image..."
-    docker build --no-cache . --build-arg BASE_IMAGE="${BASE_IMAGE}" --build-arg CPU_ONLY="${CPU_ONLY}" -t ${IMAGE_NAME} -f Dockerfile
+    docker build --no-cache . --build-arg BASE_IMAGE="${BASE_IMAGE}" --build-arg CPU_ONLY="${CPU_ONLY}" --build-arg TARGET_DISTRO="${TARGET_DISTRO}" -t ${IMAGE_NAME} -f Dockerfile
 else
-    docker build . --build-arg BASE_IMAGE="${BASE_IMAGE}" --build-arg CPU_ONLY="${CPU_ONLY}" -t ${IMAGE_NAME} -f Dockerfile
+    docker build . --build-arg BASE_IMAGE="${BASE_IMAGE}" --build-arg CPU_ONLY="${CPU_ONLY}" --build-arg TARGET_DISTRO="${TARGET_DISTRO}" -t ${IMAGE_NAME} -f Dockerfile
 fi
 
 # Set or Update BUILT_IMAGE 
@@ -132,6 +132,19 @@ if grep -q -E "^BUILT_IMAGE=" "$ENV_FILE"; then
     sed -i "s/^BUILT_IMAGE=.*/BUILT_IMAGE=$IMAGE_NAME/" "$ENV_FILE"
 else
     echo "BUILT_IMAGE=$IMAGE_NAME" >> "$ENV_FILE"
+fi
+
+# Set or Update DOCKER_RUNTIME based on CPU_ONLY flag
+if [ "$CPU_ONLY" = "true" ]; then
+    DOCKER_RUNTIME="runc"
+else
+    DOCKER_RUNTIME="nvidia"
+fi
+
+if grep -q -E "^DOCKER_RUNTIME=" "$ENV_FILE"; then
+    sed -i "s/^DOCKER_RUNTIME=.*/DOCKER_RUNTIME=$DOCKER_RUNTIME/" "$ENV_FILE"
+else
+    echo "DOCKER_RUNTIME=$DOCKER_RUNTIME" >> "$ENV_FILE"
 fi
 
 # Set or Update DOCKER_RUNTIME based on CPU_ONLY flag

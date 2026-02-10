@@ -2,12 +2,10 @@ import os
 import subprocess
 
 from launch import LaunchDescription
-from launch.actions import OpaqueFunction, LogInfo, SetEnvironmentVariable
+from launch.actions import LogInfo, OpaqueFunction, SetEnvironmentVariable
 from launch_ros.actions import Node
 
-VENV_PATH = os.environ.get(
-    "AI_VENV", "/opt/ros_python_env"
-)  # set AI_VENV or uses default
+VENV_PATH = os.environ.get("AI_VENV", "/opt/ros_python_env")  # set AI_VENV or uses default
 
 
 def _venv_site_packages(venv_path: str) -> str:

@@ -1,4 +1,24 @@
+import signal
+import threading
+import time
 import warnings
+from typing import Dict
+
+import diart.models as m
+import numpy as np
+import rclpy
+import torch
+from audio_common_msgs.msg import AudioData
+from diart import SpeakerDiarization, SpeakerDiarizationConfig
+from diart.inference import StreamingInference
+from hri_msgs.msg import AudioAndDeviceInfo, IdsList, SpeechActivityDetection, Vad
+from pyannote.core import Annotation
+from rclpy.node import Node
+from rx.core.observer.observer import Observer
+from std_msgs.msg import Bool
+
+from .database import DataBaseManager
+from .ros_audio_source import ROSAudioSource
 
 # Matplotlib 3D warning
 warnings.filterwarnings("ignore", message="Unable to import Axes3D")
@@ -9,9 +29,7 @@ warnings.filterwarnings(
 )
 
 # PyTorch Lightning checkpoint upgrades
-warnings.filterwarnings(
-    "ignore", message="Lightning automatically upgraded your loaded checkpoint"
-)
+warnings.filterwarnings("ignore", message="Lightning automatically upgraded your loaded checkpoint")
 warnings.filterwarnings("ignore", message="multiple `ModelCheckpoint` callback states")
 
 # PyAnnote frame mismatch
@@ -20,28 +38,6 @@ warnings.filterwarnings(
     message="Mismatch between frames",
     module="pyannote.audio.models.blocks.pooling",
 )
-
-import signal
-import sys
-import threading
-import time
-from typing import Dict
-
-import diart.models as m
-import numpy as np
-import rclpy
-import torch
-from diart import SpeakerDiarization, SpeakerDiarizationConfig
-from diart.inference import StreamingInference
-from hri_msgs.msg import AudioAndDeviceInfo, SpeechActivityDetection, Vad, IdsList
-from audio_common_msgs.msg import AudioData
-from std_msgs.msg import Bool
-from pyannote.core import Annotation
-from rclpy.node import Node
-from rx.core.observer.observer import Observer
-
-from .database import DataBaseManager
-from .ros_audio_source import ROSAudioSource
 
 
 class DiarizationObserver(Observer):
@@ -53,9 +49,7 @@ class DiarizationObserver(Observer):
         self.known_diart_speakers = set()  # Track DIART's internal speaker labels
         self.diart_to_eut_mapping = {}  # Maps DIART speaker IDs to EUT speaker IDs
         self.next_eut_speaker_id = 1
-        self.highest_eut_speaker_number = (
-            0  # Track the highest EUT speaker number ever assigned
-        )
+        self.highest_eut_speaker_number = 0  # Track the highest EUT speaker number ever assigned
         self.current_diart_speaker = None
         self.previous_diart_speaker = None
         self.last_process_time = time.time()
@@ -89,9 +83,7 @@ class DiarizationObserver(Observer):
         if not self.use_database:
             self.db = None
             self.number_of_speakers = 0
-            self.node.get_logger().info(
-                "Database disabled - using session-only speaker tracking"
-            )
+            self.node.get_logger().info("Database disabled - using session-only speaker tracking")
 
         # ROS4HRI tracking with ID approach
         self.ros4hri_enabled = self.node.ros4hri_enabled
@@ -127,17 +119,13 @@ class DiarizationObserver(Observer):
 
             # Log clustering state
             if hasattr(clustering, "num_clusters"):
-                self.node.get_logger().debug(
-                    f"  Number of clusters: {clustering.num_clusters}"
-                )
+                self.node.get_logger().debug(f"  Number of clusters: {clustering.num_clusters}")
 
             # Log active centers information
             if hasattr(clustering, "active_centers"):
                 active_centers = clustering.active_centers
                 self.node.get_logger().debug(f"  Active centers: {active_centers}")
-                self.node.get_logger().debug(
-                    f"  Number of active centers: {len(active_centers)}"
-                )
+                self.node.get_logger().debug(f"  Number of active centers: {len(active_centers)}")
             else:
                 self.node.get_logger().debug("  No 'active_centers' attribute found")
                 active_centers = []
@@ -149,9 +137,7 @@ class DiarizationObserver(Observer):
                     f"  Centers shape: {centers.shape if hasattr(centers, 'shape') else 'N/A'}"
                 )
                 self.node.get_logger().debug(f"  Centers type: {type(centers)}")
-                self.node.get_logger().debug(
-                    f"  Total centers available: {len(centers)}"
-                )
+                self.node.get_logger().debug(f"  Total centers available: {len(centers)}")
 
                 # Only extract the active centers if available
                 for idx, center_idx in enumerate(active_centers):
@@ -170,9 +156,7 @@ class DiarizationObserver(Observer):
                         )
 
                     # Log embedding statistics
-                    if isinstance(embedding, np.ndarray) or hasattr(
-                        embedding, "__array__"
-                    ):
+                    if isinstance(embedding, np.ndarray) or hasattr(embedding, "__array__"):
                         emb_array = np.array(embedding)
                         self.node.get_logger().debug(
                             f"      Embedding mean: {emb_array.mean():.6f}, std: {emb_array.std():.6f}, min: {emb_array.min():.6f}, max: {emb_array.max():.6f}"
@@ -182,13 +166,9 @@ class DiarizationObserver(Observer):
 
             # Log additional clustering attributes if available
             if hasattr(clustering, "assignment"):
-                self.node.get_logger().debug(
-                    f"  Current assignment: {clustering.assignment}"
-                )
+                self.node.get_logger().debug(f"  Current assignment: {clustering.assignment}")
             if hasattr(clustering, "min_size"):
-                self.node.get_logger().debug(
-                    f"  Min cluster size: {clustering.min_size}"
-                )
+                self.node.get_logger().debug(f"  Min cluster size: {clustering.min_size}")
 
         else:
             self.node.get_logger().debug("No 'clustering' attribute in pipeline")
@@ -196,9 +176,7 @@ class DiarizationObserver(Observer):
         if not embeddings:
             self.node.get_logger().debug("No embeddings found in pipeline")
         else:
-            self.node.get_logger().debug(
-                f"Successfully extracted {len(embeddings)} embedding(s)"
-            )
+            self.node.get_logger().debug(f"Successfully extracted {len(embeddings)} embedding(s)")
 
         self.node.get_logger().debug("=" * 80)
         return embeddings
@@ -227,9 +205,7 @@ class DiarizationObserver(Observer):
             embeddings_list.append(emb_norm)
 
         self.node.get_logger().debug(f"Comparing {len(speaker_ids)} speaker embeddings")
-        self.node.get_logger().debug(
-            f"Current DIART->EUT mapping: {self.diart_to_eut_mapping}"
-        )
+        self.node.get_logger().debug(f"Current DIART->EUT mapping: {self.diart_to_eut_mapping}")
 
         # Compare each pair of speakers
         for i in range(len(speaker_ids)):
@@ -287,31 +263,25 @@ class DiarizationObserver(Observer):
                     elif eut_i:
                         # Only i is mapped, map j to same EUT speaker
                         self.diart_to_eut_mapping[speaker_j] = eut_i
-                        self.node.get_logger().debug(
-                            f"    Mapped {speaker_j} to existing {eut_i}"
-                        )
+                        self.node.get_logger().debug(f"    Mapped {speaker_j} to existing {eut_i}")
 
                     elif eut_j:
                         # Only j is mapped, map i to same EUT speaker
                         self.diart_to_eut_mapping[speaker_i] = eut_j
-                        self.node.get_logger().debug(
-                            f"    Mapped {speaker_i} to existing {eut_j}"
-                        )
+                        self.node.get_logger().debug(f"    Mapped {speaker_i} to existing {eut_j}")
 
                     else:
                         # Neither mapped yet - will be handled in normal flow
                         # Just log that they should be merged
                         self.node.get_logger().debug(
-                            f"    Both unmapped - will assign same EUT ID when processed"
+                            "    Both unmapped - will assign same EUT ID when processed"
                         )
                 else:
                     self.node.get_logger().debug(
                         f"    Different speakers (distance > {self.similarity_threshold:.4f})"
                     )
 
-        self.node.get_logger().debug(
-            f"Updated DIART->EUT mapping: {self.diart_to_eut_mapping}"
-        )
+        self.node.get_logger().debug(f"Updated DIART->EUT mapping: {self.diart_to_eut_mapping}")
         self.node.get_logger().debug("=" * 80)
 
     def on_next(self, value):
@@ -322,24 +292,16 @@ class DiarizationObserver(Observer):
 
         prediction = self._extract_prediction(value)
         if prediction is None:
-            self.node.get_logger().debug(
-                "No prediction extracted from diarization value"
-            )
+            self.node.get_logger().debug("No prediction extracted from diarization value")
             return
 
         self.node.get_logger().debug(f"Prediction type: {type(prediction)}")
-        self.node.get_logger().debug(
-            f"Prediction labels (DIART): {prediction.labels()}"
-        )
-        self.node.get_logger().debug(
-            f"Number of tracks: {len(list(prediction.itertracks()))}"
-        )
+        self.node.get_logger().debug(f"Prediction labels (DIART): {prediction.labels()}")
+        self.node.get_logger().debug(f"Number of tracks: {len(list(prediction.itertracks()))}")
 
         current_time = time.time()
         if current_time - self.last_process_time < 0.5:
-            self.node.get_logger().debug(
-                "Skipping processing (too soon, < 0.5s since last)"
-            )
+            self.node.get_logger().debug("Skipping processing (too soon, < 0.5s since last)")
             return  # Limit processing to once per 0.5 seconds
         self.last_process_time = current_time
 
@@ -366,9 +328,7 @@ class DiarizationObserver(Observer):
                     f"  ✗ Found track WITHOUT speaker label: {track} in segment: {segment}"
                 )
             else:
-                self.node.get_logger().debug(
-                    f"  ? Unexpected track tuple format: {track_tuple}"
-                )
+                self.node.get_logger().debug(f"  ? Unexpected track tuple format: {track_tuple}")
                 continue
 
             if diart_speaker is not None:
@@ -376,24 +336,14 @@ class DiarizationObserver(Observer):
                 if diart_speaker not in self.known_diart_speakers:
                     self.known_diart_speakers.add(diart_speaker)
                     # Don't create mapping here anymore - let _process_embeddings handle it
-                    self.node.get_logger().debug(
-                        f"  NEW DIART SPEAKER DISCOVERED: {diart_speaker}"
-                    )
+                    self.node.get_logger().debug(f"  NEW DIART SPEAKER DISCOVERED: {diart_speaker}")
 
         # Determine current speaker (take the first one if multiple)
-        current_diart_speaker = (
-            list(active_diart_speakers)[0] if active_diart_speakers else None
-        )
+        current_diart_speaker = list(active_diart_speakers)[0] if active_diart_speakers else None
         self.node.get_logger().debug(f"Active DIART speakers: {active_diart_speakers}")
-        self.node.get_logger().debug(
-            f"Current DIART speaker selected: {current_diart_speaker}"
-        )
-        self.node.get_logger().debug(
-            f"All known DIART speakers: {self.known_diart_speakers}"
-        )
-        self.node.get_logger().debug(
-            f"DIART->EUT speaker mapping: {self.diart_to_eut_mapping}"
-        )
+        self.node.get_logger().debug(f"Current DIART speaker selected: {current_diart_speaker}")
+        self.node.get_logger().debug(f"All known DIART speakers: {self.known_diart_speakers}")
+        self.node.get_logger().debug(f"DIART->EUT speaker mapping: {self.diart_to_eut_mapping}")
 
         # Publish speech activity detection message only if VAD probability > threshold
         if current_diart_speaker is None:
@@ -417,9 +367,7 @@ class DiarizationObserver(Observer):
         if self.node.model is not None:
             try:
                 self.node.get_logger().debug("Extracting embeddings from pipeline...")
-                pipeline_embeddings = self._extract_embeddings_from_pipeline(
-                    self.node.model
-                )
+                pipeline_embeddings = self._extract_embeddings_from_pipeline(self.node.model)
                 if pipeline_embeddings:
                     self.node.get_logger().debug(
                         f"Processing {len(pipeline_embeddings)} embeddings..."
@@ -461,9 +409,7 @@ class DiarizationObserver(Observer):
             self.node.get_logger().warn("No embeddings detected in the pipeline")
             return
 
-        self.node.get_logger().debug(
-            f"Total embeddings to process: {len(pipeline_embeddings)}"
-        )
+        self.node.get_logger().debug(f"Total embeddings to process: {len(pipeline_embeddings)}")
         self.node.get_logger().debug(f"Current DIART speaker: {current_diart_speaker}")
         self.node.get_logger().debug(
             f"Pending embeddings in memory: {list(self.pending_embeddings.keys())}"
@@ -474,22 +420,18 @@ class DiarizationObserver(Observer):
         # self._merge_similar_speakers(pipeline_embeddings)
 
         for diart_speaker_id, embedding in pipeline_embeddings.items():
-            self.node.get_logger().debug(
-                f"--- Processing DIART speaker: {diart_speaker_id} ---"
-            )
+            self.node.get_logger().debug(f"--- Processing DIART speaker: {diart_speaker_id} ---")
             self.node.get_logger().debug(
                 f"    Embedding shape/length: {embedding.shape if hasattr(embedding, 'shape') else len(embedding)}"
             )
 
             if diart_speaker_id == current_diart_speaker:
-                self.node.get_logger().debug(
-                    f"    ✓ This is the CURRENT ACTIVE DIART speaker"
-                )
+                self.node.get_logger().debug("    ✓ This is the CURRENT ACTIVE DIART speaker")
 
                 # Convert to numpy if necessary
                 if not isinstance(embedding, np.ndarray):
                     embedding = np.array(embedding)
-                    self.node.get_logger().debug(f"    Converted to numpy array")
+                    self.node.get_logger().debug("    Converted to numpy array")
 
                 # Check if it already exists in the database
                 if self.use_database:
@@ -503,9 +445,7 @@ class DiarizationObserver(Observer):
                         self.node.get_logger().info(
                             f"    ✓✓✓ RECOGNIZED as existing EUT speaker: {eut_speaker_name}"
                         )
-                        self.node.get_logger().info(
-                            f"    Cosine distance: {distance:.4f}"
-                        )
+                        self.node.get_logger().info(f"    Cosine distance: {distance:.4f}")
                         self.node.get_logger().info(
                             f"    Setting eut_speaker_id to: {eut_speaker_name}"
                         )
@@ -526,9 +466,7 @@ class DiarizationObserver(Observer):
                         # Check if this DIART speaker already has an EUT ID assigned
                         if diart_speaker_id in self.diart_to_eut_mapping:
                             # Use existing mapping
-                            self.node.eut_speaker_id = self.diart_to_eut_mapping[
-                                diart_speaker_id
-                            ]
+                            self.node.eut_speaker_id = self.diart_to_eut_mapping[diart_speaker_id]
                             self.node.get_logger().debug(
                                 f"    Using existing EUT mapping: {self.node.eut_speaker_id}"
                             )
@@ -536,18 +474,12 @@ class DiarizationObserver(Observer):
                             # Assign NEW EUT speaker ID
                             new_eut_speaker_number = self.highest_eut_speaker_number + 1
                             self.highest_eut_speaker_number = new_eut_speaker_number
-                            self.node.eut_speaker_id = (
-                                f"EUT_speaker{new_eut_speaker_number}"
-                            )
+                            self.node.eut_speaker_id = f"EUT_speaker{new_eut_speaker_number}"
 
                             # Create mapping
-                            self.diart_to_eut_mapping[diart_speaker_id] = (
-                                self.node.eut_speaker_id
-                            )
+                            self.diart_to_eut_mapping[diart_speaker_id] = self.node.eut_speaker_id
 
-                            self.node.get_logger().debug(
-                                f"    ✗✗✗ NEW SPEAKER detected"
-                            )
+                            self.node.get_logger().debug("    ✗✗✗ NEW SPEAKER detected")
                             self.node.get_logger().debug(
                                 f"    Total speakers in DB: {self.number_of_speakers}"
                             )
@@ -565,13 +497,13 @@ class DiarizationObserver(Observer):
                         if diart_speaker_id not in self.pending_embeddings:
                             self.pending_embeddings[diart_speaker_id] = embedding
                             self.node.get_logger().debug(
-                                f"    Stored in pending embeddings (will be saved on shutdown)"
+                                "    Stored in pending embeddings (will be saved on shutdown)"
                             )
                         else:
                             # Update the embedding (it may have changed)
                             self.pending_embeddings[diart_speaker_id] = embedding
                             self.node.get_logger().debug(
-                                f"    Updated embedding in pending (already existed)"
+                                "    Updated embedding in pending (already existed)"
                             )
                 else:
                     # Database disabled - use clustering speaker_id with EUT prefix
@@ -582,34 +514,24 @@ class DiarizationObserver(Observer):
                     # Check if we've already mapped this DIART speaker
                     if diart_speaker_id in self.diart_to_eut_mapping:
                         # Use existing mapping
-                        self.node.eut_speaker_id = self.diart_to_eut_mapping[
-                            diart_speaker_id
-                        ]
+                        self.node.eut_speaker_id = self.diart_to_eut_mapping[diart_speaker_id]
                         self.node.get_logger().debug(
                             f"    Using existing mapping: DIART {diart_speaker_id} -> {self.node.eut_speaker_id}"
                         )
                     else:
                         # Create new EUT mapping for this DIART speaker
                         new_eut_speaker_number = self.next_eut_speaker_id
-                        self.node.eut_speaker_id = (
-                            f"EUT_speaker{new_eut_speaker_number}"
-                        )
-                        self.diart_to_eut_mapping[diart_speaker_id] = (
-                            self.node.eut_speaker_id
-                        )
+                        self.node.eut_speaker_id = f"EUT_speaker{new_eut_speaker_number}"
+                        self.diart_to_eut_mapping[diart_speaker_id] = self.node.eut_speaker_id
                         self.next_eut_speaker_id += 1
                         self.node.get_logger().debug(
                             f"    Created new mapping: DIART {diart_speaker_id} -> {self.node.eut_speaker_id} (number: {new_eut_speaker_number})"
                         )
             else:
-                self.node.get_logger().debug(
-                    f"    ✗ Not the current active DIART speaker, skipping"
-                )
+                self.node.get_logger().debug("    ✗ Not the current active DIART speaker, skipping")
         self._merge_similar_speakers(pipeline_embeddings)
 
-        self.node.get_logger().info(
-            f"Final eut_speaker_id value: {self.node.eut_speaker_id}"
-        )
+        self.node.get_logger().info(f"Final eut_speaker_id value: {self.node.eut_speaker_id}")
 
         if self.ros4hri_enabled:
             self._handle_ros4hri_publishing(active_diart_speakers)
@@ -673,9 +595,7 @@ class DiarizationObserver(Observer):
                 if ros4hri_id in self.node.voice_publishers:
                     bool_msg = Bool()
                     bool_msg.data = False
-                    self.node.voice_publishers[ros4hri_id]["is_speaking"].publish(
-                        bool_msg
-                    )
+                    self.node.voice_publishers[ros4hri_id]["is_speaking"].publish(bool_msg)
                     # Update activity timestamp
                     self.node.voice_publishers_activity[ros4hri_id] = time.time()
 
@@ -686,9 +606,7 @@ class DiarizationObserver(Observer):
         If multiple DIART speakers map to the same EUT speaker, merge their embeddings by averaging.
         """
         if not self.use_database:
-            self.node.get_logger().debug(
-                "Database disabled, skipping saving embeddings"
-            )
+            self.node.get_logger().debug("Database disabled, skipping saving embeddings")
             return
 
         if not self.pending_embeddings:
@@ -727,31 +645,25 @@ class DiarizationObserver(Observer):
                     f"  Creating new EUT speaker {eut_speaker_id} for unmapped DIART {diart_speaker_id}"
                 )
 
-        self.node.get_logger().debug(
-            f"Unique EUT speakers to save: {len(eut_to_embeddings)}"
-        )
+        self.node.get_logger().debug(f"Unique EUT speakers to save: {len(eut_to_embeddings)}")
 
         # Save each EUT speaker with merged embeddings if necessary
         for eut_speaker_id, embeddings_list in eut_to_embeddings.items():
             self.node.get_logger().debug("-" * 80)
             self.node.get_logger().debug(f"Processing EUT speaker: {eut_speaker_id}")
-            self.node.get_logger().debug(
-                f"  Number of DIART speakers: {len(embeddings_list)}"
-            )
+            self.node.get_logger().debug(f"  Number of DIART speakers: {len(embeddings_list)}")
 
             if len(embeddings_list) == 1:
                 # Only one DIART speaker - save directly
                 diart_id, embedding = embeddings_list[0]
                 self.node.get_logger().debug(f"  Single DIART speaker: {diart_id}")
-                self.node.get_logger().debug(
-                    f"  Saving to database as: {eut_speaker_id}"
-                )
+                self.node.get_logger().debug(f"  Saving to database as: {eut_speaker_id}")
                 self.db.save_speaker(eut_speaker_id, embedding)
                 self.number_of_speakers += 1
             else:
                 # Multiple DIART speakers - merge embeddings by averaging
                 self.node.get_logger().debug(
-                    f"  Multiple DIART speakers detected - merging embeddings:"
+                    "  Multiple DIART speakers detected - merging embeddings:"
                 )
                 diart_ids = [diart_id for diart_id, _ in embeddings_list]
                 for diart_id in diart_ids:
@@ -759,7 +671,7 @@ class DiarizationObserver(Observer):
 
                 # Convert all embeddings to numpy arrays and stack them
                 embeddings_array = []
-                for diart_id, emb in embeddings_list:
+                for _diart_id, emb in embeddings_list:
                     if not isinstance(emb, np.ndarray):
                         emb = np.array(emb)
                     embeddings_array.append(emb)
@@ -768,9 +680,7 @@ class DiarizationObserver(Observer):
                 embeddings_stack = np.stack(embeddings_array, axis=0)
                 merged_embedding = np.mean(embeddings_stack, axis=0)
 
-                self.node.get_logger().debug(
-                    f"  Merged embedding shape: {merged_embedding.shape}"
-                )
+                self.node.get_logger().debug(f"  Merged embedding shape: {merged_embedding.shape}")
                 self.node.get_logger().debug(
                     f"  Merged embedding stats: mean={merged_embedding.mean():.6f}, std={merged_embedding.std():.6f}"
                 )
@@ -786,9 +696,7 @@ class DiarizationObserver(Observer):
         self.node.get_logger().debug(
             f"Successfully saved {len(eut_to_embeddings)} unique speaker(s) to MongoDB"
         )
-        self.node.get_logger().debug(
-            f"Total speakers in database: {self.number_of_speakers}"
-        )
+        self.node.get_logger().debug(f"Total speakers in database: {self.number_of_speakers}")
 
 
 class DiarizationNode(Node):
@@ -804,9 +712,7 @@ class DiarizationNode(Node):
         )  # seconds - overlap between consecutive chunks
         self.declare_parameter("segmentation_model_name", "pyannote/segmentation")
         self.declare_parameter("embedding_model_name", "pyannote/embedding")
-        self.declare_parameter(
-            "vad_threshold", 0.5
-        )  # VAD threshold for publishing speech activity
+        self.declare_parameter("vad_threshold", 0.5)  # VAD threshold for publishing speech activity
         self.declare_parameter(
             "use_database", True
         )  # Whether to use the database for speaker tracking
@@ -824,30 +730,20 @@ class DiarizationNode(Node):
             self.get_parameter("overlap_duration").get_parameter_value().double_value
         )
         self.segmentation_model_name = (
-            self.get_parameter("segmentation_model_name")
-            .get_parameter_value()
-            .string_value
+            self.get_parameter("segmentation_model_name").get_parameter_value().string_value
         )
         self.embedding_model_name = (
-            self.get_parameter("embedding_model_name")
-            .get_parameter_value()
-            .string_value
+            self.get_parameter("embedding_model_name").get_parameter_value().string_value
         )
-        self.use_database = (
-            self.get_parameter("use_database").get_parameter_value().bool_value
-        )
+        self.use_database = self.get_parameter("use_database").get_parameter_value().bool_value
         self.ros4hri_enabled = (
             self.get_parameter("ros4hri_with_id").get_parameter_value().bool_value
         )
         self.cleanup_inactive_topics = (
-            self.get_parameter("cleanup_inactive_topics")
-            .get_parameter_value()
-            .bool_value
+            self.get_parameter("cleanup_inactive_topics").get_parameter_value().bool_value
         )
         self.inactive_topic_timeout = (
-            self.get_parameter("inactive_topic_timeout")
-            .get_parameter_value()
-            .double_value
+            self.get_parameter("inactive_topic_timeout").get_parameter_value().double_value
         )
 
         # Initialize device info
@@ -868,9 +764,7 @@ class DiarizationNode(Node):
 
         # VAD tracking
         self.current_vad_probability = 0.0
-        self.vad_threshold = (
-            self.get_parameter("vad_threshold").get_parameter_value().double_value
-        )
+        self.vad_threshold = self.get_parameter("vad_threshold").get_parameter_value().double_value
 
         # VAD buffer for less reactive active=False detection
         self.vad_buffer = []
@@ -927,9 +821,7 @@ class DiarizationNode(Node):
         self.eut_speaker_id = None  # Current EUT speaker ID
         self.speaker_activated = False
 
-        self.get_logger().info(
-            "Diarization node initialized, waiting for device and VAD info..."
-        )
+        self.get_logger().info("Diarization node initialized, waiting for device and VAD info...")
 
     def create_voice_publishers(self, voice_id):
         """Create publishers for a specific voice ID"""
@@ -978,9 +870,7 @@ class DiarizationNode(Node):
 
             # Validate that we have all required information
             if self.device_samplerate is None or self.device_samplerate <= 0:
-                self.get_logger().error(
-                    f"Invalid or missing sample rate: {self.device_samplerate}"
-                )
+                self.get_logger().error(f"Invalid or missing sample rate: {self.device_samplerate}")
                 return
 
             try:
@@ -988,18 +878,14 @@ class DiarizationNode(Node):
                 self.overlap_size = int(self.device_samplerate * self.overlap_duration)
 
                 # Enhanced step-by-step logging for model loading
-                self.get_logger().info(
-                    "[Diarization] Starting model initialization sequence"
-                )
+                self.get_logger().info("[Diarization] Starting model initialization sequence")
                 self.get_logger().info(
                     f"[Diarization] Segmentation model name: {self.segmentation_model_name}"
                 )
                 self.get_logger().info(
                     f"[Diarization] Embedding model name: {self.embedding_model_name}"
                 )
-                self.get_logger().info(
-                    "[Diarization] Retrieving HuggingFace token from env"
-                )
+                self.get_logger().info("[Diarization] Retrieving HuggingFace token from env")
                 import os
 
                 hf_token = os.environ.get("HF_TOKEN", None)
@@ -1045,9 +931,7 @@ class DiarizationNode(Node):
                 )
 
                 # Build config
-                self.get_logger().info(
-                    "[Diarization] Building SpeakerDiarizationConfig ..."
-                )
+                self.get_logger().info("[Diarization] Building SpeakerDiarizationConfig ...")
                 self.config = SpeakerDiarizationConfig(
                     segmentation=segmentation,
                     embedding=embedding,
@@ -1083,16 +967,12 @@ class DiarizationNode(Node):
                     self.source.read()
 
                 except Exception as audio_error:
-                    self.get_logger().error(
-                        f"Failed to initialize ROS audio source: {audio_error}"
-                    )
+                    self.get_logger().error(f"Failed to initialize ROS audio source: {audio_error}")
                     return
 
                 # Mark device info as received and start thread
                 self.device_info_received = True
-                self.diarization_procedure = threading.Thread(
-                    target=self.run_diarization
-                )
+                self.diarization_procedure = threading.Thread(target=self.run_diarization)
                 self.diarization_procedure.daemon = True
                 self.diarization_procedure.start()
                 self.get_logger().info("Diarization system initialized and started")
@@ -1150,10 +1030,7 @@ class DiarizationNode(Node):
             # A speaker cannot be deactivated if they were not activated before
             self.speaker_activated = False
 
-        elif (
-            self.current_vad_probability > self.vad_threshold
-            and self.eut_speaker_id is not None
-        ):
+        elif self.current_vad_probability > self.vad_threshold and self.eut_speaker_id is not None:
             speech_activity_msg = SpeechActivityDetection()
             speech_activity_msg.header.stamp = self.get_clock().now().to_msg()
             speech_activity_msg.speaker_id = self.eut_speaker_id.replace("EUT_", "")
@@ -1167,9 +1044,7 @@ class DiarizationNode(Node):
 
         # This method is now only called after device info is received
         if not self.device_info_received or self.source is None or self.model is None:
-            self.get_logger().error(
-                "Cannot start diarization: missing device info or model"
-            )
+            self.get_logger().error("Cannot start diarization: missing device info or model")
             return
 
         if self.diarization_started:
@@ -1228,9 +1103,7 @@ def main(args=None):
     diarization_node = DiarizationNode()
 
     def shutdown_handler(signum, frame):
-        diarization_node.get_logger().info(
-            f"Signal {signum} received, shutting down..."
-        )
+        diarization_node.get_logger().info(f"Signal {signum} received, shutting down...")
         # Raise KeyboardInterrupt instead of calling sys.exit
         raise KeyboardInterrupt
 

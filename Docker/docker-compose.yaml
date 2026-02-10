@@ -17,7 +17,6 @@ services:
       - ./.vscode:/workspace/.vscode
       - ./logs:/workspace/log
       - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
-      - ../src/audio_stream_manager_interfaces:/workspace/src/audio_stream_manager_interfaces
       - ../src/speech_recognition:/workspace/src/speech_recognition
       - ../src/speech_recognition/speech_recognition/weights_pyannote:/root/.cache/torch/pyannote:rw
       - /dev:/dev
@@ -33,6 +32,7 @@ services:
       - XAUTHORITY=/tmp/xauth/.docker.xauth     
       - HF_TOKEN=${HF_TOKEN}      
       - TORCH_HOME=/root/.cache/torch
+      - AI_VENV=/opt/ros_python_env
 
     devices:
       - /dev/dri:/dev/dri
@@ -63,7 +63,6 @@ services:
       - ./.vscode:/workspace/.vscode
       - ./logs:/workspace/log
       - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
-      - ../src/audio_stream_manager_interfaces:/workspace/src/audio_stream_manager_interfaces
       - ../src/speech_recognition:/workspace/src/speech_recognition
       - ../src/speech_recognition/speech_recognition/weights_pyannote:/root/.cache/torch/pyannote:rw
       - /dev:/dev
@@ -80,6 +79,7 @@ services:
       - XAUTHORITY=/tmp/xauth/.docker.xauth     
       - HF_TOKEN=${HF_TOKEN}
       - TORCH_HOME=/root/.cache/torch
+      - AI_VENV=/opt/ros_python_env
 
     devices:
       - /dev/dri:/dev/dri

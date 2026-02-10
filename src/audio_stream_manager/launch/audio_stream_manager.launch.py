@@ -1,16 +1,14 @@
 import os
 import subprocess
-import yaml
 
+import yaml
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import LogInfo, SetEnvironmentVariable, DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, LogInfo, SetEnvironmentVariable
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
-VENV_PATH = os.environ.get(
-    "AI_VENV", "/opt/ros_python_env"
-)  # set AI_VENV or uses default
+VENV_PATH = os.environ.get("AI_VENV", "/opt/ros_python_env")  # set AI_VENV or uses default
 
 
 def _venv_site_packages(venv_path: str) -> str:
@@ -26,7 +24,7 @@ def generate_launch_description():
     config_file = os.path.join(config_dir, "config", "audio_params.yaml")
 
     # Load defaults from YAML
-    with open(config_file, "r") as f:
+    with open(config_file) as f:
         params_yaml = yaml.safe_load(f)
 
     defaults = params_yaml["audio_capturing_automatic_device_node"]["ros__parameters"]

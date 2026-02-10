@@ -4,11 +4,11 @@ import time
 from collections import deque
 
 import numpy as np
-import torch
-from openwakeword.model import Model
 import rclpy
-from rclpy.node import Node
+import torch
 from hri_msgs.msg import AudioAndDeviceInfo, WakeWord
+from openwakeword.model import Model
+from rclpy.node import Node
 
 
 class WakeWordDetectorNode(Node):
@@ -43,20 +43,14 @@ class WakeWordDetectorNode(Node):
                 self.wake_word_models = ["hey_jana"]
 
         except Exception as e:
-            self.get_logger().error(
-                f"Error retrieving wake_word_model_names parameter: {e}"
-            )
+            self.get_logger().error(f"Error retrieving wake_word_model_names parameter: {e}")
             self.wake_word_models = ["hey_jana"]  # fallback
 
         self.window_duration = (
             self.get_parameter("window_duration").get_parameter_value().double_value
         )
-        self.step_duration = (
-            self.get_parameter("step_duration").get_parameter_value().double_value
-        )
-        self.log_time = (
-            self.get_parameter("log_interval").get_parameter_value().double_value
-        )
+        self.step_duration = self.get_parameter("step_duration").get_parameter_value().double_value
+        self.log_time = self.get_parameter("log_interval").get_parameter_value().double_value
 
         self.get_logger().info(f"Using wake word models: {self.wake_word_models}")
         self.get_logger().info(f"Number of models loaded: {len(self.wake_word_models)}")
@@ -65,23 +59,21 @@ class WakeWordDetectorNode(Node):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         light_green = "\033[38;5;82m"
         reset = "\033[0m"
-        self.get_logger().info(f"{light_green}Using device on wake word detection: {self.device}{reset}")
+        self.get_logger().info(
+            f"{light_green}Using device on wake word detection: {self.device}{reset}"
+        )
 
         # Audio buffer for continuous processing
         self.audio_queue = queue.Queue()
 
         # Sliding window parameters
-        self.sample_rate = (
-            16000  # Default sample rate, will be updated from audio stream
-        )
+        self.sample_rate = 16000  # Default sample rate, will be updated from audio stream
 
         # Calculate sizes in samples
         self.window_size_samples = int(
             self.sample_rate * self.window_duration
         )  # 32000 samples for 2s
-        self.step_size_samples = int(
-            self.sample_rate * self.step_duration
-        )  # 8000 samples for 0.5s
+        self.step_size_samples = int(self.sample_rate * self.step_duration)  # 8000 samples for 0.5s
 
         # Sliding window buffer (circular buffer)
         # We need enough space for the window plus some extra for incoming data
@@ -137,9 +129,7 @@ class WakeWordDetectorNode(Node):
             # Load all models at once - OpenWakeWord Model can handle multiple ONNX files
             self.oww_model = Model(wakeword_model_paths=valid_model_paths)
             self.get_logger().info(
-                "\033[92mOpenWakeWord model loaded successfully with {} ONNX models\033[0m".format(
-                    len(valid_model_paths)
-                )
+                f"\033[92mOpenWakeWord model loaded successfully with {len(valid_model_paths)} ONNX models\033[0m"
             )
 
         except Exception as e:
@@ -176,22 +166,15 @@ class WakeWordDetectorNode(Node):
             audio_data = np.array(msg.audio, dtype=np.float32)
 
             # Update sample rate if different and recalculate window sizes
-            if (
-                hasattr(msg, "device_samplerate")
-                and msg.device_samplerate != self.sample_rate
-            ):
+            if hasattr(msg, "device_samplerate") and msg.device_samplerate != self.sample_rate:
                 self.sample_rate = msg.device_samplerate
                 self.window_size_samples = int(self.sample_rate * self.window_duration)
                 self.step_size_samples = int(self.sample_rate * self.step_duration)
-                self.buffer_capacity = (
-                    self.window_size_samples + self.step_size_samples * 2
-                )
+                self.buffer_capacity = self.window_size_samples + self.step_size_samples * 2
                 # Recreate buffer with new capacity
                 old_data = list(self.audio_buffer)
                 self.audio_buffer = deque(maxlen=self.buffer_capacity)
-                self.audio_buffer.extend(
-                    old_data[-self.buffer_capacity :]
-                )  # Keep recent data
+                self.audio_buffer.extend(old_data[-self.buffer_capacity :])  # Keep recent data
 
             # Add new audio data to the sliding window buffer
             self.audio_buffer.extend(audio_data)
@@ -203,9 +186,7 @@ class WakeWordDetectorNode(Node):
                 and current_time - self.last_process_time >= self.step_duration
             ):
                 # Extract 2-second window from the end of buffer
-                window_data = np.array(
-                    list(self.audio_buffer)[-self.window_size_samples :]
-                )
+                window_data = np.array(list(self.audio_buffer)[-self.window_size_samples :])
 
                 # Add window to processing queue
                 self.audio_queue.put(window_data)
@@ -214,9 +195,7 @@ class WakeWordDetectorNode(Node):
 
             # Start processing thread if not already started
             if not self.processing_thread.is_alive():
-                self.processing_thread = threading.Thread(
-                    target=self.audio_processing_thread
-                )
+                self.processing_thread = threading.Thread(target=self.audio_processing_thread)
                 self.processing_thread.daemon = True
                 self.processing_thread.start()
 
@@ -254,10 +233,7 @@ class WakeWordDetectorNode(Node):
 
             # Log confidence scores periodically
             current_time = time.time()
-            if (
-                current_time - self.last_confidence_log_time >= self.log_time
-                and all_scores
-            ):
+            if current_time - self.last_confidence_log_time >= self.log_time and all_scores:
                 scores_str = ", ".join(
                     [f"{name}: {score:.6f}" for name, score in all_scores.items()]
                 )
@@ -266,9 +242,7 @@ class WakeWordDetectorNode(Node):
                         f"Wake word confidences [{scores_str}] - MAX: {max_confidence_score:.6f} from '{winning_model}'"
                     )
                 else:
-                    self.get_logger().info(
-                        f"Wake word confidences [{scores_str}] - No detection"
-                    )
+                    self.get_logger().info(f"Wake word confidences [{scores_str}] - No detection")
                 self.last_confidence_log_time = current_time
 
             return max_confidence_score

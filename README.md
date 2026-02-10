@@ -1,5 +1,9 @@
 # eut_speech_audio_processing
 
+[![Build Status](https://github.com/Eurecat/eut_speech_audio_processing/actions/workflows/ci-cd.yml/badge.svg?branch=jazzy-devel)](https://github.com/Eurecat/eut_speech_audio_processing/actions/workflows/ci-cd.yml?query=branch%3Ajazzy-devel)
+[![Tests](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Eurecat/eut_speech_audio_processing/badges/jazzy-devel/test-badge.json)](https://github.com/Eurecat/eut_speech_audio_processing/actions/workflows/ci-cd.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Eurecat/eut_speech_audio_processing/badges/jazzy-devel/coverage-badge.json)](https://github.com/Eurecat/eut_speech_audio_processing/actions/workflows/ci-cd.yml)
+
 ## What This Repository Does
 
 **eut_speech_audio_processing** provides comprehensive audio perception capabilities for robotic systems, enabling robots to hear, understand, and interact with their acoustic environment. It processes audio streams through a sophisticated pipeline that detects speech activity, identifies speakers, recognizes wake words, and transcribes spoken language into text for natural human-robot interaction.
@@ -9,6 +13,11 @@
 </p>
 
 ## Key Characteristics
+
+<p align="center">
+  <img src="Docker/imgs/logs.jpeg" alt="Expected logs when running the audio processing pipeline" width="800"/>
+</p>
+
 
 - 🎤 **Audio Stream Management**: Hardware-isolated audio capture with robust error handling
 - 🗣️ **Voice Activity Detection (VAD)**: Real-time detection of speech segments in audio streams
@@ -43,12 +52,15 @@ It is composed of:
 
 ### Installation & Setup
 
-**Prerequisites:**
-- Your default SSH keys will be used during the image build process
-- Eurecat VPN access may be required to pull dependencies from private GitLab repositories
-
 #### Step 0: Build Base Image
 First, build the required base Docker image from [EutRobAIDockers](https://github.com/Eurecat/EutRobAIDockers).
+```bash
+git clone git@github.com:Eurecat/EutRobAIDockers.git
+cd EutRobAIDockers
+./build_container.sh 
+# Defaults to ROS2 Jazzy and GPU
+# Optionally, use --clean-rebuild to force a complete rebuild without cached layers. --cpu flag can be used to build a CPU-only image if needed. etc.
+```
 
 #### Step 1: Clone Repository
 ```bash
@@ -95,6 +107,20 @@ docker compose up
 
 This command will initialize both the **Audio Stream Manager** and the **Speech Recognition Pipeline** services automatically.
 
+**Microphone Selection:**
+1. Check detected audio devices:
+   ```bash
+   docker logs audio_device_manager
+   ```
+   Example output shows available devices with their hardware IDs.
+
+2. Modify device_name with the desired one in [audio_params.yaml](./src/audio_stream_manager/config/audio_params.yaml)
+
+3. Restart only the audio service:
+   ```bash
+   docker restart audio_device_manager
+   ```
+
 #### Service Configuration
 
 The Docker Compose setup includes two main services:
@@ -136,22 +162,46 @@ To delete the database, remove the associated Docker volume.
 
 You can also manage entries via the web interface at [http://0.0.0.0:8081/db/speaker_recognition/speakers](http://0.0.0.0:8081/db/speaker_recognition/speakers).
 
-## CI/CD Testing with Act
+#### Formatting code - Pre-commit Hooks (Optional but Recommended)
 
-To test the GitHub Actions CI/CD pipeline locally without pushing to GitHub, you can use [Act](https://github.com/nektos/act), which runs GitHub Actions locally using Docker.
+This repository uses **Ruff** for automatic Python code formatting via pre-commit hooks.
 
-### Prerequisites
+**Quick Setup:**
 
-1. **Install Go** (if not already installed):
-   - Follow the installation guide at: https://go.dev/doc/install
+```bash
+# Install pre-commit
+pip install pre-commit
 
-2. **Install Act**:
-   ```bash
-   # Clone and install Act
-   git clone https://github.com/nektos/act.git
-   cd act
-   ./install.sh
-   ```
+# Install the git hooks 
+pre-commit install # Runs on changed files only by default when git commit
+
+# (Optional) Run on all existing files
+pre-commit run --all-files
+
+#If you need to commit urgently and skip the pre-commit checks
+git commit -m "urgent fix" --no-verify
+```
+Now Ruff will automatically format your code before each commit. If formatting changes are made, review them with `git diff`, then stage and commit again.
+
+Follow [PRECOMMIT.md](./PRECOMMIT.md) for detailed instructions and troubleshooting tips related to pre-commit hooks.
+
+## Troubleshooting
+
+### Port 27017 Already in Use
+
+If you encounter the error `failed to bind host port for 0.0.0.0:27017:172.21.0.2:27017/tcp: address already in use`, this means another service is already occupying port 27017. The docker-compose MongoDB service cannot start because the port is blocked. To resolve this, identify and stop the conflicting service with `sudo lsof -i :27017` and kill the process if needed, then restart docker-compose. 
+
+```bash
+sudo lsof -ti:27017 | xargs -r sudo kill -9
+```
+### Container Name Conflicts
+
+If you switch between `dev-docker-compose.yaml` and `docker-compose.yaml`, you may encounter errors like `Conflict. The container name "/mongodb_faces" is already in use`. This happens because containers from the previous compose file are still running. To resolve this, remove all containers and restart: 
+```bash
+docker rm -f $(docker ps -aq)
+```
+then run `docker compose up` again. This cleanly removes all existing containers and allows the new composition to start fresh.
+
 
 ### Setup for Local Testing
 
@@ -171,41 +221,9 @@ To test the GitHub Actions CI/CD pipeline locally without pushing to GitHub, you
 
 ### Running CI/CD Locally
 
-1. **Run the complete workflow**:
-   ```bash
-   ./act/bin/act
-   ```
+Follow [CI CD Readme](CI_CD_SETUP.md) for detailed instructions on how to run GitHub Actions workflows locally.
 
-2. **Select runner size** when prompted:
-   - Choose **Medium** for most cases (recommended)
-   - Use **Large** for resource-intensive builds
-   - Use **Micro** for simple tests
-
-3. **Run specific job**:
-   ```bash
-   # List available jobs first
-   ./act/bin/act --list
-   
-   # Run only the test job
-   ./act/bin/act -j test
-   
-   # Run only the deploy job
-   ./act/bin/act -j deploy
-   
-   # Run with secrets file
-   ./act/bin/act --secret-file .secrets
-   
-   # Run specific job with secrets
-   ./act/bin/act -j test --secret-file .secrets
-   ```
-
-### Benefits of Local Testing
-
-- **Faster feedback**: Test your CI/CD changes without pushing to GitHub
-- **Cost-effective**: No GitHub Actions minutes consumed
-- **Debugging**: Easier to debug workflow issues locally
-- **Iterative development**: Quickly iterate on workflow changes
-
-This allows you to validate your CI/CD pipeline changes before committing and pushing to the repository.
-
-
+### Authors
+- [Josep Bravo](https://github.com/LeBrav)
+- [Joan Omedes](https://github.com/joan-omedes)
+- [Devis Dal Moro](https://github.com/devis12)
