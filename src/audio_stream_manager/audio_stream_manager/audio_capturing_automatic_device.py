@@ -331,7 +331,9 @@ class AudioCapturingNode(Node):
 
         # For mono: indata[:, 0] gives all samples from channel 0
         # For multichannel: indata[:, CHANNEL] gives all samples from specific channel
-        audio_data = indata[:, 0]  # Get all samples from first channel
+        audio_data = indata[:, 0].astype(
+            np.float32
+        )  # Get all samples from first channel and ensure float32
 
         if status:
             self.get_logger().warn(f"Stream status: {status}")
@@ -382,7 +384,7 @@ class AudioCapturingNode(Node):
                 # Create and publish the message with consistent chunk size
                 audio_msg = AudioAndDeviceInfo()
                 audio_msg.header.stamp = self.get_clock().now().to_msg()
-                audio_msg.audio = chunk_data
+                audio_msg.audio = chunk_data.astype(np.float32).tolist()
                 audio_msg.device_name = self.device_name
                 audio_msg.device_id = self.device_index
                 audio_msg.device_samplerate = float(target_samplerate)
@@ -399,7 +401,7 @@ class AudioCapturingNode(Node):
                 orig_sr=self.device_samplerate,
                 target_sr=target_samplerate,
             )
-            return resampled_audio
+            return resampled_audio.astype(np.float32)
         except ImportError:
             self.get_logger().error(
                 "librosa is not installed. Cannot resample audio. Please install librosa."
