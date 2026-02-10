@@ -1,6 +1,7 @@
 # Choose the base image at build time. Defaults to Vulcanexus with GPU support.
 ARG BASE_IMAGE="eut_ros_vulcanexus_torch:jazzy"
 ARG CPU_ONLY="false"
+ARG TARGET_DISTRO="jazzy"
 
 FROM ${BASE_IMAGE}
 #https://github.com/Eurecat/EutRobAIDockers
@@ -8,6 +9,7 @@ FROM ${BASE_IMAGE}
 # (Optional) re-declare the args if you want to use them in later instructions
 ARG BASE_IMAGE
 ARG CPU_ONLY
+ARG TARGET_DISTRO
 
 # Prevent interactive prompts during apt installs
 ENV DEBIAN_FRONTEND=noninteractive
@@ -52,7 +54,11 @@ RUN if [ "$CPU_ONLY" = "true" ]; then \
         /bin/bash -c "source /opt/ros_python_env/bin/activate && \
         uv pip install -r requirements_general_active.txt && \
         uv pip uninstall onnxruntime && \
-        uv pip install onnxruntime-gpu==1.16.3"; \
+        if [ "$TARGET_DISTRO" = "humble" ]; then \
+            uv pip install onnxruntime-gpu==1.16.3; \
+        else \
+            uv pip install onnxruntime-gpu==1.24.1; \
+        fi"; \
     fi
 #we need to install onnxruntime separately because openwakeword has a dependency on onnxruntime, and we want to ensure the GPU version is installed if no using cpu flag
 

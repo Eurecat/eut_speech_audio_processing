@@ -165,7 +165,7 @@ jobs:
                 colcon test \
                   --packages-select \$pkg \
                   --event-handlers console_direct+ \
-                  --pytest-args \"--cov=\$pkg --cov-report=html --cov-report=term --cov-report=lcov --cov-report=xml:coverage.xml\" \
+                  --pytest-args --cov=\$pkg --cov-report=html --cov-report=term --cov-report=lcov --cov-report=xml:coverage.xml \
                   --return-code-on-test-failure || true
                 
                 # Copy lcov file immediately after each package test

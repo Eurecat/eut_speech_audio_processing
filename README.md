@@ -14,6 +14,11 @@
 
 ## Key Characteristics
 
+<p align="center">
+  <img src="Docker/imgs/logs.jpeg" alt="Expected logs when running the audio processing pipeline" width="800"/>
+</p>
+
+
 - 🎤 **Audio Stream Management**: Hardware-isolated audio capture with robust error handling
 - 🗣️ **Voice Activity Detection (VAD)**: Real-time detection of speech segments in audio streams
 - 👥 **Speaker Diarization**: Multi-speaker identification and temporal segmentation
@@ -62,8 +67,6 @@ cd EutRobAIDockers
 git clone git@github.com:Eurecat/eut_speech_audio_processing.git
 cd eut_speech_audio_processing
 ```
-
-**📖 For detailed setup, VS Code integration, and troubleshooting, see [PRECOMMIT.md](PRECOMMIT.md)**
 
 #### Step 2: Build Application Image
 
