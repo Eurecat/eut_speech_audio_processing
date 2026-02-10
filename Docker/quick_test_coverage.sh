@@ -304,7 +304,9 @@ if [ ${#ALL_PKG_LIST[@]} -gt 0 ]; then
         for pkg in "${PY_PACKAGES[@]}"; do
             PYTEST_ARGS_ARRAY+=("--cov=$pkg")
         done
+        # Memory-optimized settings to prevent OOM (Error 137)
         PYTEST_ARGS_ARRAY+=("--cov-report=html" "--cov-report=term" "--cov-report=xml")
+        PYTEST_ARGS_ARRAY+=("-p" "no:cacheprovider")  # Disable caching to reduce memory
     fi
     
     # Convert array to proper string for colcon

@@ -153,8 +153,12 @@ jobs:
               
               # Set up test environment
               export PYTHONDONTWRITEBYTECODE=1
+              export PYTHONHASHSEED=0
               export SPEECH_RECOGNITION_VENV='/opt/ros_python_env'
               export AI_VENV='/opt/ros_python_env'
+              # Reduce Python memory footprint
+              export MALLOC_TRIM_THRESHOLD_=100000
+              export MALLOC_MMAP_THRESHOLD_=131072
               
               # Run tests with coverage for Python packages (run each package separately)
               echo '🧪 Running tests with coverage...'
@@ -162,10 +166,21 @@ jobs:
               
               for pkg in \${PY_PACKAGES_LIST}; do
                 echo \"Testing package: \$pkg\"
+                
+                # Force garbage collection before each package
+                python3 -c \"import gc; gc.collect()\" 2>/dev/null || true
+                
+                # Run tests with memory-optimized settings
                 colcon test \
                   --packages-select \$pkg \
                   --event-handlers console_direct+ \
-                  --pytest-args --cov=\$pkg --cov-report=html --cov-report=term --cov-report=lcov --cov-report=xml:coverage.xml \
+                  --pytest-args \
+                    -p no:cacheprovider \
+                    --cov=\$pkg \
+                    --cov-report=html \
+                    --cov-report=term \
+                    --cov-report=lcov \
+                    --cov-report=xml:coverage.xml \
                   --return-code-on-test-failure || true
                 
                 # Copy lcov file immediately after each package test
@@ -173,6 +188,15 @@ jobs:
                   cp \"build/\${pkg}/coverage.lcov\" /ci_workspace/coverage-py-\${pkg}.lcov
                   echo \"✅ Copied build/\${pkg}/coverage.lcov → /ci_workspace/coverage-py-\${pkg}.lcov\"
                 fi
+                
+                # Clean up test artifacts to free memory between packages
+                echo \"🧹 Cleaning up after \${pkg} tests...\"
+                rm -rf build/\${pkg}/.pytest_cache 2>/dev/null || true
+                rm -rf build/\${pkg}/__pycache__ 2>/dev/null || true
+                python3 -c \"import gc; gc.collect()\" 2>/dev/null || true
+                
+                # Brief pause to allow memory to be freed
+                sleep 2
               done
               
               # Copy build artifacts back to mounted directory for artifact upload
