@@ -173,10 +173,13 @@ jobs:
               
               # Run tests (coverage will be generated later by ci_cd_coverage.sh)
               echo '🧪 Running tests...'
-              colcon test \
-                --event-handlers console_direct+ \
-                --pytest-args '-v' \
-                --return-code-on-test-failure || true
+              if [ '${{ env.PY_PACKAGES }}' != '' ] || [ '${{ env.CPP_PACKAGES }}' != '' ]; then
+                colcon test \
+                  --packages-select ${{ env.CPP_PACKAGES }} ${{ env.PY_PACKAGES }} \
+                  --event-handlers console_direct+ \
+                  --pytest-args '-v' \
+                  --return-code-on-test-failure || true
+              fi
               
               # Copy build artifacts back to mounted directory for artifact upload
               echo '📦 Copying build artifacts...'
@@ -283,11 +286,65 @@ jobs:
         run: |
           source Docker/.env
           docker run --rm \
-            -v ${{ github.workspace }}:/workspace \
-            -w /workspace \
+            -v ${{ github.workspace }}:/ci_workspace \
+            -w /ci_workspace \
             ${BUILT_IMAGE} \
-            bash -c "/ci_cd_coverage.sh" \
-            > coverage_summary.txt || true
+            bash -c "
+              # Source ROS environment
+              if [ -f /opt/vulcanexus/jazzy/setup.bash ]; then
+                source /opt/vulcanexus/jazzy/setup.bash
+              elif [ -f /opt/ros/jazzy/setup.bash ]; then
+                source /opt/ros/jazzy/setup.bash
+              fi
+              
+              source install/setup.bash 2>/dev/null || true
+              
+              echo '=========================================='
+              echo '  Code Coverage Report Generation'
+              echo '=========================================='
+              echo ''
+              
+              # Run tests with coverage for Python packages
+              for pkg in ${{ env.PY_PACKAGES }}; do
+                echo \"📊 Python Coverage (\$pkg)\"
+                echo '------------------------------------------'
+                colcon test --packages-select \$pkg \
+                  --event-handlers console_direct+ \
+                  --pytest-args --cov=\$pkg --cov-report=term --cov-report=html --cov-report=lcov \
+                  --return-code-on-test-failure 2>&1 || true
+                echo ''
+              done
+              
+              # C++ coverage (if any packages are specified)
+              for pkg in ${{ env.CPP_PACKAGES }}; do
+                echo \"📊 C++ Coverage (\$pkg)\"
+                echo '------------------------------------------'
+                
+                if [ ! -d \"build/\$pkg\" ]; then
+                  echo \"⚠️  Package build directory not found: build/\$pkg\"
+                  echo ''
+                  continue
+                fi
+                
+                cd build/\$pkg
+                
+                if ! find . -name '*.gcda' -type f | grep -q .; then
+                  echo '⚠️  No coverage data found!'
+                  cd /ci_workspace
+                else
+                  lcov --capture --directory . --output-file coverage.info --ignore-errors mismatch,inconsistent >/dev/null 2>&1
+                  lcov --remove coverage.info '/usr/*' '*/test/*' '*/build/*' '*/gtest/*' '*/rosidl_*' --output-file coverage_filtered.info --ignore-errors unused >/dev/null 2>&1
+                  genhtml coverage_filtered.info --output-directory coverage_html --quiet 2>/dev/null
+                  lcov --list coverage_filtered.info 2>/dev/null || true
+                  cd /ci_workspace
+                fi
+                echo ''
+              done
+              
+              echo '=========================================='
+              echo '✅ Coverage Reports Generated!'
+              echo '=========================================='
+            " > coverage_summary.txt || true
           
           # Display in logs
           cat coverage_summary.txt
