@@ -1,54 +1,61 @@
-# eut_speech_audio_processing
+# EutSpeechAudioProcessing: Audio Stream Management, VAD, Speaker Diarization, Wake Word Detection & Speech Recognition
 
 [![Build Status](https://github.com/Eurecat/eut_speech_audio_processing/actions/workflows/ci-cd.yml/badge.svg?branch=jazzy-devel)](https://github.com/Eurecat/eut_speech_audio_processing/actions/workflows/ci-cd.yml?query=branch%3Ajazzy-devel)
 [![Tests](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Eurecat/eut_speech_audio_processing/badges/jazzy-devel/test-badge.json)](https://github.com/Eurecat/eut_speech_audio_processing/actions/workflows/ci-cd.yml)
 [![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Eurecat/eut_speech_audio_processing/badges/jazzy-devel/coverage-badge.json)](https://github.com/Eurecat/eut_speech_audio_processing/actions/workflows/ci-cd.yml)
 
-## What This Repository Does
+🚀 Production-ready ROS2 (Jazzy, Humble-WIP) audio perception stack with **advanced VAD and speaker diarization** 🗣️ and **state-of-the-art Whisper ASR** 📝. Uniquely integrates **MongoDB** 💾 for persistent speaker embedding storage with automatic re-identification across sessions—speaker identities survive Docker restarts! Fully containerized architecture with hardware-isolated audio management and modular speech processing pipeline for enterprise-grade human-robot interaction.
 
-**eut_speech_audio_processing** provides comprehensive audio perception capabilities for robotic systems, enabling robots to hear, understand, and interact with their acoustic environment. It processes audio streams through a sophisticated pipeline that detects speech activity, identifies speakers, recognizes wake words, and transcribes spoken language into text for natural human-robot interaction.
-
-<p align="center">
-  <img src="Docker/imgs/perceptionstack_diagram.jpeg" alt="Audio Processing Architecture" width="800"/>
-</p>
-
-## Key Characteristics
+## 🏗️ Architecture Overview
 
 <p align="center">
-  <img src="Docker/imgs/logs.jpeg" alt="Expected logs when running the audio processing pipeline" width="800"/>
+  <img src="Docker/imgs/perceptionstack_diagram.jpeg" alt="Audio Processing Architecture" width="500"/>
+  <br>
+  <em>Audio Perception Stack Architecture</em>
 </p>
 
+**EutSpeechAudioProcessing** provides end-to-end audio perception for robotics, from hardware audio capture to speech understanding.
 
-- 🎤 **Audio Stream Management**: Hardware-isolated audio capture with robust error handling
-- 🗣️ **Voice Activity Detection (VAD)**: Real-time detection of speech segments in audio streams
-- 👥 **Speaker Diarization**: Multi-speaker identification and temporal segmentation
-- 📝 **Speech Transcription**: High-accuracy ASR using state-of-the-art Whisper models
-- 🔊 **Wake Word Detection**: Configurable keyword spotting for voice activation
-- 🗄️ **Speaker Database**: MongoDB-based speaker embedding storage and recognition
-- 🐳 **Docker Containerization**: Fully containerized with decoupled services for reliability
-- ⚙️ **Modular Design**: Enable/disable components independently based on deployment needs
+## Key Features
+
+- 🎤 **Hardware-Isolated Audio Capture**: Robust audio stream management with automatic device detection and error recovery
+- 🗣️ **Voice Activity Detection (VAD)**: Real-time speech segment detection with configurable sensitivity
+- 👥 **Speaker Diarization with Persistence**: Multi-speaker identification using deep learning embeddings stored in MongoDB—**speaker identities persist across Docker restarts and robot sessions**
+- 📝 **State-of-the-Art ASR**: High-accuracy speech transcription powered by OpenAI Whisper models
+- 🔊 **Wake Word Detection**: Configurable keyword spotting for hands-free voice activation
+- 🗄️ **MongoDB Database**: Automatic speaker embedding storage and re-identification with persistent identity management
+- 🐳 **Decoupled Architecture**: Hardware management and speech processing run in separate containers for maximum reliability
+- ⚙️ **Modular Pipeline**: Enable/disable VAD, diarization, wake word, and ASR independently based on your needs
+
+<p align="center">
+  <img src="Docker/imgs/logs.jpeg" alt="Expected logs when running the audio processing pipeline" width="600"/>
+  <br>
+  <em>Expected Pipeline Logs During Operation</em>
+</p>
 
 ## Overview
 
-This repository contains the **speech and audio processing module** for the perception layer of robotic systems. The module provides comprehensive audio processing capabilities designed to enable robots to understand and interact with their acoustic environment.
+This repository contains the **speech and audio processing module** for the perception layer of robotic systems, enabling comprehensive audio understanding and natural human-robot interaction through voice.
 
 ### Architecture
 
-The system is designed with two **decoupled components** to ensure robust error handling and system reliability:
+The system features a **decoupled two-component architecture** for robust operation and reliability:
 
-#### **Audio Stream Manager**
-This submodule interfaces directly with audio hardware devices to capture raw audio streams, isolating hardware-related issues from the speech processing logic.
+#### 🎙️ **Audio Stream Manager**
+Hardware-isolated audio capture that interfaces directly with audio devices, preventing hardware issues from affecting the speech processing pipeline.
 
-#### **Speech Recognition Pipeline**
-This submodule contains several audio processing and understanding capabilities that enable real-time analysis of acoustic environments, including **speech and wake word detection**, **speaker identification**, and  **transcription**. 
-
-This module receives as input the processed audio output from the *Audio Stream Manager*. 
-
-It is composed of:
+#### 🧠 **Speech Recognition Pipeline**
+A modular processing chain that transforms raw audio into actionable insights:
   - **Voice Activity Detection (VAD)**: Detects when speech is present in the audio stream
-  - **Speaker Diarization**: Identifies and segments different speakers in multi-speaker scenarios
+  - **Speaker Diarization**: Identifies and segments different speakers with **persistent identity storage in MongoDB**—speaker embeddings survive container restarts and system reboots
+  - **Wake Word Detection**: Keyword spotting for voice activation  
   - **Speech Transcription**: Converts spoken language into text using automatic speech recognition (ASR)
-  - **Wake Word Detection**: Keyword spotting for voice activation
+
+**🔑 Unique Feature**: Unlike traditional solutions, speaker identities are **automatically saved to MongoDB and reloaded on startup**, enabling seamless speaker re-identification across sessions without manual re-enrollment.
+
+---
+
+## 🚀 Quick Start
 
 ### Installation & Setup
 
@@ -85,11 +92,14 @@ cd Docker && ./build_container.sh
 
 ### Configuration Parameters
 
-Configure your Hugging Face token in the `.env` file to access the required models (take a look at the `.env.example` and use the same variable name). Ensure the token has permission for:
+**Hugging Face Token Setup:**  
+Configure your Hugging Face token in the `.env` file (see `.env.example` for template) to access state-of-the-art models:
 
-- `openai/whisper`
-- `pyannote/embedding`
-- `pyannote/segmentation`
+- `openai/whisper` - Advanced speech recognition
+- `pyannote/embedding` - Speaker voice embeddings
+- `pyannote/segmentation` - Speaker diarization
+
+Ensure your token has appropriate permissions for these model repositories.
 
 
 
@@ -151,16 +161,22 @@ command: bash -c "source /workspace/install/setup.bash && ros2 launch speech_rec
 
 ### Managing the Speaker Recognition Database
 
-To query the database:
+The speaker diarization system uses **MongoDB to persistently store speaker voice embeddings**, enabling automatic re-identification across Docker container restarts and robot sessions. Once a speaker is enrolled, their voice profile remains in the database indefinitely.
+
+**Query the database:**
 ```bash
 mongosh
 use speaker_recognition
 db.speakers.find()
 ```
 
-To delete the database, remove the associated Docker volume.
+**Access the web interface:**  
+[http://0.0.0.0:8081/db/speaker_recognition/speakers](http://0.0.0.0:8081/db/speaker_recognition/speakers)
 
-You can also manage entries via the web interface at [http://0.0.0.0:8081/db/speaker_recognition/speakers](http://0.0.0.0:8081/db/speaker_recognition/speakers).
+**Delete the database:**  
+Remove the associated Docker volume to clear all speaker embeddings and start fresh.
+
+This persistence means your robot can recognize previously encountered speakers without re-enrollment, making interactions more natural and continuous across sessions.
 
 #### Formatting code - Pre-commit Hooks (Optional but Recommended)
 
@@ -184,6 +200,8 @@ git commit -m "urgent fix" --no-verify
 Now Ruff will automatically format your code before each commit. If formatting changes are made, review them with `git diff`, then stage and commit again.
 
 Follow [PRECOMMIT.md](./PRECOMMIT.md) for detailed instructions and troubleshooting tips related to pre-commit hooks.
+
+---
 
 ## Troubleshooting
 
@@ -221,9 +239,15 @@ then run `docker compose up` again. This cleanly removes all existing containers
 
 ### Running CI/CD Locally
 
-Follow [CI CD Readme](CI_CD_SETUP.md) for detailed instructions on how to run GitHub Actions workflows locally.
+Follow [CI_CD_SETUP.md](CI_CD_SETUP.md) for detailed instructions on how to run GitHub Actions workflows locally.
 
-### Authors
+---
+
+## License
+
+Apache-2.0
+
+## Maintainers
 - [Josep Bravo](https://github.com/LeBrav)
-- [Joan Omedes](https://github.com/joan-omedes)
+- [Joan Omedes](https://github.com/joan-omedes)  
 - [Devis Dal Moro](https://github.com/devis12)
