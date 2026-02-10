@@ -520,7 +520,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Tag image for Docker Hub
-        if: github.ref == 'refs/heads/jazzy-devel'
+        if: github.ref == 'refs/heads/main'
         run: |
           # Get the image name from .env file
           source Docker/.env
@@ -530,7 +530,8 @@ jobs:
           docker tag ${BUILT_IMAGE} ${DOCKERHUB_ORG}/eutrobai:${TARGET_DISTRO}
       
       - name: Push to Docker Hub
-        if: github.ref == 'none' # IGNORE for now the push, replace it with main branch or jazzy when ready to publish from protected branch
+        if: github.ref == 'refs/heads/main' # IGNORE for now the push, replace it with main branch or jazzy when ready to publish from protected branch
+        # if: github.ref == 'none' # IGNORE for now the push, replace it with main branch or jazzy when ready to publish from protected branch
         run: |
           source Docker/.env
           DOCKERHUB_ORG=${{ secrets.DOCKERHUB_ORG }}
