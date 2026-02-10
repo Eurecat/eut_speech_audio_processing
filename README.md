@@ -47,39 +47,21 @@ It is composed of:
 
 ### Installation & Setup
 
-**Prerequisites:**
-- Your default SSH keys will be used during the image build process
-- Eurecat VPN access may be required to pull dependencies from private GitLab repositories
-
 #### Step 0: Build Base Image
 First, build the required base Docker image from [EutRobAIDockers](https://github.com/Eurecat/EutRobAIDockers).
+```bash
+git clone git@github.com:Eurecat/EutRobAIDockers.git
+cd EutRobAIDockers
+./build_container.sh 
+# Defaults to ROS2 Jazzy and GPU
+# Optionally, use --clean-rebuild to force a complete rebuild without cached layers. --cpu flag can be used to build a CPU-only image if needed. etc.
+```
 
 #### Step 1: Clone Repository
 ```bash
 git clone git@github.com:Eurecat/eut_speech_audio_processing.git
 cd eut_speech_audio_processing
 ```
-
-#### Step 1.5: Setup Pre-commit Hooks (Optional but Recommended)
-
-This repository uses **Ruff** for automatic Python code formatting via pre-commit hooks.
-
-**Quick Setup:**
-
-```bash
-# Install pre-commit
-pip install pre-commit
-
-# Install the git hooks 
-pre-commit install # Runs on changed files only by default when git commit
-
-# (Optional) Run on all existing files
-pre-commit run --all-files
-
-#If you need to commit urgently and skip the pre-commit checks
-git commit -m "urgent fix" --no-verify
-```
-Now Ruff will automatically format your code before each commit. If formatting changes are made, review them with `git diff`, then stage and commit again.
 
 **📖 For detailed setup, VS Code integration, and troubleshooting, see [PRECOMMIT.md](PRECOMMIT.md)**
 
@@ -122,6 +104,20 @@ docker compose up
 
 This command will initialize both the **Audio Stream Manager** and the **Speech Recognition Pipeline** services automatically.
 
+**Microphone Selection:**
+1. Check detected audio devices:
+   ```bash
+   docker logs audio_device_manager
+   ```
+   Example output shows available devices with their hardware IDs.
+
+2. Modify device_name with the desired one in [audio_params.yaml](./src/audio_stream_manager/config/audio_params.yaml)
+
+3. Restart only the audio service:
+   ```bash
+   docker restart audio_device_manager
+   ```
+
 #### Service Configuration
 
 The Docker Compose setup includes two main services:
@@ -163,7 +159,28 @@ To delete the database, remove the associated Docker volume.
 
 You can also manage entries via the web interface at [http://0.0.0.0:8081/db/speaker_recognition/speakers](http://0.0.0.0:8081/db/speaker_recognition/speakers).
 
-## Troubleshooting
+#### Formatting code - Pre-commit Hooks (Optional but Recommended)
+
+This repository uses **Ruff** for automatic Python code formatting via pre-commit hooks.
+
+**Quick Setup:**
+
+```bash
+# Install pre-commit
+pip install pre-commit
+
+# Install the git hooks 
+pre-commit install # Runs on changed files only by default when git commit
+
+# (Optional) Run on all existing files
+pre-commit run --all-files
+
+#If you need to commit urgently and skip the pre-commit checks
+git commit -m "urgent fix" --no-verify
+```
+Now Ruff will automatically format your code before each commit. If formatting changes are made, review them with `git diff`, then stage and commit again.
+
+Follow [PRECOMMIT.md](./PRECOMMIT.md) for detailed instructions and troubleshooting tips related to pre-commit hooks.
 
 ## Troubleshooting
 
@@ -181,22 +198,7 @@ If you switch between `dev-docker-compose.yaml` and `docker-compose.yaml`, you m
 docker rm -f $(docker ps -aq)
 ```
 then run `docker compose up` again. This cleanly removes all existing containers and allows the new composition to start fresh.
-## CI/CD Testing with Act
 
-To test the GitHub Actions CI/CD pipeline locally without pushing to GitHub, you can use [Act](https://github.com/nektos/act), which runs GitHub Actions locally using Docker.
-
-### Prerequisites
-
-1. **Install Go** (if not already installed):
-   - Follow the installation guide at: https://go.dev/doc/install
-
-2. **Install Act**:
-   ```bash
-   # Clone and install Act
-   git clone https://github.com/nektos/act.git
-   cd act
-   ./install.sh
-   ```
 
 ### Setup for Local Testing
 
@@ -216,41 +218,9 @@ To test the GitHub Actions CI/CD pipeline locally without pushing to GitHub, you
 
 ### Running CI/CD Locally
 
-1. **Run the complete workflow**:
-   ```bash
-   ./act/bin/act
-   ```
+Follow [CI CD Readme](CI_CD_SETUP.md) for detailed instructions on how to run GitHub Actions workflows locally.
 
-2. **Select runner size** when prompted:
-   - Choose **Medium** for most cases (recommended)
-   - Use **Large** for resource-intensive builds
-   - Use **Micro** for simple tests
-
-3. **Run specific job**:
-   ```bash
-   # List available jobs first
-   ./act/bin/act --list
-   
-   # Run only the test job
-   ./act/bin/act -j test
-   
-   # Run only the deploy job
-   ./act/bin/act -j deploy
-   
-   # Run with secrets file
-   ./act/bin/act --secret-file .secrets
-   
-   # Run specific job with secrets
-   ./act/bin/act -j test --secret-file .secrets
-   ```
-
-### Benefits of Local Testing
-
-- **Faster feedback**: Test your CI/CD changes without pushing to GitHub
-- **Cost-effective**: No GitHub Actions minutes consumed
-- **Debugging**: Easier to debug workflow issues locally
-- **Iterative development**: Quickly iterate on workflow changes
-
-This allows you to validate your CI/CD pipeline changes before committing and pushing to the repository.
-
-
+### Authors
+- [Josep Bravo](https://github.com/LeBrav)
+- [Joan Omedes](https://github.com/joan-omedes)
+- [Devis Dal Moro](https://github.com/devis12)
