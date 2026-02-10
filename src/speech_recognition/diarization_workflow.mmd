@@ -1,0 +1,45 @@
+flowchart TD
+    A[Subscription to topic: <b>/audio_and_device_info</b>] -->  C[ROSAudioSource]
+    C --> D[Accumulate to 0.5s blocks]
+    
+    D --> E[StreamingInference Thread<br/>pyannote/diart pipeline]
+    
+    E --> F[Segmentation Model:<br/><b>pyannote/segmentation</b>]
+    E --> G[Embedding Model:<br/><b>pyannote/embedding</b>]
+    
+    F --> H[<b>Clustering</b><br/>Group similar embeddings]
+    G --> H
+    
+    H --> I[Annotation with DIART labels:<br/>speaker0, speaker1, etc.]
+    
+    I --> J[DiarizationObserver]
+    
+    J --> K{VAD probability<br/>> threshold?}
+    
+    K -->|No| L[Skip processing]
+    
+    K -->|Yes| M[Extract embeddings<br/>from clustering centers]
+    
+    M --> N{Database enabled?}
+    
+    N -->|Yes| O[Find speaker in MongoDB<br/>cosine distance < 0.5]
+    
+    O -->|Match found| P[Use existing EUT_speaker ID]
+    O -->|No match| Q[Assign new EUT_speaker ID]
+    
+    N -->|No| Q
+    
+    P --> R[Publish <b>/speech_activity_detection</b> topic:<br>std_msgs/Header header<br>string speaker_id <br>float64 speaker_id_confidence <br> bool active]
+    Q --> S[Store embedding in pending<br/>&<br>Save on shutdown]
+    
+    S --> R
+        
+    U[VAD subscription `/vad`] --> V[Track vad_probability<br/>+ RMS buffer 30 samples]
+    V --> W{RMS < 0.5<br/>sustained silence?}
+    W -->|Yes| X[Publish active=False<br/>for current speaker]
+    
+    style A fill:#FFA500
+    style C fill:#FFA500
+    style E fill:#FFA500
+    style O fill:#FFA500
+

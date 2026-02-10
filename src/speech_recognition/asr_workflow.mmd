@@ -1,0 +1,17 @@
+hey_janaflowchart TD
+    A[Subscription to  <b>/audio_and_device_info</b>:<br>512 samples<br> Chunks of 0.032s] --> B[Buffering]
+    B --> C[VAD check]
+    C -- speech=True --> D[Accumulate chunk window]
+    D --> E[Trigger transcription]
+    E --> F[ASR model faster_whisper / local]
+    F --> G[Postprocess & result]
+    G --> H[ /speech_result SpeechResult]
+
+    C -- speech=False --> I[Drop or wait]
+
+    style A fill:#FFA500
+    style H fill:#FFA500
+
+%% Notes
+%% - ASR buffers audio to form a context window before sending to model.
+%% - VAD can trigger or gate transcription to reduce compute.
