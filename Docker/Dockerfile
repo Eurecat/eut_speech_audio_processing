@@ -52,7 +52,7 @@ RUN if [ "$CPU_ONLY" = "true" ]; then \
         /bin/bash -c "source /opt/ros_python_env/bin/activate && \
         uv pip install -r requirements_general_active.txt && \
         uv pip uninstall onnxruntime && \
-        uv pip install onnxruntime-gpu==1.24.1"; \
+        uv pip install onnxruntime-gpu==1.16.3"; \
     fi
 #we need to install onnxruntime separately because openwakeword has a dependency on onnxruntime, and we want to ensure the GPU version is installed if no using cpu flag
 

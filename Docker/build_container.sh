@@ -5,7 +5,8 @@
 # Usage:
 # - Default (Vulcanexus): ./build_container.sh
 # - Standard ROS2: ./build_container.sh --standard-ros
-# - Clean rebuild: ./build_container.sh --clean-rebuild [--standard-ros]
+# - With Humble: ./build_container.sh --humble
+# - Clean rebuild: ./build_container.sh --clean-rebuild [--vulcanexus] [--humble]
 #
 
 export DOCKER_BUILDKIT=1
@@ -29,8 +30,8 @@ if [ ! -d $DEPS_DIR ]; then
 fi
 
 # Check arguments
-BASE_IMAGE="eut_ros_torch:jazzy"
-# Check if --clean-rebuild is among the arguments
+TARGET_DISTRO="jazzy"
+BASE_IMAGE="eut_ros_torch:${TARGET_DISTRO}"
 REBUILD=false
 NO_VCS=false
 USE_VULCANEXUS=false
@@ -40,10 +41,13 @@ for arg in "$@"; do
         REBUILD=true
     fi
     if [ "$arg" == "--vulcanexus" ]; then
-        BASE_IMAGE="eut_ros_vulcanexus_torch:jazzy"
+        BASE_IMAGE="eut_ros_vulcanexus_torch:${TARGET_DISTRO}"
+        USE_VULCANEXUS=true
     fi
-    if [ "$arg" == "--cpu" ]; then
-        CPU_ONLY="true"
+    if [ "$arg" == "--humble" ]; then
+        TARGET_DISTRO="humble"
+        BASE_IMAGE="eut_ros_torch:${TARGET_DISTRO}"
+        USE_HUMBLE=true
     fi
     if [ "$arg" == "--no-vcs" ]; then
         NO_VCS=true
@@ -84,31 +88,37 @@ else
     echo "Skipping VCS operations..."
 fi
 
+# Display build configuration
+if [[ "${BASE_IMAGE}" == *"vulcanexus"* ]]; then
+    echo "Building with Vulcanexus ${TARGET_DISTRO} base image..."
+else
+    echo "Building with standard ROS2 ${TARGET_DISTRO} base image..."
+fi
+
 # Set image name based on the base image choice
 if [[ "${BASE_IMAGE}" == *"vulcanexus"* ]]; then
-    IMAGE_NAME="eut_audio_vulcanexus:jazzy"
-    echo "Building with Vulcanexus Jazzy base image..."
+    IMAGE_NAME="eut_audio_vulcanexus:${TARGET_DISTRO}"
+    echo "Building with Vulcanexus ${TARGET_DISTRO} base image..."
 else
-    IMAGE_NAME="eut_audio:jazzy"
-    echo "Building with standard ROS2 Jazzy base image..."
+    IMAGE_NAME="eut_audio:${TARGET_DISTRO}"
+    echo "Building with standard ROS2 ${TARGET_DISTRO} base image..."
 fi
 
 echo "Base image: ${BASE_IMAGE}"
-echo "CPU Only: ${CPU_ONLY}"
 echo "Output image: ${IMAGE_NAME}"
 
 if $REBUILD; then
     echo "Rebuilding the application Docker image..."
-    docker build --no-cache . --build-arg BASE_IMAGE="${BASE_IMAGE}" --build-arg CPU_ONLY="${CPU_ONLY}" -t ${IMAGE_NAME} -f Dockerfile
+    docker build --no-cache . --build-arg BASE_IMAGE="${BASE_IMAGE}" -t ${IMAGE_NAME} -f Dockerfile
 else
-    docker build . --build-arg BASE_IMAGE="${BASE_IMAGE}" --build-arg CPU_ONLY="${CPU_ONLY}" -t ${IMAGE_NAME} -f Dockerfile
+    docker build . --build-arg BASE_IMAGE="${BASE_IMAGE}" -t ${IMAGE_NAME} -f Dockerfile
 fi
 
 # Set or Update BUILT_IMAGE 
 if grep -q -E "^BUILT_IMAGE=" "$ENV_FILE"; then
-    sed -i "s/^BUILT_IMAGE=.*/BUILT_IMAGE=$IMAGE_NAME/" "$ENV_FILE"
+    sed -i "s/^BUILT_IMAGE=.*/BUILT_IMAGE=${IMAGE_NAME}/" "$ENV_FILE"
 else
-    echo "BUILT_IMAGE=$IMAGE_NAME" >> "$ENV_FILE"
+    echo "BUILT_IMAGE=${IMAGE_NAME}" >> "$ENV_FILE"
 fi
 
 # Set or Update DOCKER_RUNTIME based on CPU_ONLY flag
