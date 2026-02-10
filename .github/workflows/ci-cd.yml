@@ -171,42 +171,12 @@ jobs:
               export SPEECH_RECOGNITION_VENV='/opt/ros_python_env'
               export AI_VENV='/opt/ros_python_env'
               
-              # Run tests with coverage for Python packages
+              # Run tests (coverage will be generated later by ci_cd_coverage.sh)
               echo '🧪 Running tests...'
-              if [ '${{ env.PY_PACKAGES }}' != '' ]; then
-                # Build pytest coverage args for all Python packages
-                PY_PACKAGES_LIST='${{ env.PY_PACKAGES }}'
-                COV_ARGS=''
-                for pkg in \${PY_PACKAGES_LIST}; do
-                  COV_ARGS=\"\$COV_ARGS --cov=\$pkg\"
-                done
-                COV_ARGS=\"\$COV_ARGS --cov-report=html --cov-report=term --cov-report=xml:coverage.xml\"
-                echo \"Coverage args: \$COV_ARGS\"
-                
-                colcon test \
-                  --packages-select ${{ env.PY_PACKAGES }} \
-                  --event-handlers console_direct+ \
-                  --pytest-args \"\$COV_ARGS\" \
-                  --return-code-on-test-failure || true
-                
-                # Move coverage.xml files to easily discoverable locations with package names
-                echo '📊 Organizing coverage files...'
-                for pkg in \${PY_PACKAGES_LIST}; do
-                  if [ -f coverage.xml ]; then
-                    cp coverage.xml /ci_workspace/coverage-py-\${pkg}.xml
-                    echo \"✅ Copied coverage.xml → /ci_workspace/coverage-py-\${pkg}.xml\"
-                  fi
-                  # Also check in build directory
-                  if [ -f \"build/\${pkg}/coverage.xml\" ]; then
-                    cp \"build/\${pkg}/coverage.xml\" /ci_workspace/coverage-py-\${pkg}.xml
-                    echo \"✅ Copied build/\${pkg}/coverage.xml → /ci_workspace/coverage-py-\${pkg}.xml\"
-                  fi
-                done
-              else
-                colcon test \
-                  --event-handlers console_direct+ \
-                  --return-code-on-test-failure || true
-              fi
+              colcon test \
+                --event-handlers console_direct+ \
+                --pytest-args '-v' \
+                --return-code-on-test-failure || true
               
               # Copy build artifacts back to mounted directory for artifact upload
               echo '📦 Copying build artifacts...'
@@ -313,8 +283,8 @@ jobs:
         run: |
           source Docker/.env
           docker run --rm \
-            -v ${{ github.workspace }}:/ci_workspace \
-            -w /ci_workspace \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
             ${BUILT_IMAGE} \
             bash -c "/ci_cd_coverage.sh" \
             > coverage_summary.txt || true
@@ -335,23 +305,35 @@ jobs:
         run: |
           # First, check what coverage files exist
           echo "🔍 Looking for coverage files..."
-          find . -name "coverage*.xml" 2>/dev/null || true
+          find . -name "coverage*.xml" -o -name "coverage*.lcov" 2>/dev/null || true
           
           echo ""
           echo "📋 Coverage XML files found:"
           ls -lh coverage-*.xml 2>/dev/null || echo "⚠️ No coverage-*.xml files found yet"
           
-          # Install lcov_cobertura for C++ coverage conversion (if needed)
+          # Install lcov_cobertura for coverage conversion
+          python3 -m pip install lcov_cobertura
+          
+          # Convert C++ coverage for all packages
           if [ '${{ env.CPP_PACKAGES }}' != '' ]; then
-            python3 -m pip install lcov_cobertura
-            
-            # Convert C++ coverage for all packages
             for pkg in ${{ env.CPP_PACKAGES }}; do
               if [ -f "build/${pkg}/coverage_filtered.info" ]; then
                 python3 -m lcov_cobertura build/${pkg}/coverage_filtered.info -o coverage-cpp-${pkg}.xml
                 echo "✅ Converted C++ coverage for ${pkg} to XML"
               else
                 echo "⚠️ No C++ coverage file found for ${pkg}"
+              fi
+            done
+          fi
+          
+          # Convert Python coverage for all packages
+          if [ '${{ env.PY_PACKAGES }}' != '' ]; then
+            for pkg in ${{ env.PY_PACKAGES }}; do
+              if [ -f "build/${pkg}/coverage.lcov" ]; then
+                python3 -m lcov_cobertura build/${pkg}/coverage.lcov -o coverage-py-${pkg}.xml
+                echo "✅ Converted Python coverage for ${pkg} to XML"
+              else
+                echo "⚠️ No Python coverage file found for ${pkg}"
               fi
             done
           fi
