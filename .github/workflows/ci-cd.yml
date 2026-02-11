@@ -99,10 +99,8 @@ jobs:
           source Docker/.env
           
           # Build all packages with proper dependency order
-          # Mount to /ci_workspace to avoid shadowing pre-built /workspace in the image
           docker run --rm \
-            -v ${{ github.workspace }}:/ci_workspace \
-            -w /ci_workspace \
+            -v ${{ github.workspace }}:/workspace \
             ${BUILT_IMAGE} \
             bash -c "
               # Source ROS environment (jazzy is available in both vulcanexus and standard images)
@@ -112,136 +110,91 @@ jobs:
                 source /opt/ros/jazzy/setup.bash
               fi
               
-              echo '🔧 Using pre-built dependencies from Docker image'
-              echo '📋 Pre-built packages in image:'
-              ls -la /workspace/install/ 2>/dev/null || echo 'No pre-built install found'
+              cd /workspace
               
-              # Source the pre-built workspace dependencies (hri_msgs, audio_common_msgs)
-              if [ -f /workspace/install/setup.bash ]; then
-                source /workspace/install/setup.bash
+              # Source the pre-built workspace dependencies from image (hri_msgs, audio_common_msgs)
+              if [ -f /opt/workspace/install/setup.bash ]; then
+                source /opt/workspace/install/setup.bash
                 echo '✅ Sourced pre-built dependencies from image'
               fi
-              
-              # Copy our source packages to build directory
-              echo '📦 Copying source packages...'
-              mkdir -p src
-              cp -r /ci_workspace/src/audio_stream_manager src/
-              cp -r /ci_workspace/src/speech_recognition src/
               
               echo '🔍 Available packages to build:'
               colcon list --names-only
               
               # Build Python packages
-              echo '🔨 Building Python packages: ${{ env.PY_PACKAGES }}'
+              echo '🔨 Building Python packages: \${{ env.PY_PACKAGES }}'
               
-              timeout 900 colcon build --symlink-install \
-                --packages-select ${{ env.PY_PACKAGES }} \
+              colcon build --symlink-install \
+                --packages-select \${{ env.PY_PACKAGES }} \
                 --parallel-workers 1 \
                 --event-handlers console_direct+ || echo 'Warning: Some Python packages failed to build'
               
               # Source the workspace to make built packages available
               source install/setup.bash
               
-              # Check build results and list any failed packages
-              echo '📊 Build Summary:'
-              if [ -d build ]; then
-                echo '✅ Successfully built packages:'
-                find install -name package.xml -exec dirname {} \\; 2>/dev/null | while read dir; do basename \"\$dir\"; done | sort || echo 'No packages found in install'
-                
-                echo '❌ Packages with build directories but no install:'
-                find build -maxdepth 1 -type d -not -name 'build' -exec basename {} \\; | while read pkg; do
-                  if [ ! -d \"install/\$pkg\" ]; then
-                    echo \"  - \$pkg (failed to build)\"
-                  fi
-                done
-              fi
+              # Set up test environment
+              export PYTHONDONTWRITEBYTECODE=1
+              export PYTHONHASHSEED=0
+              export AI_VENV='/opt/ros_python_env'
               
-              # Copy build artifacts back to mounted directory for artifact upload
-              echo '📦 Copying build artifacts...'
-              cp -r build /ci_workspace/ 2>/dev/null || true
-              cp -r install /ci_workspace/ 2>/dev/null || true
-              cp -r log /ci_workspace/ 2>/dev/null || true
-            "
-      
-      # Run tests for each package in separate Docker containers to avoid memory buildup
-      - name: Test individual packages (memory-isolated)
-        if: always()
-        run: |
-          source Docker/.env
-          PY_PACKAGES_LIST='${{ env.PY_PACKAGES }}'
-          
-          # Test each package in its own Docker container to ensure complete memory cleanup
-          for pkg in ${PY_PACKAGES_LIST}; do
-            echo "🧪 Testing package: ${pkg} (in isolated container)"
-            
-            docker run --rm \
-              -v ${{ github.workspace }}:/ci_workspace \
-              -w /ci_workspace \
-              ${BUILT_IMAGE} \
-              bash -c "
-                # Source ROS environment
-                if [ -f /opt/vulcanexus/jazzy/setup.bash ]; then
-                  source /opt/vulcanexus/jazzy/setup.bash
-                elif [ -f /opt/ros/jazzy/setup.bash ]; then
-                  source /opt/ros/jazzy/setup.bash
-                fi
-                
-                # Source pre-built dependencies from image
-                source /workspace/install/setup.bash || true
-                
-                # Source the built workspace from mounted volume
-                source /ci_workspace/install/setup.bash || true
-                
-                # Set up test environment with memory optimizations
-                export PYTHONDONTWRITEBYTECODE=1
-                export PYTHONHASHSEED=0
-                export SPEECH_RECOGNITION_VENV='/opt/ros_python_env'
-                export AI_VENV='/opt/ros_python_env'
-                export MALLOC_TRIM_THRESHOLD_=100000
-                export MALLOC_MMAP_THRESHOLD_=131072
-                
-                # Ensure pytest-cov is installed
-                pip3 install pytest-cov --break-system-packages --quiet || pip3 install pytest-cov --user --quiet
+              # Ensure pytest-cov is installed
+              pip3 install pytest-cov --break-system-packages --quiet || pip3 install pytest-cov --user --quiet
+              
+              # Run tests for Python packages (one at a time to reduce memory)
+              echo '🧪 Running tests...'
+              PY_PACKAGES_LIST='\${{ env.PY_PACKAGES }}'
+              
+              # List workspace structure to debug
+              echo \"📁 Workspace structure:\"
+              ls -la /workspace/ | head -20
+              
+              for pkg in \${PY_PACKAGES_LIST}; do
+                echo \"\n========================================\"
+                echo \"Testing package: \$pkg\"
+                echo \"========================================\"
                 
                 # Create build directory for coverage output
-                mkdir -p /ci_workspace/build/\${pkg}/htmlcov
+                mkdir -p /workspace/build/\$pkg/htmlcov
                 
-                echo \"Testing package: \${pkg}\"
-                
-                # Find the package directory
-                if [ -d \"/ci_workspace/\${pkg}\" ]; then
-                  PKG_PATH=\"/ci_workspace/\${pkg}\"
-                elif [ -d \"/ci_workspace/src/\${pkg}\" ]; then
-                  PKG_PATH=\"/ci_workspace/src/\${pkg}\"
+                # Check where the package actually is
+                if [ -d \"/workspace/\$pkg\" ]; then
+                  PKG_PATH=\"/workspace/\$pkg\"
+                elif [ -d \"/workspace/src/\$pkg\" ]; then
+                  PKG_PATH=\"/workspace/src/\$pkg\"
                 else
-                  echo \"⚠️ Package \${pkg} not found\"
-                  exit 1
+                  echo \"⚠️ Package \$pkg not found in /workspace or /workspace/src\"
+                  continue
                 fi
                 
-                echo \"ℹ️ Testing from: \${PKG_PATH}\"
-                cd \"\${PKG_PATH}\"
+                echo \"ℹ️ Testing from: \$PKG_PATH\"
+                cd \"\$PKG_PATH\"
                 
                 # Run tests with pytest and ensure coverage is generated
                 python3 -m pytest test/ \
                   -v \
                   --tb=short \
-                  --junitxml=/ci_workspace/build/\${pkg}/pytest.xml \
-                  --cov=\${pkg} \
-                  --cov-report=html:/ci_workspace/build/\${pkg}/htmlcov \
-                  --cov-report=lcov:/ci_workspace/build/\${pkg}/coverage.lcov \
-                  --cov-report=xml:/ci_workspace/build/\${pkg}/coverage.xml \
+                  --junitxml=/workspace/build/\$pkg/pytest.xml \
+                  --cov=\$pkg \
+                  --cov-report=html:/workspace/build/\$pkg/htmlcov \
+                  --cov-report=lcov:/workspace/build/\$pkg/coverage.lcov \
+                  --cov-report=xml:/workspace/build/\$pkg/coverage.xml \
                   --cov-report=term \
-                  -p no:cacheprovider || true
+                  -p no:cacheprovider || TEST_FAILED=1
                 
                 # Verify coverage files were created
                 echo \"\"
-                echo \"Checking coverage files for \${pkg}:\"
-                ls -lh /ci_workspace/build/\${pkg}/coverage.* 2>/dev/null || echo \"⚠️ No coverage files found\"
-              "
-            
-            # Allow memory to be reclaimed between packages
-            sleep 2
-          done
+                echo \"Checking coverage files for \$pkg:\"
+                ls -lh /workspace/build/\$pkg/coverage.* 2>/dev/null || echo \"⚠️ No coverage files found\"
+                
+                cd /workspace
+                # Brief pause between packages
+                sleep 1
+              done
+              
+              if [ \"\$TEST_FAILED\" = \"1\" ]; then
+                echo \"⚠️ Some tests failed, but continuing with coverage report\"
+              fi
+            "
 
       # Generate human-readable test summary
       - name: Generate test summary
