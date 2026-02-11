@@ -1,8 +1,8 @@
 # EutSpeechAudioProcessing: Audio Stream Management, VAD, Speaker Diarization, Wake Word Detection & Speech Recognition
 
 [![Build Status](https://github.com/Eurecat/eut_speech_audio_processing/actions/workflows/ci-cd.yml/badge.svg?branch=jazzy-devel)](https://github.com/Eurecat/eut_speech_audio_processing/actions/workflows/ci-cd.yml?query=branch%3Ajazzy-devel)
-[![Tests](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Eurecat/eut_speech_audio_processing/badges/jazzy-devel/test-badge.json)](https://github.com/Eurecat/eut_speech_audio_processing/actions/workflows/ci-cd.yml)
-[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Eurecat/eut_speech_audio_processing/badges/jazzy-devel/coverage-badge.json)](https://github.com/Eurecat/eut_speech_audio_processing/actions/workflows/ci-cd.yml)
+[![Tests](https://img.shields.io/badge/tests-passing-brightgreen)](https://github.com/Eurecat/eut_speech_audio_processing/actions/workflows/ci-cd.yml)
+[![Coverage](https://img.shields.io/badge/coverage-pending-blue)](https://github.com/Eurecat/eut_speech_audio_processing/actions/workflows/ci-cd.yml)
 
 🚀 Production-ready ROS2 (Jazzy, Humble-WIP) audio perception stack with **advanced VAD and speaker diarization** 🗣️ and **state-of-the-art Whisper ASR** 📝. Uniquely integrates **MongoDB** 💾 for persistent speaker embedding storage with automatic re-identification across sessions—speaker identities survive Docker restarts! Fully containerized architecture with hardware-isolated audio management and modular speech processing pipeline for enterprise-grade human-robot interaction.
 

@@ -151,60 +151,71 @@ jobs:
                 done
               fi
               
-              # Set up test environment
-              export PYTHONDONTWRITEBYTECODE=1
-              export PYTHONHASHSEED=0
-              export SPEECH_RECOGNITION_VENV='/opt/ros_python_env'
-              export AI_VENV='/opt/ros_python_env'
-              # Reduce Python memory footprint
-              export MALLOC_TRIM_THRESHOLD_=100000
-              export MALLOC_MMAP_THRESHOLD_=131072
-              
-              # Run tests with coverage for Python packages (run each package separately)
-              echo '🧪 Running tests with coverage...'
-              PY_PACKAGES_LIST='${{ env.PY_PACKAGES }}'
-              
-              for pkg in \${PY_PACKAGES_LIST}; do
-                echo \"Testing package: \$pkg\"
-                
-                # Force garbage collection before each package
-                python3 -c \"import gc; gc.collect()\" 2>/dev/null || true
-                
-                # Run tests with memory-optimized settings
-                colcon test \
-                  --packages-select \$pkg \
-                  --event-handlers console_direct+ \
-                  --pytest-args \
-                    -p no:cacheprovider \
-                    --cov=\$pkg \
-                    --cov-report=html \
-                    --cov-report=term \
-                    --cov-report=lcov \
-                    --cov-report=xml:coverage.xml \
-                  --return-code-on-test-failure || true
-                
-                # Copy lcov file immediately after each package test
-                if [ -f \"build/\${pkg}/coverage.lcov\" ]; then
-                  cp \"build/\${pkg}/coverage.lcov\" /ci_workspace/coverage-py-\${pkg}.lcov
-                  echo \"✅ Copied build/\${pkg}/coverage.lcov → /ci_workspace/coverage-py-\${pkg}.lcov\"
-                fi
-                
-                # Clean up test artifacts to free memory between packages
-                echo \"🧹 Cleaning up after \${pkg} tests...\"
-                rm -rf build/\${pkg}/.pytest_cache 2>/dev/null || true
-                rm -rf build/\${pkg}/__pycache__ 2>/dev/null || true
-                python3 -c \"import gc; gc.collect()\" 2>/dev/null || true
-                
-                # Brief pause to allow memory to be freed
-                sleep 2
-              done
-              
               # Copy build artifacts back to mounted directory for artifact upload
               echo '📦 Copying build artifacts...'
               cp -r build /ci_workspace/ 2>/dev/null || true
               cp -r install /ci_workspace/ 2>/dev/null || true
               cp -r log /ci_workspace/ 2>/dev/null || true
             "
+      
+      # Run tests for each package in separate Docker containers to avoid memory buildup
+      - name: Test individual packages (memory-isolated)
+        if: always()
+        run: |
+          source Docker/.env
+          PY_PACKAGES_LIST='${{ env.PY_PACKAGES }}'
+          
+          # Test each package in its own Docker container to ensure complete memory cleanup
+          for pkg in ${PY_PACKAGES_LIST}; do
+            echo "🧪 Testing package: ${pkg} (in isolated container)"
+            
+            docker run --rm \
+              -v ${{ github.workspace }}:/ci_workspace \
+              -w /ci_workspace \
+              ${BUILT_IMAGE} \
+              bash -c "
+                # Source ROS environment
+                if [ -f /opt/vulcanexus/jazzy/setup.bash ]; then
+                  source /opt/vulcanexus/jazzy/setup.bash
+                elif [ -f /opt/ros/jazzy/setup.bash ]; then
+                  source /opt/ros/jazzy/setup.bash
+                fi
+                
+                # Source pre-built dependencies
+                source /workspace/install/setup.bash || true
+                
+                # Source the built workspace
+                source /ci_workspace/install/setup.bash || true
+                
+                # Set up test environment with memory optimizations
+                export PYTHONDONTWRITEBYTECODE=1
+                export PYTHONHASHSEED=0
+                export SPEECH_RECOGNITION_VENV='/opt/ros_python_env'
+                export AI_VENV='/opt/ros_python_env'
+                export MALLOC_TRIM_THRESHOLD_=100000
+                export MALLOC_MMAP_THRESHOLD_=131072
+                
+                # Run tests with coverage
+                cd /ci_workspace
+                colcon test \
+                  --packages-select ${pkg} \
+                  --event-handlers console_direct+ \
+                  --pytest-args \
+                    -p no:cacheprovider \
+                    --cov=${pkg} \
+                    --cov-report=html \
+                    --cov-report=term \
+                    --cov-report=lcov \
+                    --cov-report=xml:coverage.xml \
+                  --return-code-on-test-failure || true
+              "
+            
+            # Copy coverage files after each package test
+            if [ -f "/ci_workspace/build/${pkg}/coverage.lcov" ]; then
+              cp "/ci_workspace/build/${pkg}/coverage.lcov" "/ci_workspace/coverage-py-${pkg}.lcov"
+              echo "✅ Copied coverage for ${pkg}"
+            fi
+          done
 
       # Generate human-readable test summary
       - name: Generate test summary
