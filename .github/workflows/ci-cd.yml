@@ -206,23 +206,32 @@ jobs:
                 # Create build directory for coverage output
                 mkdir -p /ci_workspace/build/\${pkg}/htmlcov
                 
-                echo \"ℹ️ Testing package: \${pkg}\"
-                cd /ci_workspace
+                echo \"Testing package: \${pkg}\"
                 
-                # Run tests with coverage using colcon
-                colcon test \
-                  --packages-select \${pkg} \
-                  --event-handlers console_direct+ \
-                  --pytest-args \
-                    -v \
-                    --tb=short \
-                    -p no:cacheprovider \
-                    --cov=\${pkg} \
-                    --cov-report=html:/ci_workspace/build/\${pkg}/htmlcov \
-                    --cov-report=lcov:/ci_workspace/build/\${pkg}/coverage.lcov \
-                    --cov-report=xml:/ci_workspace/build/\${pkg}/coverage.xml \
-                    --cov-report=term \
-                  --return-code-on-test-failure || true
+                # Find the package directory
+                if [ -d \"/ci_workspace/\${pkg}\" ]; then
+                  PKG_PATH=\"/ci_workspace/\${pkg}\"
+                elif [ -d \"/ci_workspace/src/\${pkg}\" ]; then
+                  PKG_PATH=\"/ci_workspace/src/\${pkg}\"
+                else
+                  echo \"⚠️ Package \${pkg} not found\"
+                  exit 1
+                fi
+                
+                echo \"ℹ️ Testing from: \${PKG_PATH}\"
+                cd \"\${PKG_PATH}\"
+                
+                # Run tests with pytest and ensure coverage is generated
+                python3 -m pytest test/ \
+                  -v \
+                  --tb=short \
+                  --junitxml=/ci_workspace/build/\${pkg}/pytest.xml \
+                  --cov=\${pkg} \
+                  --cov-report=html:/ci_workspace/build/\${pkg}/htmlcov \
+                  --cov-report=lcov:/ci_workspace/build/\${pkg}/coverage.lcov \
+                  --cov-report=xml:/ci_workspace/build/\${pkg}/coverage.xml \
+                  --cov-report=term \
+                  -p no:cacheprovider || true
                 
                 # Verify coverage files were created
                 echo \"\"
@@ -283,70 +292,6 @@ jobs:
             log/latest_test/**/*.log
             test_summary.txt
       
-      # Update README with actual test values
-      - name: Update README with badge values
-        if: always() && github.ref == 'refs/heads/jazzy-devel'
-        run: |
-          # Parse test results
-          if [ -f test_summary.txt ]; then
-            SUMMARY_LINE=$(grep "^Summary:" test_summary.txt)
-            TOTAL=$(echo "$SUMMARY_LINE" | grep -oP '\d+(?= tests)' || echo "0")
-            FAILURES=$(echo "$SUMMARY_LINE" | grep -oP '\d+(?= failures)' || echo "0")
-            ERRORS=$(echo "$SUMMARY_LINE" | grep -oP '\d+(?= errors)' || echo "0")
-            PASSED=$((TOTAL - FAILURES - ERRORS))
-            FAILED=$((FAILURES + ERRORS))
-          else
-            PASSED=0
-            FAILED=0
-            TOTAL=0
-          fi
-          
-          echo "📊 Test Results: $PASSED/$TOTAL passed, $FAILED failed"
-          
-          # Extract coverage percentage from available lcov files
-          PY_TOTAL_LINES_HIT=0
-          PY_TOTAL_LINES_FOUND=0
-          
-          for pkg in ${{ env.PY_PACKAGES }}; do
-            if [ -f "build/${pkg}/coverage.lcov" ]; then
-              PKG_LINES_HIT=$(grep -E "^LH:" "build/${pkg}/coverage.lcov" | cut -d: -f2 | awk '{s+=$1} END {print s}')
-              PKG_LINES_FOUND=$(grep -E "^LF:" "build/${pkg}/coverage.lcov" | cut -d: -f2 | awk '{s+=$1} END {print s}')
-              PY_TOTAL_LINES_HIT=$((PY_TOTAL_LINES_HIT + PKG_LINES_HIT))
-              PY_TOTAL_LINES_FOUND=$((PY_TOTAL_LINES_FOUND + PKG_LINES_FOUND))
-            fi
-          done
-          
-          if [ "$PY_TOTAL_LINES_FOUND" -gt 0 ]; then
-            PY_COV_PCT=$(awk "BEGIN {printf \"%.0f\", ($PY_TOTAL_LINES_HIT/$PY_TOTAL_LINES_FOUND)*100}")
-            COV_DISPLAY="$PY_COV_PCT%"
-          else
-            COV_DISPLAY="pending"
-          fi
-          
-          echo "📊 Coverage: $COV_DISPLAY"
-          
-          # Update README badges with actual values
-          echo "🔄 Updating README with badge values..."
-          
-          # Format test badge text
-          TEST_BADGE="$PASSED%2F$TOTAL%20passed"
-          
-          # Replace badges in README with actual values
-          sed -i "s/\[Tests\](https:\/\/img.shields.io\/badge\/tests-passing-brightgreen)/[Tests](https:\/\/img.shields.io\/badge\/tests-$TEST_BADGE-brightgreen)/g" README.md
-          
-          if [ "$COV_DISPLAY" != "pending" ]; then
-            # Coverage completed - use percentage color
-            if [ $PY_COV_PCT -ge 80 ]; then
-              COV_COLOR="brightgreen"
-            elif [ $PY_COV_PCT -ge 60 ]; then
-              COV_COLOR="yellow"
-            else
-              COV_COLOR="orange"
-            fi
-            sed -i "s/\[Coverage\](https:\/\/img.shields.io\/badge\/coverage-pending-blue)/[Coverage](https:\/\/img.shields.io\/badge\/coverage-$PY_COV_PCT%25-$COV_COLOR)/g" README.md
-          fi
-          
-          echo "✅ README badges updated"
       
       # Create test badge (for README)
       - name: Create test badge
@@ -390,31 +335,7 @@ jobs:
           name: test-badge
           path: test-badge.json
       
-      # Commit updated README
-      - name: Commit updated README with badge changes
-        if: always() && github.ref == 'refs/heads/jazzy-devel'
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Check if there are any changes
-          if git diff --quiet README.md; then
-            echo "⚠️ No README changes to commit"
-          else
-            echo "📝 Committing README badge updates..."
-            git add README.md
-            git commit -m "Update badges: tests and coverage [skip ci]"
-            
-            # Pull before push to avoid conflicts
-            git pull origin jazzy-devel --rebase || true
-            
-            # Push the changes
-            if git push origin jazzy-devel; then
-              echo "✅ Successfully pushed README updates"
-            else
-              echo "⚠️ Push failed, skipping (may have conflicts)"
-            fi
-          fi
+
 
       # Generate code coverage reports (from existing test data)
       - name: Generate coverage reports
@@ -538,54 +459,50 @@ jobs:
         if: always() && github.ref == 'refs/heads/jazzy-devel'
         continue-on-error: true
         run: |
+          # Extract Python coverage percentage from lcov file
           echo "🔍 Searching for Python coverage files..."
-          find build -name "coverage.lcov" -o -name "coverage.xml" 2>/dev/null | head -20
+          find . -name "coverage.lcov" -o -name ".coverage" 2>/dev/null | head -20
           
           # Extract Python coverage for all packages
           PY_TOTAL_LINES_HIT=0
           PY_TOTAL_LINES_FOUND=0
-          PACKAGES_WITH_COVERAGE=0
           
           for pkg in ${{ env.PY_PACKAGES }}; do
             echo "🔍 Checking Python coverage for: ${pkg}"
+            PY_LCOV_FILE=""
             
-            # Check lcov file first
             if [ -f "build/${pkg}/coverage.lcov" ]; then
-              echo "✅ Found LCOV: build/${pkg}/coverage.lcov"
-              PKG_LINES_HIT=$(grep "^LH:" "build/${pkg}/coverage.lcov" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
-              PKG_LINES_FOUND=$(grep "^LF:" "build/${pkg}/coverage.lcov" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
-              
-              if [ "$PKG_LINES_FOUND" -gt 0 ]; then
-                PY_TOTAL_LINES_HIT=$((PY_TOTAL_LINES_HIT + PKG_LINES_HIT))
-                PY_TOTAL_LINES_FOUND=$((PY_TOTAL_LINES_FOUND + PKG_LINES_FOUND))
-                PACKAGES_WITH_COVERAGE=$((PACKAGES_WITH_COVERAGE + 1))
-                echo "📊 ${pkg}: LH=$PKG_LINES_HIT, LF=$PKG_LINES_FOUND"
-              fi
-            elif [ -f "build/${pkg}/coverage.xml" ]; then
-              echo "✅ Found XML: build/${pkg}/coverage.xml"
-              PACKAGES_WITH_COVERAGE=$((PACKAGES_WITH_COVERAGE + 1))
+              PY_LCOV_FILE="build/${pkg}/coverage.lcov"
+              echo "✅ Found at: build/${pkg}/coverage.lcov"
+            elif [ -f "${pkg}/coverage.lcov" ]; then
+              PY_LCOV_FILE="${pkg}/coverage.lcov"
+              echo "✅ Found at: ${pkg}/coverage.lcov"
+            fi
+            
+            if [ -n "$PY_LCOV_FILE" ]; then
+              PKG_LINES_HIT=$(grep -E "^LH:" "$PY_LCOV_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s}')
+              PKG_LINES_FOUND=$(grep -E "^LF:" "$PY_LCOV_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s}')
+              PY_TOTAL_LINES_HIT=$((PY_TOTAL_LINES_HIT + PKG_LINES_HIT))
+              PY_TOTAL_LINES_FOUND=$((PY_TOTAL_LINES_FOUND + PKG_LINES_FOUND))
+              echo "📊 ${pkg}: LH=$PKG_LINES_HIT, LF=$PKG_LINES_FOUND"
             fi
           done
           
-          # Calculate coverage percentage
           if [ "$PY_TOTAL_LINES_FOUND" -gt 0 ]; then
-            PY_COV_PCT=$(awk "BEGIN {printf \"%.0f\", (\$1/\$2)*100}" <<< "$PY_TOTAL_LINES_HIT $PY_TOTAL_LINES_FOUND")
-            echo "✅ Total Python Coverage: ${PY_COV_PCT}%"
+            PY_COV_PCT=$(awk "BEGIN {printf \"%.0f\", ($PY_TOTAL_LINES_HIT/$PY_TOTAL_LINES_FOUND)*100}")
+            echo "✅ Total Python Coverage: $PY_COV_PCT%"
           else
-            echo "⚠️ No Python coverage metrics extracted (but ${PACKAGES_WITH_COVERAGE} packages have coverage files)"
+            echo "⚠️ No Python coverage data found"
             PY_COV_PCT=0
           fi
           
-          # Determine badge color based on coverage
+          # Determine badge color
           if [ $PY_COV_PCT -ge 80 ]; then
             COLOR="brightgreen"
           elif [ $PY_COV_PCT -ge 60 ]; then
             COLOR="yellow"
           elif [ $PY_COV_PCT -ge 40 ]; then
             COLOR="orange"
-          elif [ $PACKAGES_WITH_COVERAGE -gt 0 ]; then
-            COLOR="blue"
-            echo "ℹ️ Coverage detected but percentage could not be calculated"
           else
             COLOR="red"
           fi
@@ -596,10 +513,12 @@ jobs:
 
       - name: Upload coverage badge data
         if: always() && github.ref == 'refs/heads/jazzy-devel'
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: coverage-badge
           path: coverage-badge.json
+          if-no-files-found: warn
       
       # Publish badges to badges branch for shields.io endpoint
       - name: Publish badges to badges branch
