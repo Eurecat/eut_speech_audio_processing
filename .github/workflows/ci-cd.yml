@@ -13,99 +13,42 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    
+
     env:
       # Package Configuration - Define your ROS2 Python packages here
       PY_PACKAGES: "audio_stream_manager speech_recognition"
-    
+      # ✅ Prebuilt image from Docker Hub
+      CI_IMAGE: "eurecatrobotica/eut_audio_vulcanexus_cpu:jazzy"
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      
-      # Clone EutRobAIDockers repository to build base image
-      - name: Clone EutRobAIDockers repository
+
+      # ✅ Pull prebuilt image instead of building EutRobAIDockers + local image
+      - name: Pull prebuilt Docker image
         run: |
-          git clone https://github.com/Eurecat/EutRobAIDockers.git
-          cd EutRobAIDockers
-          echo "✅ EutRobAIDockers repository cloned successfully"
-      
-      # Build the base image (eut_ros_torch_cpu:jazzy)
-      - name: Build base image from EutRobAIDockers
-        run: |
-          cd EutRobAIDockers/Docker
-          chmod +x build_container.sh
-          ./build_container.sh --cpu --vulcanexus
-        env:
-          DOCKER_BUILDKIT: 1
-      
-      # Verify base image was built successfully
-      - name: Verify base image was built
-        run: |
-          if docker images | grep -q "eut_ros_vulcanexus_torch_cpu.*jazzy"; then
-            echo "✅ Base image eut_ros_vulcanexus_torch_cpu:jazzy successfully built"
-            docker images eut_ros_vulcanexus_torch_cpu:jazzy
-          else
-            echo "❌ Base image eut_ros_vulcanexus_torch_cpu:jazzy not found"
-            echo "Available images:"
-            docker images
-            exit 1
-          fi
-      
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      
-      - name: Install vcstool for dependency management
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y python3-pip
-          pip3 install --break-system-packages vcstool
-      
-      - name: Make build script executable
-        run: chmod +x Docker/build_container.sh
-      
-      # Build the eut_speech Docker image (depends on base image)
-      - name: Build eut_speech Docker image
-        run: cd ./Docker && ./build_container.sh --cpu --vulcanexus
-        env:
-          DOCKER_BUILDKIT: 1
-      
-      - name: Verify eut_speech image was built
-        run: |
-          if docker images | grep -q "eut_audio_vulcanexus_cpu.*jazzy"; then
-            echo "✅ eut_speech image eut_audio_vulcanexus_cpu:jazzy successfully built"
-            docker images eut_audio_vulcanexus_cpu:jazzy
-          else
-            echo "❌ eut_speech image eut_audio_vulcanexus_cpu:jazzy not found"
-            echo "Available images:"
-            docker images
-            exit 1
-          fi
-        
-      # 🔧 Build workspace and run test
+          docker pull ${{ env.CI_IMAGE }}
+          docker images | grep eut_audio_vulcanexus_cpu || true
+
+      # 🔧 Build workspace and run test (inside pulled image)
       - name: Build & test workspace
         run: |
-          source Docker/.env
-          
-          # Build all packages with proper dependency order
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
-            ${BUILT_IMAGE} \
+            ${{ env.CI_IMAGE }} \
             bash -c "
-              # Source ROS environment (jazzy is available in both vulcanexus and standard images)
+              set -e
+
+              # Source ROS environment
               if [ -f /opt/vulcanexus/jazzy/setup.bash ]; then
                 source /opt/vulcanexus/jazzy/setup.bash
               elif [ -f /opt/ros/jazzy/setup.bash ]; then
                 source /opt/ros/jazzy/setup.bash
               fi
-              
+
               cd /workspace
-              
-              # Source the pre-built workspace dependencies from image (hri_msgs, etc.)
-              if [ -f /opt/workspace/install/setup.bash ]; then
-                source /opt/workspace/install/setup.bash
-                echo '✅ Sourced pre-built dependencies from image'
-              fi
-              
+
+              # Source pre-built dependencies from image (if present)
               if [ -f /opt/workspace/install/setup.bash ]; then
                 source /opt/workspace/install/setup.bash
                 echo '✅ Sourced pre-built dependencies from image'
@@ -118,47 +61,42 @@ jobs:
               rosdep update
               rosdep install --from-paths src --ignore-src -r -y
               echo '✅ rosdep install done'
-              
+
               echo '🔍 Available packages to build:'
               colcon list --names-only
-              
-              # Build Python packages
+
               echo '🔨 Building Python packages: ${{ env.PY_PACKAGES }}'
-              
               colcon build --symlink-install \
                 --packages-select ${{ env.PY_PACKAGES }} \
                 --packages-skip audio_capture hri_msgs \
                 --parallel-workers 1 \
                 --event-handlers console_direct+ || echo 'Warning: Some Python packages failed to build'
-              
+
               # Source the workspace to make built packages available
               source install/setup.bash
-              
-              # Set up test environment
+
+              # Test environment
               export PYTHONDONTWRITEBYTECODE=1
               export PYTHONHASHSEED=0
               export AI_VENV='/opt/ros_python_env'
-              
-              # Ensure pytest-cov is installed
+
+              # Ensure pytest-cov exists
               pip3 install pytest-cov --break-system-packages --quiet || pip3 install pytest-cov --user --quiet
-              
-              # Run tests for Python packages (one at a time to reduce memory)
+
               echo '🧪 Running tests...'
               PY_PACKAGES_LIST='${{ env.PY_PACKAGES }}'
-              
-              # List workspace structure to debug
+
               echo \"📁 Workspace structure:\"
               ls -la /workspace/ | head -20
-              
+
+              TEST_FAILED=0
               for pkg in \${PY_PACKAGES_LIST}; do
                 echo \"\n========================================\"
                 echo \"Testing package: \$pkg\"
                 echo \"========================================\"
-                
-                # Create build directory for coverage output
+
                 mkdir -p /workspace/build/\$pkg/htmlcov
-                
-                # Check where the package actually is
+
                 if [ -d \"/workspace/\$pkg\" ]; then
                   PKG_PATH=\"/workspace/\$pkg\"
                 elif [ -d \"/workspace/src/\$pkg\" ]; then
@@ -167,11 +105,10 @@ jobs:
                   echo \"⚠️ Package \$pkg not found in /workspace or /workspace/src\"
                   continue
                 fi
-                
+
                 echo \"ℹ️ Testing from: \$PKG_PATH\"
                 cd \"\$PKG_PATH\"
-                
-                # Run tests with pytest and ensure coverage is generated
+
                 python3 -m pytest test/ \
                   -v \
                   --tb=short \
@@ -182,17 +119,15 @@ jobs:
                   --cov-report=xml:/workspace/build/\$pkg/coverage.xml \
                   --cov-report=term \
                   -p no:cacheprovider || TEST_FAILED=1
-                
-                # Verify coverage files were created
+
                 echo \"\"
                 echo \"Checking coverage files for \$pkg:\"
                 ls -lh /workspace/build/\$pkg/coverage.* 2>/dev/null || echo \"⚠️ No coverage files found\"
-                
+
                 cd /workspace
-                # Brief pause between packages
                 sleep 1
               done
-              
+
               if [ \"\$TEST_FAILED\" = \"1\" ]; then
                 echo \"⚠️ Some tests failed, but continuing with coverage report\"
               fi
@@ -202,10 +137,9 @@ jobs:
       - name: Generate test summary
         if: always()
         run: |
-          source Docker/.env
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
-            ${BUILT_IMAGE} \
+            ${{ env.CI_IMAGE }} \
             bash -c "
               cd /workspace
               if [ -f /opt/vulcanexus/jazzy/setup.bash ]; then
@@ -216,11 +150,9 @@ jobs:
               source install/setup.bash 2>/dev/null || true
               colcon test-result --all --verbose
             " > test_summary.txt
-          
-          # Display in logs
+
           cat test_summary.txt
-          
-          # Create GitHub Actions summary
+
           echo "## 🧪 Test Results Summary" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat test_summary.txt >> $GITHUB_STEP_SUMMARY
@@ -235,7 +167,7 @@ jobs:
           echo ""
           echo "📋 Build directory tree:"
           find build -maxdepth 3 -type d
-      
+
       - name: Generate test Report
         uses: dorny/test-reporter@v1
         if: always()
@@ -244,7 +176,7 @@ jobs:
           path: 'build/*/test_results/**/*.xml,build/*/pytest.xml'
           reporter: java-junit
           fail-on-error: false
-      
+
       # Upload test result
       - name: Upload test results
         if: always()
@@ -257,7 +189,8 @@ jobs:
             build/*/pytest.xml
             log/latest_test/**/*.log
             test_summary.txt
-          if-no-files-found: warn      
+          if-no-files-found: warn
+
       # Verify coverage files were generated
       - name: Verify coverage files
         if: always()
@@ -277,40 +210,207 @@ jobs:
           find build -type d -name "htmlcov" 2>/dev/null | while read d; do
             echo "✅ $d/ ($(find "$d" -type f | wc -l) files)"
           done
+
       # Create test badge (for README)
       - name: Create test badge
         if: always() && github.ref == 'refs/heads/jazzy-devel'
         run: |
-          # Parse the summary line from test_summary.txt
-          # Example line: "Summary: 55 tests, 0 errors, 0 failures, 6 skipped"
           if [ -f test_summary.txt ]; then
-            SUMMARY_LINE=$(grep "^Summary:" test_summary.txt)
-            
-            # Extract numbers using grep and cut
+            SUMMARY_LINE=$(grep "^Summary:" test_summary.txt || true)
             TOTAL=$(echo "$SUMMARY_LINE" | grep -oP '\d+(?= tests)' || echo "0")
             FAILURES=$(echo "$SUMMARY_LINE" | grep -oP '\d+(?= failures)' || echo "0")
             ERRORS=$(echo "$SUMMARY_LINE" | grep -oP '\d+(?= errors)' || echo "0")
-            
-            # Calculate passed tests (total - failures - errors)
             PASSED=$((TOTAL - FAILURES - ERRORS))
             FAILED=$((FAILURES + ERRORS))
-            
             echo "📊 Badge stats: $PASSED passed / $FAILED failed (out of $TOTAL total)"
           else
             echo "⚠️ test_summary.txt not found, using defaults"
             PASSED=0
             FAILED=0
           fi
-          
-          # Create badge JSON (shields.io endpoint format)
+
           COLOR="success"
           if [ $FAILED -gt 0 ]; then
             COLOR="critical"
           fi
-          
+
           echo "{\"schemaVersion\": 1, \"label\": \"tests\", \"message\": \"$PASSED passed / $FAILED failed\", \"color\": \"$COLOR\"}" > test-badge.json
-          
           cat test-badge.json
+
+      - name: Upload badge data
+        if: always() && github.ref == 'refs/heads/jazzy-devel'
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-badge
+          path: test-badge.json
+          if-no-files-found: warn
+
+      # Generate code coverage reports (from existing test data)
+      - name: Generate coverage reports
+        if: always()
+        run: |
+          echo '=========================================='
+          echo '  Code Coverage Summary Display'
+          echo '=========================================='
+          echo ''
+
+          for pkg in ${{ env.PY_PACKAGES }}; do
+            echo "📊 Python Coverage (${pkg})"
+            echo '------------------------------------------'
+            if [ -f "build/${pkg}/coverage.lcov" ]; then
+              echo "✅ Coverage data found in build/${pkg}/coverage.lcov"
+              grep "^LH:\|^LF:" "build/${pkg}/coverage.lcov" | head -5 || true
+            elif [ -f "build/${pkg}/coverage.xml" ]; then
+              echo "✅ Coverage data found in build/${pkg}/coverage.xml"
+            else
+              echo "⚠️  No coverage data found for this package"
+            fi
+            echo ''
+          done
+
+          echo '=========================================='
+          echo '✅ Coverage Reports Generated!'
+          echo '=========================================='
+          echo ""
+          echo "Coverage files summary:"
+          find build -name "coverage.*" -type f 2>/dev/null | wc -l
+          echo "coverage files found"
+
+      # Convert lcov to Cobertura XML for better tool compatibility
+      - name: Convert coverage to Cobertura XML
+        if: always()
+        continue-on-error: true
+        run: |
+          python3 -m pip install lcov_cobertura --quiet
+
+          echo "📋 Looking for coverage files..."
+          echo ""
+
+          FILES_FOUND=0
+
+          for pkg in ${{ env.PY_PACKAGES }}; do
+            LCOV_FILE="build/${pkg}/coverage.lcov"
+            if [ -f "$LCOV_FILE" ]; then
+              echo "✅ Converting Python coverage for ${pkg}..."
+              if python3 -m lcov_cobertura "$LCOV_FILE" -o "coverage-py-${pkg}.xml"; then
+                echo "✅ Generated: coverage-py-${pkg}.xml"
+                FILES_FOUND=$((FILES_FOUND + 1))
+              else
+                echo "⚠️ Failed to convert LCOV for ${pkg}"
+              fi
+            else
+              echo "ℹ️ coverage.lcov not found for ${pkg} at $LCOV_FILE"
+            fi
+          done
+
+          for pkg in ${{ env.PY_PACKAGES }}; do
+            if [ -f "build/${pkg}/coverage.xml" ]; then
+              cp "build/${pkg}/coverage.xml" "coverage-py-${pkg}-direct.xml"
+              echo "✅ Copied coverage.xml for ${pkg}"
+              FILES_FOUND=$((FILES_FOUND + 1))
+            fi
+          done
+
+          echo ""
+          echo "📋 Coverage conversion summary:"
+          ls -lh coverage-*.xml 2>/dev/null && echo "✅ Coverage XML files generated" || echo "ℹ️ No coverage XML files generated"
+          echo ""
+          echo "📋 All build coverage files:"
+          find build -name "coverage.*" -type f 2>/dev/null | head -20
+
+      # Generate Coverage Report for PR (using Cobertura XML)
+      - name: Code Coverage Report
+        uses: irongut/CodeCoverageSummary@v1.3.0
+        if: always()
+        continue-on-error: true
+        with:
+          filename: 'coverage-*.xml'
+          badge: true
+          fail_below_min: false
+          format: markdown
+          hide_branch_rate: false
+          hide_complexity: true
+          indicators: true
+          output: both
+          thresholds: '60 80'
+
+      # Add coverage report to PR comment
+      - name: Add Coverage PR Comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        with:
+          recreate: true
+          path: code-coverage-results.md
+
+      # Upload coverage reports as artifacts
+      - name: Upload coverage reports
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            build/*/htmlcov
+            build/*/coverage.lcov
+            build/*/coverage.xml
+            coverage-*.xml
+          if-no-files-found: warn
+
+      # Create coverage badge (for README)
+      - name: Create coverage badge
+        if: always() && github.ref == 'refs/heads/jazzy-devel'
+        continue-on-error: true
+        run: |
+          echo "🔍 Searching for Python coverage files..."
+          find . -name "coverage.lcov" -o -name ".coverage" 2>/dev/null | head -20
+
+          PY_TOTAL_LINES_HIT=0
+          PY_TOTAL_LINES_FOUND=0
+
+          for pkg in ${{ env.PY_PACKAGES }}; do
+            echo "🔍 Checking Python coverage for: ${pkg}"
+            PY_LCOV_FILE=""
+
+            if [ -f "build/${pkg}/coverage.lcov" ]; then
+              PY_LCOV_FILE="build/${pkg}/coverage.lcov"
+              echo "✅ Found at: build/${pkg}/coverage.lcov"
+            elif [ -f "${pkg}/coverage.lcov" ]; then
+              PY_LCOV_FILE="${pkg}/coverage.lcov"
+              echo "✅ Found at: ${pkg}/coverage.lcov"
+            fi
+
+            if [ -n "$PY_LCOV_FILE" ]; then
+              PKG_LINES_HIT=$(grep -E "^LH:" "$PY_LCOV_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s}')
+              PKG_LINES_FOUND=$(grep -E "^LF:" "$PY_LCOV_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s}')
+              PY_TOTAL_LINES_HIT=$((PY_TOTAL_LINES_HIT + PKG_LINES_HIT))
+              PY_TOTAL_LINES_FOUND=$((PY_TOTAL_LINES_FOUND + PKG_LINES_FOUND))
+              echo "📊 ${pkg}: LH=$PKG_LINES_HIT, LF=$PKG_LINES_FOUND"
+            fi
+          done
+
+          if [ "$PY_TOTAL_LINES_FOUND" -gt 0 ]; then
+            PY_COV_PCT=$(awk "BEGIN {printf \"%.0f\", ($PY_TOTAL_LINES_HIT/$PY_TOTAL_LINES_FOUND)*100}")
+            echo "✅ Total Python Coverage: $PY_COV_PCT%"
+          else
+            echo "⚠️ No Python coverage data found"
+            PY_COV_PCT=0
+          fi
+
+          if [ $PY_COV_PCT -ge 80 ]; then
+            COLOR="brightgreen"
+          elif [ $PY_COV_PCT -ge 60 ]; then
+            COLOR="yellow"
+          elif [ $PY_COV_PCT -ge 40 ]; then
+            COLOR="orange"
+          else
+            COLOR="red"
+          fi
+
+          echo "{\"schemaVersion\": 1, \"label\": \"coverage\", \"message\": \"${PY_COV_PCT}%\", \"color\": \"$COLOR\"}" > coverage-badge.json
+          cat coverage-badge.json
+
 
       - name: Upload badge data
         if: always() && github.ref == 'refs/heads/jazzy-devel'
