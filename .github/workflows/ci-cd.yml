@@ -17,12 +17,16 @@ jobs:
     env:
       # Package Configuration - Define your ROS2 Python packages here
       PY_PACKAGES: "audio_stream_manager speech_recognition"
-      # ✅ Prebuilt image from Docker Hub
-      CI_IMAGE: "eurecatrobotica/eut_audio_vulcanexus_cpu:jazzy"
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       # ✅ Pull prebuilt image instead of building EutRobAIDockers + local image
       - name: Pull prebuilt Docker image
@@ -670,12 +674,6 @@ jobs:
               echo "✅ Successfully pushed badges with --set-upstream"
             fi
           fi
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Tag image for Docker Hub
         if: github.ref == 'refs/heads/jazzy-devel'
