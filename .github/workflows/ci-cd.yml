@@ -3,10 +3,10 @@ name: Build, Test & Push Docker Image
 on:
   push:
     branches:
-      - jazzy-devel
+      - main
   pull_request:
     branches:
-      - jazzy-devel
+      - main
   workflow_dispatch:
 
 jobs:
@@ -34,29 +34,22 @@ jobs:
         run: |
           cd EutRobAIDockers/Docker
           chmod +x build_container.sh
-          ./build_container.sh --cpu
+          ./build_container.sh --cpu --vulcanexus
         env:
           DOCKER_BUILDKIT: 1
       
       # Verify base image was built successfully
       - name: Verify base image was built
         run: |
-          if docker images | grep -q "eut_ros_torch_cpu.*jazzy"; then
-            echo "✅ Base image eut_ros_torch_cpu:jazzy successfully built"
-            docker images eut_ros_torch_cpu:jazzy
+          if docker images | grep -q "eut_ros_vulcanexus_torch_cpu.*jazzy"; then
+            echo "✅ Base image eut_ros_vulcanexus_torch_cpu:jazzy successfully built"
+            docker images eut_ros_vulcanexus_torch_cpu:jazzy
           else
-            echo "❌ Base image eut_ros_torch_cpu:jazzy not found"
+            echo "❌ Base image eut_ros_vulcanexus_torch_cpu:jazzy not found"
             echo "Available images:"
             docker images
             exit 1
           fi
-      
-      # Not needed atm, also because this approach would allow just a git op within the same repo (useless) 
-      # we should setup Multiple Repos Using a GitHub App
-      # - name: Set up SSH agent
-      #   uses: webfactory/ssh-agent@v0.9.0
-      #   with:
-      #     ssh-private-key: ${{ secrets.PRIVATE_ACTIONS_DEPLOY }}
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -70,19 +63,19 @@ jobs:
       - name: Make build script executable
         run: chmod +x Docker/build_container.sh
       
-      # Build the eut_speech Docker image (depends on base image)
-      - name: Build eut_speech Docker image
-        run: cd ./Docker && ./build_container.sh --cpu
+      # Build the Speech Audio Processing Docker image (depends on base image)
+      - name: Build Speech Audio Processing Docker image
+        run: cd ./Docker && ./build_container.sh --cpu --vulcanexus
         env:
           DOCKER_BUILDKIT: 1
       
-      - name: Verify eut_speech image was built
+      - name: Verify Speech Audio image was built
         run: |
           if docker images | grep -q "eut_audio_cpu.*jazzy"; then
-            echo "✅ eut_speech image eut_audio_cpu:jazzy successfully built"
+            echo "✅ Speech Audio image eut_audio_cpu:jazzy successfully built"
             docker images eut_audio_cpu:jazzy
           else
-            echo "❌ eut_speech image eut_audio_cpu:jazzy not found"
+            echo "❌ EutHRIFaces image eut_human_face_vulcanexus_cpu:jazzy not found"
             echo "Available images:"
             docker images
             exit 1
@@ -191,7 +184,6 @@ jobs:
               fi
             "
 
-
       # Generate human-readable test summary
       - name: Generate test summary
         if: always()
@@ -219,6 +211,16 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat test_summary.txt >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
+
+      # Debug: Check build directory structure
+      - name: Debug build directory structure
+        if: always()
+        run: |
+          echo "📋 Build directory contents:"
+          find build -type f | head -50
+          echo ""
+          echo "📋 Build directory tree:"
+          find build -maxdepth 3 -type d
       
       - name: Generate test Report
         uses: dorny/test-reporter@v1
@@ -241,8 +243,7 @@ jobs:
             build/*/pytest.xml
             log/latest_test/**/*.log
             test_summary.txt
-          if-no-files-found: warn
-      
+          if-no-files-found: warn      
       # Verify coverage files were generated
       - name: Verify coverage files
         if: always()
@@ -264,7 +265,7 @@ jobs:
           done
       # Create test badge (for README)
       - name: Create test badge
-        if: always() && github.ref == 'refs/heads/jazzy-devel'
+        if: always() && github.ref == 'refs/heads/main'
         run: |
           # Parse the summary line from test_summary.txt
           # Example line: "Summary: 55 tests, 0 errors, 0 failures, 6 skipped"
@@ -298,7 +299,7 @@ jobs:
           cat test-badge.json
 
       - name: Upload badge data
-        if: always() && github.ref == 'refs/heads/jazzy-devel'
+        if: always() && github.ref == 'refs/heads/main'
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
@@ -434,7 +435,7 @@ jobs:
       
       # Create coverage badge (for README)
       - name: Create coverage badge
-        if: always() && github.ref == 'refs/heads/jazzy-devel'
+        if: always() && github.ref == 'refs/heads/main'
         continue-on-error: true
         run: |
           # Extract Python coverage percentage from lcov file
@@ -490,7 +491,7 @@ jobs:
           cat coverage-badge.json
 
       - name: Upload coverage badge data
-        if: always() && github.ref == 'refs/heads/jazzy-devel'
+        if: always() && github.ref == 'refs/heads/main'
         continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
@@ -500,11 +501,11 @@ jobs:
       
       # Publish badges to badges branch for shields.io endpoint
       - name: Publish badges to badges branch
-        if: always() && github.ref == 'refs/heads/jazzy-devel'
+        if: always() && github.ref == 'refs/heads/main'
         run: |
           # Determine branch name for badge directory
-          # Always use 'jazzy-devel' since workflow only runs on jazzy-devel branch
-          BRANCH_NAME="jazzy-devel"
+          # Always use 'main' since workflow only runs on main branch
+          BRANCH_NAME="main"
           
           # Setup git
           git config --global user.name "github-actions[bot]"
@@ -563,20 +564,20 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Tag image for Docker Hub
-        if: github.ref == 'refs/heads/jazzy-devel'
+        if: github.ref == 'refs/heads/main'
         run: |
           # Get the image name from .env file
           source Docker/.env
           DOCKERHUB_ORG=${{ secrets.DOCKERHUB_ORG }}
           
           # Tag the local image with Docker Hub organization name
-          docker tag ${BUILT_IMAGE} ${DOCKERHUB_ORG}/eut_audio_processing:${TARGET_DISTRO}
+          docker tag ${BUILT_IMAGE} ${DOCKERHUB_ORG}/eut_audio_cpu:${TARGET_DISTRO}
       
       - name: Push to Docker Hub
-        if: github.ref == 'none' # IGNORE for now the push, replace it with jazzy-devel when ready to publish from protected branch
+        if: github.ref == 'refs/heads/main'
         run: |
           source Docker/.env
           DOCKERHUB_ORG=${{ secrets.DOCKERHUB_ORG }}
           
           # Push the image to Docker Hub
-          docker push ${DOCKERHUB_ORG}/eut_audio_processing:${TARGET_DISTRO}
+          docker push ${DOCKERHUB_ORG}/eut_audio_cpu:${TARGET_DISTRO}
