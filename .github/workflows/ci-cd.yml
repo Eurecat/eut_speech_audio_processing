@@ -9,11 +9,6 @@ on:
       - jazzy-devel
   workflow_dispatch:
 
-permissions:
-  contents: write
-  checks: write
-  pull-requests: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -112,7 +107,7 @@ jobs:
               
               cd /workspace
               
-              # Source the pre-built workspace dependencies from image (hri_msgs, audio_common_msgs)
+              # Source the pre-built workspace dependencies from image (hri_msgs, etc.)
               if [ -f /opt/workspace/install/setup.bash ]; then
                 source /opt/workspace/install/setup.bash
                 echo '✅ Sourced pre-built dependencies from image'
@@ -122,10 +117,10 @@ jobs:
               colcon list --names-only
               
               # Build Python packages
-              echo '🔨 Building Python packages: \${{ env.PY_PACKAGES }}'
+              echo '🔨 Building Python packages: ${{ env.PY_PACKAGES }}'
               
               colcon build --symlink-install \
-                --packages-select \${{ env.PY_PACKAGES }} \
+                --packages-select ${{ env.PY_PACKAGES }} \
                 --parallel-workers 1 \
                 --event-handlers console_direct+ || echo 'Warning: Some Python packages failed to build'
               
@@ -142,7 +137,7 @@ jobs:
               
               # Run tests for Python packages (one at a time to reduce memory)
               echo '🧪 Running tests...'
-              PY_PACKAGES_LIST='\${{ env.PY_PACKAGES }}'
+              PY_PACKAGES_LIST='${{ env.PY_PACKAGES }}'
               
               # List workspace structure to debug
               echo \"📁 Workspace structure:\"
@@ -196,16 +191,17 @@ jobs:
               fi
             "
 
+
       # Generate human-readable test summary
       - name: Generate test summary
         if: always()
         run: |
           source Docker/.env
           docker run --rm \
-            -v ${{ github.workspace }}:/ci_workspace \
-            -w /ci_workspace \
+            -v ${{ github.workspace }}:/workspace \
             ${BUILT_IMAGE} \
             bash -c "
+              cd /workspace
               if [ -f /opt/vulcanexus/jazzy/setup.bash ]; then
                 source /opt/vulcanexus/jazzy/setup.bash
               elif [ -f /opt/ros/jazzy/setup.bash ]; then
@@ -233,9 +229,10 @@ jobs:
           reporter: java-junit
           fail-on-error: false
       
-      # Upload test results
+      # Upload test result
       - name: Upload test results
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: test-results
@@ -244,8 +241,27 @@ jobs:
             build/*/pytest.xml
             log/latest_test/**/*.log
             test_summary.txt
+          if-no-files-found: warn
       
-      
+      # Verify coverage files were generated
+      - name: Verify coverage files
+        if: always()
+        run: |
+          echo "📋 Coverage files generated:"
+          echo ""
+          find build -type f \( -name "coverage.*" -o -name ".coverage" \) 2>/dev/null | while read f; do
+            echo "✅ $f ($(du -h "$f" | cut -f1))"
+          done
+          echo ""
+          echo "📋 Test result files:"
+          find build -name "pytest.xml" -type f 2>/dev/null | while read f; do
+            echo "✅ $f"
+          done
+          echo ""
+          echo "📋 HTML coverage files:"
+          find build -type d -name "htmlcov" 2>/dev/null | while read d; do
+            echo "✅ $d/ ($(find "$d" -type f | wc -l) files)"
+          done
       # Create test badge (for README)
       - name: Create test badge
         if: always() && github.ref == 'refs/heads/jazzy-devel'
@@ -283,100 +299,104 @@ jobs:
 
       - name: Upload badge data
         if: always() && github.ref == 'refs/heads/jazzy-devel'
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: test-badge
           path: test-badge.json
+          if-no-files-found: warn
       
-
 
       # Generate code coverage reports (from existing test data)
       - name: Generate coverage reports
         if: always()
         run: |
           source Docker/.env
-          docker run --rm \
-            -v ${{ github.workspace }}:/ci_workspace \
-            -w /ci_workspace \
-            ${BUILT_IMAGE} \
-            bash -c "
-              # Source ROS environment
-              if [ -f /opt/vulcanexus/jazzy/setup.bash ]; then
-                source /opt/vulcanexus/jazzy/setup.bash
-              elif [ -f /opt/ros/jazzy/setup.bash ]; then
-                source /opt/ros/jazzy/setup.bash
-              fi
-              
-              source install/setup.bash 2>/dev/null || true
-              
-              echo '=========================================='
-              echo '  Code Coverage Summary Display'
-              echo '=========================================='
-              echo ''
-              
-              # Display Python coverage from existing lcov files
-              for pkg in ${{ env.PY_PACKAGES }}; do
-                echo \"📊 Python Coverage (\$pkg)\"
-                echo '------------------------------------------'
-                if [ -f \"build/\$pkg/coverage.lcov\" ]; then
-                  # Display coverage summary from lcov file
-                  grep -A 5 'end_of_record' \"build/\$pkg/coverage.lcov\" | head -20 || \
-                  echo \"Coverage data available in build/\$pkg/coverage.lcov\"
-                else
-                  echo '⚠️  No coverage data found for this package'
-                fi
-                echo ''
-              done
-              
-              echo '=========================================='
-              echo '✅ Coverage Reports Displayed!'
-              echo '=========================================='
-            " > coverage_summary.txt || true
           
-          # Display in logs
-          cat coverage_summary.txt
+          echo '=========================================='
+          echo '  Code Coverage Summary Display'
+          echo '=========================================='
+          echo ''
           
-          # Add to GitHub Actions summary
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## 📊 Code Coverage Summary" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          cat coverage_summary.txt >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          # Display Python coverage from existing files
+          for pkg in ${{ env.PY_PACKAGES }}; do
+            echo "📊 Python Coverage (${pkg})"
+            echo '------------------------------------------'
+            
+            # Check for lcov file
+            if [ -f "build/${pkg}/coverage.lcov" ]; then
+              echo "✅ Coverage data found in build/${pkg}/coverage.lcov"
+              # Extract summary from lcov
+              grep "^LH:\|^LF:" "build/${pkg}/coverage.lcov" | head -5 || true
+            elif [ -f "build/${pkg}/coverage.xml" ]; then
+              echo "✅ Coverage data found in build/${pkg}/coverage.xml"
+            else
+              echo "⚠️  No coverage data found for this package"
+            fi
+            echo ''
+          done
+          
+          echo '=========================================='
+          echo '✅ Coverage Reports Generated!'
+          echo '=========================================='
+          
+          # Summary of files found
+          echo ""
+          echo "Coverage files summary:"
+          find build -name "coverage.*" -type f 2>/dev/null | wc -l
+          echo "coverage files found"
       
       # Convert lcov to Cobertura XML for better tool compatibility
-      - name: Verify and convert coverage files
+      - name: Convert coverage to Cobertura XML
         if: always()
+        continue-on-error: true
         run: |
-          # First, check what coverage files exist
-          echo "🔍 Looking for coverage files..."
-          find . -name "coverage*.xml" -o -name "coverage*.lcov" 2>/dev/null || true
+          python3 -m pip install lcov_cobertura --quiet
           
+          echo "📋 Looking for coverage files..."
           echo ""
-          echo "📋 Coverage XML files found:"
-          ls -lh coverage-*.xml 2>/dev/null || echo "⚠️ No coverage-*.xml files found yet"
           
-          # Install lcov_cobertura for coverage conversion
-          python3 -m pip install lcov_cobertura
+          # Track if any files were found
+          FILES_FOUND=0
           
-          # Convert Python coverage for all packages
+          # Convert Python coverage lcov files to XML
           for pkg in ${{ env.PY_PACKAGES }}; do
-            if [ -f "build/${pkg}/coverage.lcov" ]; then
-              python3 -m lcov_cobertura build/${pkg}/coverage.lcov -o coverage-py-${pkg}.xml
-              echo "✅ Converted Python coverage for ${pkg} to XML"
+            LCOV_FILE="build/${pkg}/coverage.lcov"
+            if [ -f "$LCOV_FILE" ]; then
+              echo "✅ Converting Python coverage for ${pkg}..."
+              if python3 -m lcov_cobertura "$LCOV_FILE" -o "coverage-py-${pkg}.xml"; then
+                echo "✅ Generated: coverage-py-${pkg}.xml"
+                FILES_FOUND=$((FILES_FOUND + 1))
+              else
+                echo "⚠️ Failed to convert LCOV for ${pkg}"
+              fi
             else
-              echo "⚠️ No Python coverage file found for ${pkg}"
+              echo "ℹ️ coverage.lcov not found for ${pkg} at $LCOV_FILE"
             fi
           done
           
-          # Final check of all coverage files
+          # Also copy any existing coverage.xml files
+          for pkg in ${{ env.PY_PACKAGES }}; do
+            if [ -f "build/${pkg}/coverage.xml" ]; then
+              cp "build/${pkg}/coverage.xml" "coverage-py-${pkg}-direct.xml"
+              echo "✅ Copied coverage.xml for ${pkg}"
+              FILES_FOUND=$((FILES_FOUND + 1))
+            fi
+          done
+          
+          # List all generated coverage files
           echo ""
-          echo "📋 Final coverage XML files:"
-          ls -lh coverage-*.xml 2>/dev/null || echo "❌ No coverage XML files generated"
+          echo "📋 Coverage conversion summary:"
+          ls -lh coverage-*.xml 2>/dev/null && echo "✅ Coverage XML files generated" || echo "ℹ️ No coverage XML files generated (tests may have been skipped or failed)"
+          echo ""
+          echo "📋 All build coverage files:"
+          find build -name "coverage.*" -type f 2>/dev/null | head -20
       
       # Generate Coverage Report for PR (using Cobertura XML)
       - name: Code Coverage Report
         uses: irongut/CodeCoverageSummary@v1.3.0
         if: always()
+        continue-on-error: true
         with:
           filename: 'coverage-*.xml'
           badge: true
@@ -392,6 +412,7 @@ jobs:
       - name: Add Coverage PR Comment
         uses: marocchino/sticky-pull-request-comment@v2
         if: github.event_name == 'pull_request'
+        continue-on-error: true
         with:
           recreate: true
           path: code-coverage-results.md
@@ -399,13 +420,17 @@ jobs:
       # Upload coverage reports as artifacts
       - name: Upload coverage reports
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: coverage-reports
           path: |
-            */htmlcov/**
+            build/*/htmlcov
+            build/*/coverage.lcov
+            build/*/coverage.xml
             coverage_summary.txt
             coverage-*.xml
+          if-no-files-found: warn
       
       # Create coverage badge (for README)
       - name: Create coverage badge
@@ -478,11 +503,8 @@ jobs:
         if: always() && github.ref == 'refs/heads/jazzy-devel'
         run: |
           # Determine branch name for badge directory
-          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            BRANCH_NAME="main"
-          else
-            BRANCH_NAME="jazzy-devel"
-          fi
+          # Always use 'jazzy-devel' since workflow only runs on jazzy-devel branch
+          BRANCH_NAME="jazzy-devel"
           
           # Setup git
           git config --global user.name "github-actions[bot]"
@@ -541,21 +563,20 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Tag image for Docker Hub
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/jazzy-devel'
         run: |
           # Get the image name from .env file
           source Docker/.env
           DOCKERHUB_ORG=${{ secrets.DOCKERHUB_ORG }}
           
           # Tag the local image with Docker Hub organization name
-          docker tag ${BUILT_IMAGE} ${DOCKERHUB_ORG}/eutrobai:${TARGET_DISTRO}
+          docker tag ${BUILT_IMAGE} ${DOCKERHUB_ORG}/eut_audio_processing:${TARGET_DISTRO}
       
       - name: Push to Docker Hub
-        if: github.ref == 'refs/heads/main' # IGNORE for now the push, replace it with main branch or jazzy when ready to publish from protected branch
-        # if: github.ref == 'none' # IGNORE for now the push, replace it with main branch or jazzy when ready to publish from protected branch
+        if: github.ref == 'none' # IGNORE for now the push, replace it with jazzy-devel when ready to publish from protected branch
         run: |
           source Docker/.env
           DOCKERHUB_ORG=${{ secrets.DOCKERHUB_ORG }}
           
           # Push the image to Docker Hub
-          docker push ${DOCKERHUB_ORG}/eutrobai:${TARGET_DISTRO}
+          docker push ${DOCKERHUB_ORG}/eut_audio_processing:${TARGET_DISTRO}
