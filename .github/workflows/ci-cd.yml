@@ -31,7 +31,7 @@ jobs:
       # ✅ Pull prebuilt image instead of building EutRobAIDockers + local image
       - name: Pull prebuilt Docker image
         run: |
-          docker pull ${{ env.CI_IMAGE }}
+          docker pull ${{ secrets.CI_IMAGE }}
           docker images | grep eut_audio_vulcanexus_cpu || true
 
       # 🔧 Build workspace and run test (inside pulled image)
@@ -39,7 +39,7 @@ jobs:
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
-            ${{ env.CI_IMAGE }} \
+            ${{ secrets.CI_IMAGE }} \
             bash -c "
               set -e
 
@@ -143,7 +143,7 @@ jobs:
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
-            ${{ env.CI_IMAGE }} \
+            ${{ secrets.CI_IMAGE }} \
             bash -c "
               cd /workspace
               if [ -f /opt/vulcanexus/jazzy/setup.bash ]; then
