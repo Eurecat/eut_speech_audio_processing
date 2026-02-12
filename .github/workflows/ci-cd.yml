@@ -63,19 +63,19 @@ jobs:
       - name: Make build script executable
         run: chmod +x Docker/build_container.sh
       
-      # Build the Speech Audio Processing Docker image (depends on base image)
-      - name: Build Speech Audio Processing Docker image
+      # Build the eut_speech Docker image (depends on base image)
+      - name: Build eut_speech Docker image
         run: cd ./Docker && ./build_container.sh --cpu --vulcanexus
         env:
           DOCKER_BUILDKIT: 1
       
-      - name: Verify Speech Audio image was built
+      - name: Verify eut_speech image was built
         run: |
           if docker images | grep -q "eut_audio_vulcanexus_cpu.*jazzy"; then
-            echo "✅ Speech Audio image eut_audio_vulcanexus_cpu:jazzy successfully built"
+            echo "✅ eut_speech image eut_audio_vulcanexus_cpu:jazzy successfully built"
             docker images eut_audio_vulcanexus_cpu:jazzy
           else
-            echo "❌ EutSpeechAudioProcessing image eut_audio_vulcanexus_cpu:jazzy not found"
+            echo "❌ eut_speech image eut_audio_vulcanexus_cpu:jazzy not found"
             echo "Available images:"
             docker images
             exit 1
@@ -571,13 +571,13 @@ jobs:
           DOCKERHUB_ORG=${{ secrets.DOCKERHUB_ORG }}
           
           # Tag the local image with Docker Hub organization name
-          docker tag ${BUILT_IMAGE} ${DOCKERHUB_ORG}/eut_audio_cpu:${TARGET_DISTRO}
+          docker tag ${BUILT_IMAGE} ${DOCKERHUB_ORG}/eut_audio_vulcanexus_cpu:${TARGET_DISTRO}
       
       - name: Push to Docker Hub
-        if: github.ref == 'refs/heads/jazzy-devel'
+        if: github.ref == 'none' # IGNORE for now the push, replace it with jazzy-devel when ready to publish from protected branch
         run: |
           source Docker/.env
           DOCKERHUB_ORG=${{ secrets.DOCKERHUB_ORG }}
           
           # Push the image to Docker Hub
-          docker push ${DOCKERHUB_ORG}/eut_audio_cpu:${TARGET_DISTRO}
+          docker push ${DOCKERHUB_ORG}/eut_audio_vulcanexus_cpu:${TARGET_DISTRO}
