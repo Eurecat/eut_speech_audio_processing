@@ -71,9 +71,9 @@ jobs:
       
       - name: Verify Speech Audio image was built
         run: |
-          if docker images | grep -q "eut_audio_cpu.*jazzy"; then
-            echo "✅ Speech Audio image eut_audio_cpu:jazzy successfully built"
-            docker images eut_audio_cpu:jazzy
+          if docker images | grep -q "eut_audio_vulcanexus_cpu.*jazzy"; then
+            echo "✅ Speech Audio image eut_audio_vulcanexus_cpu:jazzy successfully built"
+            docker images eut_audio_vulcanexus_cpu:jazzy
           else
             echo "❌ EutSpeechAudioProcessing image eut_audio_vulcanexus_cpu:jazzy not found"
             echo "Available images:"
