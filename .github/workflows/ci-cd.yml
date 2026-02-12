@@ -106,6 +106,19 @@ jobs:
                 echo '✅ Sourced pre-built dependencies from image'
               fi
               
+              if [ -f /opt/workspace/install/setup.bash ]; then
+                source /opt/workspace/install/setup.bash
+                echo '✅ Sourced pre-built dependencies from image'
+              fi
+
+              echo '📦 Installing rosdep dependencies for mounted workspace...'
+              if [ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]; then
+                rosdep init || true
+              fi
+              rosdep update
+              rosdep install --from-paths src --ignore-src -r -y
+              echo '✅ rosdep install done'
+              
               echo '🔍 Available packages to build:'
               colcon list --names-only
               
