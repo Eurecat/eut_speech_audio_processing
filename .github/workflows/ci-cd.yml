@@ -16,7 +16,7 @@ jobs:
 
     env:
       # Package Configuration - Define your ROS2 Python packages here
-      PY_PACKAGES: "audio_stream_manager speech_recognition"
+      PY_PACKAGES: "audio_stream_manager speech_recognition hri_msgs"
 
     steps:
       - name: Checkout repository
@@ -72,7 +72,7 @@ jobs:
               echo '🔨 Building Python packages: ${{ env.PY_PACKAGES }}'
               colcon build --symlink-install \
                 --packages-select ${{ env.PY_PACKAGES }} \
-                --packages-skip audio_capture hri_msgs \
+                --packages-skip audio_capture \
                 --parallel-workers 1 \
                 --event-handlers console_direct+ || echo 'Warning: Some Python packages failed to build'
 
@@ -430,8 +430,7 @@ jobs:
       - name: Generate coverage reports
         if: always()
         run: |
-          source Docker/.env
-          
+         
           echo '=========================================='
           echo '  Code Coverage Summary Display'
           echo '=========================================='
@@ -679,7 +678,6 @@ jobs:
         if: github.ref == 'refs/heads/jazzy-devel'
         run: |
           # Get the image name from .env file
-          source Docker/.env
           DOCKERHUB_ORG=${{ secrets.DOCKERHUB_ORG }}
           
           # Tag the local image with Docker Hub organization name
@@ -688,7 +686,6 @@ jobs:
       - name: Push to Docker Hub
         if: github.ref == 'none' # IGNORE for now the push, replace it with jazzy-devel when ready to publish from protected branch
         run: |
-          source Docker/.env
           DOCKERHUB_ORG=${{ secrets.DOCKERHUB_ORG }}
           
           # Push the image to Docker Hub
