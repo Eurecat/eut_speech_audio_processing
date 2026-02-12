@@ -80,17 +80,7 @@ jobs:
             docker images
             exit 1
           fi
-
-      - name: Ignore unwanted ROS packages
-        run: |
-          # Adjust paths if your workspace layout differs
-          touch src/audio_capture/COLCON_IGNORE || true
-          touch src/hri_msgs/COLCON_IGNORE || true
-
-          echo "Ignored packages:"
-          ls -l src/audio_capture/COLCON_IGNORE src/hri_msgs/COLCON_IGNORE 2>/dev/null || true
-
-
+        
       # 🔧 Build workspace and run test
       - name: Build & test workspace
         run: |
@@ -124,6 +114,7 @@ jobs:
               
               colcon build --symlink-install \
                 --packages-select ${{ env.PY_PACKAGES }} \
+                --packages-skip audio_capture hri_msgs \
                 --parallel-workers 1 \
                 --event-handlers console_direct+ || echo 'Warning: Some Python packages failed to build'
               
