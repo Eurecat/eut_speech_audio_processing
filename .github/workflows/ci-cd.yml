@@ -75,7 +75,7 @@ jobs:
             echo "✅ Speech Audio image eut_audio_cpu:jazzy successfully built"
             docker images eut_audio_cpu:jazzy
           else
-            echo "❌ EutHRIFaces image eut_human_face_vulcanexus_cpu:jazzy not found"
+            echo "❌ EutSpeechAudioProcessing image eut_audio_vulcanexus_cpu:jazzy not found"
             echo "Available images:"
             docker images
             exit 1
