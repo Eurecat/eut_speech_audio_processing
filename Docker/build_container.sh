@@ -160,5 +160,27 @@ else
     echo "DOCKER_RUNTIME=$DOCKER_RUNTIME" >> "$ENV_FILE"
 fi
 
+# Set or Update RMW_IMPLEMENTATION based on TARGET_DISTRO
+if [ "$TARGET_DISTRO" = "humble" ]; then
+    RMW_IMPLEMENTATION="rmw_cyclonedds_cpp"
+    IMG_RAW_TOPIC="/head_front_camera/color/image_raw/compressed"
+else
+    RMW_IMPLEMENTATION="rmw_fastrtps_cpp"
+    IMG_RAW_TOPIC="/camera/image_raw/compressed"
+fi
+
+if grep -q -E "^RMW_IMPLEMENTATION=" "$ENV_FILE"; then
+    sed -i "s|^RMW_IMPLEMENTATION=.*|RMW_IMPLEMENTATION=$RMW_IMPLEMENTATION|" "$ENV_FILE"
+else
+    echo "RMW_IMPLEMENTATION=$RMW_IMPLEMENTATION" >> "$ENV_FILE"
+fi
+
+# Set or Update IMG_RAW_TOPIC based on TARGET_DISTRO
+if grep -q -E "^IMG_RAW_TOPIC=" "$ENV_FILE"; then
+    sed -i "s|^IMG_RAW_TOPIC=.*|IMG_RAW_TOPIC=$IMG_RAW_TOPIC|" "$ENV_FILE"
+else
+    echo "IMG_RAW_TOPIC=$IMG_RAW_TOPIC" >> "$ENV_FILE"
+fi
+
 echo "Application Docker image built successfully!"
 echo "Build process completed!"
