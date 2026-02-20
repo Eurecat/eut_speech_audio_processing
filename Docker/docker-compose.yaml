@@ -20,10 +20,14 @@ services:
       - ../src/speech_recognition:/workspace/src/speech_recognition
       - ../src/speech_recognition/speech_recognition/weights_pyannote:/root/.cache/torch/pyannote:rw
       - /dev:/dev
+            # Cyclone DDS configuration for TiagoPro WiFi
+      - ./cyclonedds_wifi.xml:/etc/cyclonedds.xml:ro
     tty: true
     stdin_open: true
     environment:
-      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
+      - CYCLONEDDS_URI=file:///etc/cyclonedds.xml
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}  
+      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}   
       - PACKAGE_NAME=audio_stream_manager
       - NVIDIA_VISIBLE_DEVICES=all 
       - NVIDIA_DRIVER_CAPABILITIES=all
@@ -44,7 +48,7 @@ services:
 
     command: >
       bash -c "source /workspace/install/setup.bash &&
-      ros2 launch audio_stream_manager audio_stream_manager.launch.py"
+      exec ros2 launch audio_stream_manager audio_stream_manager.launch.py"
 
 
   speech_recognition_service:
@@ -66,11 +70,14 @@ services:
       - ../src/speech_recognition:/workspace/src/speech_recognition
       - ../src/speech_recognition/speech_recognition/weights_pyannote:/root/.cache/torch/pyannote:rw
       - /dev:/dev
-      
+            # Cyclone DDS configuration for TiagoPro WiFi
+      - ./cyclonedds_wifi.xml:/etc/cyclonedds.xml:ro
     tty: true
     stdin_open: true
     environment:
-      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
+      - CYCLONEDDS_URI=file:///etc/cyclonedds.xml
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}  
+      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}   
       - PACKAGE_NAME=speech_recognition
       - NVIDIA_VISIBLE_DEVICES=all 
       - NVIDIA_DRIVER_CAPABILITIES=all
@@ -93,7 +100,7 @@ services:
     # ros2 launch speech_recognition speech_recognition.launch.py enable_vad:=false enable_diarization:=false enable_asr:=false enable_wake_word:=false
     command: >
       bash -c "source /workspace/install/setup.bash &&
-      ros2 launch speech_recognition speech_recognition.launch.py"
+      exec ros2 launch speech_recognition speech_recognition.launch.py"
 
     stop_signal: SIGINT
     stop_grace_period: 30s
@@ -126,8 +133,8 @@ services:
       - ME_CONFIG_MONGODB_ENABLE_ADMIN=true
       - ME_CONFIG_MONGODB_ADMINUSERNAME=eurecat
       - ME_CONFIG_MONGODB_ADMINPASSWORD=cerdanyola
-      - ME_CONFIG_MONGODB_SERVER=mongodb
-      - ME_CONFIG_MONGODB_URL=mongodb://eurecat:cerdanyola@mongodb:27017/?authSource=admin
+      - ME_CONFIG_MONGODB_SERVER=mongodb_service
+      - ME_CONFIG_MONGODB_URL=mongodb://eurecat:cerdanyola@mongodb_service:27017/?authSource=admin
 
 
 volumes:
