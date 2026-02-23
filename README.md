@@ -208,11 +208,26 @@ If you encounter the error `failed to bind host port for 0.0.0.0:27017:172.21.0.
 ```bash
 sudo lsof -ti:27017 | xargs -r sudo kill -9
 ```
+
+### Failed to Load Identity Database from MongoDB
+If you encounter the error
+```bash
+ [ERROR] Failed to load identity database from MongoDB: localhost:27017: [Errno 111] Connection refused (configured timeouts: socketTimeoutMS: 20000.0ms, connectTimeoutMS: 20000.0ms), Timeout: 5.0s, Topology Description: <TopologyDescription id: 699c509d3119785fb03732f5, topology_type: Unknown, servers: [<ServerDescription ('localhost', 27017) server_type: Unknown, rtt: None, error=AutoReconnect('localhost:27017: [Errno 111] Connection refused (configured timeouts: socketTimeoutMS: 20000.0ms, connectTimeoutMS: 20000.0ms)')>]>
+```
+
+Then probably you have some bad configuration in your volumne of mongodb from previous compose, run compose down to remove all volumes and start again. When doing any change on the compose.yaml also do
+
+```bash
+docker compose down -v
+docker compose up
+```
+
+
 ### Container Name Conflicts
 
 If you switch between `dev-docker-compose.yaml` and `docker-compose.yaml`, you may encounter errors like `Conflict. The container name "/mongodb_faces" is already in use`. This happens because containers from the previous compose file are still running. To resolve this, remove all containers and restart: 
 ```bash
-docker rm -f $(docker ps -aq)
+docker stop $(docker ps -q) #or kill or rm to avoid losing data if you have any important container running
 ```
 then run `docker compose up` again. This cleanly removes all existing containers and allows the new composition to start fresh.
 
