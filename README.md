@@ -1,6 +1,6 @@
 # EutSpeechAudioProcessing: Audio Stream Management, VAD, Speaker Diarization, Wake Word Detection & Speech Recognition
 
-🚀 Production-ready ROS2 (Jazzy, Humble-WIP) audio perception stack with **advanced VAD and speaker diarization** 🗣️ and **state-of-the-art Whisper ASR** 📝. Uniquely integrates **MongoDB** 💾 for persistent speaker embedding storage with automatic re-identification across sessions—speaker identities survive Docker restarts! Fully containerized architecture with hardware-isolated audio management and modular speech processing pipeline for enterprise-grade human-robot interaction.
+🚀 Production-ready ROS2 (Jazzy, Humble-WIP) audio perception stack with **advanced VAD and speaker diarization** 🗣️ and **state-of-the-art Whisper ASR** 📝. Uniquely integrates **MongoDB** 💾 for persistent speaker embedding storage with automatic re-identification across sessions—speaker identities survive Docker restarts! Fully containerized architecture with hardware-isolated audio management and modular speech processing pipeline for enterprise-grade human-robot interaction. Based on the [ros4hri](https://github.com/ros4hri) 🤖 standard, with an optional ROS4HRI-compatible publication mode. The default configuration uses a scalability-oriented architecture, leveraging state-of-the-art open-source AI models in an enterprise-grade architecture.
 
 ## 🏗️ Architecture Overview
 
@@ -208,11 +208,26 @@ If you encounter the error `failed to bind host port for 0.0.0.0:27017:172.21.0.
 ```bash
 sudo lsof -ti:27017 | xargs -r sudo kill -9
 ```
+
+### Failed to Load Identity Database from MongoDB
+If you encounter the error
+```bash
+ [ERROR] Failed to load identity database from MongoDB: localhost:27017: [Errno 111] Connection refused (configured timeouts: socketTimeoutMS: 20000.0ms, connectTimeoutMS: 20000.0ms), Timeout: 5.0s, Topology Description: <TopologyDescription id: 699c509d3119785fb03732f5, topology_type: Unknown, servers: [<ServerDescription ('localhost', 27017) server_type: Unknown, rtt: None, error=AutoReconnect('localhost:27017: [Errno 111] Connection refused (configured timeouts: socketTimeoutMS: 20000.0ms, connectTimeoutMS: 20000.0ms)')>]>
+```
+
+Then probably you have some bad configuration in your volumne of mongodb from previous compose, run compose down to remove all volumes and start again. When doing any change on the compose.yaml also do
+
+```bash
+docker compose down -v
+docker compose up
+```
+
+
 ### Container Name Conflicts
 
 If you switch between `dev-docker-compose.yaml` and `docker-compose.yaml`, you may encounter errors like `Conflict. The container name "/mongodb_faces" is already in use`. This happens because containers from the previous compose file are still running. To resolve this, remove all containers and restart: 
 ```bash
-docker rm -f $(docker ps -aq)
+docker stop $(docker ps -q) #or kill or rm to avoid losing data if you have any important container running
 ```
 then run `docker compose up` again. This cleanly removes all existing containers and allows the new composition to start fresh.
 
