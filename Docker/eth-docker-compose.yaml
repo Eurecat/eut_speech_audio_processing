@@ -2,7 +2,7 @@ name: coghri_audio_dev
 
 services:
   audio_device_manager_service:
-    container_name: "audio_device_manager"
+    container_name: "eth_audio_device_manager"
     network_mode: host
     ipc: host
     shm_size: 1gb
@@ -20,8 +20,8 @@ services:
       - ../src/speech_recognition:/workspace/src/speech_recognition
       - ../src/speech_recognition/speech_recognition/weights_pyannote:/root/.cache/torch/pyannote:rw
       - /dev:/dev
-            # Cyclone DDS configuration for TiagoPro WiFi
-      - ./cyclonedds_wifi.xml:/etc/cyclonedds.xml:ro
+            # Cyclone DDS configuration for TiagoPro Ethernet
+      - ./cyclonedds_ethernet.xml:/etc/cyclonedds.xml:ro
     tty: true
     stdin_open: true
     environment:
@@ -52,7 +52,7 @@ services:
 
 
   speech_recognition_service:
-    container_name: "speech_recognition"
+    container_name: "eth_speech_recognition"
     network_mode: host
     ipc: host
     shm_size: 1gb
@@ -70,8 +70,8 @@ services:
       - ../src/speech_recognition:/workspace/src/speech_recognition
       - ../src/speech_recognition/speech_recognition/weights_pyannote:/root/.cache/torch/pyannote:rw
       - /dev:/dev
-            # Cyclone DDS configuration for TiagoPro WiFi
-      - ./cyclonedds_wifi.xml:/etc/cyclonedds.xml:ro
+            # Cyclone DDS configuration for TiagoPro Ethernet
+      - ./cyclonedds_ethernet.xml:/etc/cyclonedds.xml:ro
     tty: true
     stdin_open: true
     environment:

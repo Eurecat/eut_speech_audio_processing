@@ -13,3 +13,6 @@ diarization_node:
     
     # VAD Integration
     vad_threshold: 0.75                       # VAD threshold for publishing speech activity
+
+    # Diarization 
+    use_database: False                          # Whether to use MongoDB for storing diarization results
