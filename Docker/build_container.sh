@@ -5,6 +5,7 @@
 # Usage:
 # - Default (Vulcanexus with GPU): ./build_container.sh
 # - Vulcanexus with GPU: ./build_container.sh --vulcanexus
+# - Humble Vulcanexus with GPU: ./build_container.sh --humble --vulcanexus
 # - CPU-only version: ./build_container.sh --cpu
 # - With Humble: ./build_container.sh --humble
 # - CPU-only Vulcanexus: ./build_container.sh --cpu --vulcanexus
@@ -44,7 +45,6 @@ for arg in "$@"; do
         REBUILD=true
     fi
     if [ "$arg" == "--vulcanexus" ]; then
-        BASE_IMAGE="eut_ros_vulcanexus_torch:${TARGET_DISTRO}"
         USE_VULCANEXUS=true
     fi
     if [ "$arg" == "--cpu" ]; then
@@ -52,7 +52,6 @@ for arg in "$@"; do
     fi
     if [ "$arg" == "--humble" ]; then
         TARGET_DISTRO="humble"
-        BASE_IMAGE="eut_ros_torch:${TARGET_DISTRO}"
         USE_HUMBLE=true
     fi
     if [ "$arg" == "--no-vcs" ]; then
@@ -60,11 +59,11 @@ for arg in "$@"; do
     fi
 done
 
-# Validate that Vulcanexus and Humble are not used together
-if $USE_VULCANEXUS && $USE_HUMBLE; then
-    echo "ERROR: --vulcanexus and --humble cannot be used together."
-    echo "Vulcanexus is only available for Jazzy."
-    exit 1
+# Resolve base image from selected flags
+if $USE_VULCANEXUS; then
+    BASE_IMAGE="eut_ros_vulcanexus_torch:${TARGET_DISTRO}"
+else
+    BASE_IMAGE="eut_ros_torch:${TARGET_DISTRO}"
 fi
 
 # Update base image for CPU variant
