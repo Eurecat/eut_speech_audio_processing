@@ -168,6 +168,8 @@ db.speakers.find()
 
 **Access the web interface:**  
 [http://0.0.0.0:8081/db/speaker_recognition/speakers](http://0.0.0.0:8081/db/speaker_recognition/speakers)
+user: admin
+password: pass
 
 **Delete the database:**  
 Remove the associated Docker volume to clear all speaker embeddings and start fresh.
