@@ -21,7 +21,7 @@ services:
       - ../src/speech_recognition/speech_recognition/weights_pyannote:/root/.cache/torch/pyannote:rw
       - /dev:/dev
             # Cyclone DDS configuration for TiagoPro WiFi
-      - ./cyclonedds_wifi.xml:/etc/cyclonedds.xml:ro
+      - ./cyclone_xmls/${CYCLONE_CONFIG_FILE:-cyclonedds_ethernet.xml}:/etc/cyclonedds.xml:ro
     tty: true
     stdin_open: true
     environment:
@@ -71,7 +71,7 @@ services:
       - ../src/speech_recognition/speech_recognition/weights_pyannote:/root/.cache/torch/pyannote:rw
       - /dev:/dev
             # Cyclone DDS configuration for TiagoPro WiFi
-      - ./cyclonedds_wifi.xml:/etc/cyclonedds.xml:ro
+      - ./cyclone_xmls/${CYCLONE_CONFIG_FILE:-cyclonedds_ethernet.xml}:/etc/cyclonedds.xml:ro
     tty: true
     stdin_open: true
     environment:
