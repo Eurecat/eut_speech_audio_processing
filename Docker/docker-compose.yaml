@@ -29,6 +29,8 @@ services:
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-2}  
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}   
       - PACKAGE_NAME=audio_stream_manager
+      - BUILD_LOGS_TO_KEEP=${BUILD_LOGS_TO_KEEP:-2}
+      - RUNTIME_LOGS_TO_KEEP=${RUNTIME_LOGS_TO_KEEP:-2}
       - NVIDIA_VISIBLE_DEVICES=all 
       - NVIDIA_DRIVER_CAPABILITIES=all
       - DISPLAY=$DISPLAY
@@ -79,6 +81,8 @@ services:
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-2}  
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}   
       - PACKAGE_NAME=speech_recognition
+      - BUILD_LOGS_TO_KEEP=${BUILD_LOGS_TO_KEEP:-2}
+      - RUNTIME_LOGS_TO_KEEP=${RUNTIME_LOGS_TO_KEEP:-2}
       - NVIDIA_VISIBLE_DEVICES=all 
       - NVIDIA_DRIVER_CAPABILITIES=all
       - DISPLAY=$DISPLAY
