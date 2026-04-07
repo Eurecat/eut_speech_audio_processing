@@ -99,6 +99,7 @@ def _setup(context, *args, **kwargs):
                 "jana",
                 "hey_tee_AHGO",
                 "hey_robot",
+                "hey_hana",
             ],  # Multiple models will be loaded
             "window_duration": 2.0,  # Duration of the sliding window in seconds
             "step_duration": 0.5,  # Step size for sliding window in seconds

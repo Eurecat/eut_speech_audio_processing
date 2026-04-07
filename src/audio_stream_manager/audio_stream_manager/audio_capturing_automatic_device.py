@@ -343,10 +343,12 @@ class AudioCapturingNode(Node):
             f"Audio buffer noise level (RMS): {rms:.6f}"
         )  # , throttle_duration_sec=10.0)
 
-        # if rms < 0.01:
-        #     #then make audio data FULLY silent
-        #     audio_data = np.zeros_like(audio_data)
-        #     self.get_logger().debug("Audio data muted due to very low noise level (RMS < 0.01).")#, throttle_duration_sec=10.0)
+        if rms < 0.01:
+            # then make audio data FULLY silent
+            audio_data = np.zeros_like(audio_data)
+            self.get_logger().debug(
+                "Audio data muted due to very low noise level (RMS < 0.01)."
+            )  # , throttle_duration_sec=10.0)
 
         if rms >= 0:
             target_samplerate = (

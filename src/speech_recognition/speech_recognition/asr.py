@@ -477,6 +477,17 @@ class ASRNode(Node):
 
     def _transcribe_speech_chunk_with_data(self, audio_data, end_time):
         """Transcribe with pre-extracted audio data (NO lock needed)"""
+
+        # rms = float(np.sqrt(np.mean(audio_data**2)))
+        # self.get_logger().info(
+        #         f"Audio buffer noise level (RMS): {rms:.6f}"
+        # )  # , throttle_duration_sec=10.0)
+
+        # if rms < 0.05:
+        #     #then make audio data FULLY silent
+        #     audio_data = np.zeros_like(audio_data)
+        #     self.get_logger().info("Audio data muted due to very low noise level (RMS < 0.05).")#, throttle_duration_sec=10.0)
+
         if audio_data is None or len(audio_data) == 0:
             self.get_logger().warn("No audio data found for transcription")
             return
