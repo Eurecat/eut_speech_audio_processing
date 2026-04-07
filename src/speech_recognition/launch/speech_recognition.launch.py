@@ -97,6 +97,8 @@ def _setup(context, *args, **kwargs):
             "wake_word_model_names": [
                 "hey_jana",
                 "jana",
+                "hey_tee_AHGO",
+                "hey_robot",
             ],  # Multiple models will be loaded
             "window_duration": 2.0,  # Duration of the sliding window in seconds
             "step_duration": 0.5,  # Step size for sliding window in seconds
