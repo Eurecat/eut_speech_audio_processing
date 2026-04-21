@@ -77,5 +77,12 @@ def generate_launch_description():
                 # Pass config file first, then overrides
                 parameters=[config_file, node_params],
             ),
+            Node(
+                package="audio_stream_manager",
+                executable="audio_to_mp3",
+                name="audio_to_mp3",
+                output="screen",
+                parameters=[config_file],
+            ),
         ]
     )
