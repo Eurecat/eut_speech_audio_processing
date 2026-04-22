@@ -1,0 +1,12 @@
+# ROS2 Parameters for Wake Word Detection Node
+# This file contains all the configurable parameters for the WakeWordDetectorNode
+
+wake_word_node:
+  ros__parameters:
+    # Model Configuration
+    wake_word_model_names: ["hey_jana"]      # List of wake word model names to load
+    model_base_path: "/workspace/src/speech_recognition/weights_openwakeword"  # Base path for ONNX model files
+
+    # Audio Window Configuration
+    window_duration: 2.0                     # Duration (seconds) of the sliding audio window for inference
+    step_duration: 0.5                       # Step size (seconds) between consecutive inference windows
