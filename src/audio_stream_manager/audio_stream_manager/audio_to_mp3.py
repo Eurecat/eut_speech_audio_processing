@@ -6,7 +6,7 @@ import rclpy
 from hri_msgs.msg import AudioAndDeviceInfo
 from rclpy.node import Node
 
-from audio_stream_manager.audio_stream_manager.utils.helper_functions_audio_to_mp3 import (
+from audio_stream_manager.utils.audio_to_mp3_utils import (
     convert_wav_to_mp3,
     save_to_wav,
 )
@@ -64,7 +64,8 @@ def main(args=None):
             os.remove(node.temp_wav)
 
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == "__main__":

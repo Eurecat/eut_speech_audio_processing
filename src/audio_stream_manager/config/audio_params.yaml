@@ -1,10 +1,10 @@
 # ROS2 Parameters for Audio Capturing Node
 # This file contains all the configurable parameters for the AudioCapturingNode
 
-audio_capturing_automatic_device_node:
+audio_capturing:
   ros__parameters:
     # Device Configuration
-    device_name: "DJI"                      # Name or partial name of the audio input device to use
+    device_name: "jabra"                      # Name or partial name of the audio input device to use
     dtype: "float32"                        # Audio data type (float32, int16, etc.)
     channels: 1                             # Number of audio channels to capture
     chunk: 512                              # Audio chunk size (number of samples per callback)
