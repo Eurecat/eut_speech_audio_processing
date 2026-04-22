@@ -21,9 +21,7 @@ setup(
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [
-            "audio_capturing_select_device = audio_stream_manager.audio_capturing_select_device:main",
-            "audio_capturing_automatic_device = audio_stream_manager.audio_capturing_automatic_device:main",
-            "audio_capturing_automatic_device_node = audio_stream_manager.audio_capturing_automatic_device:main",
+            "audio_capturing = audio_stream_manager.audio_capturing:main",
             "audio_to_mp3 = audio_stream_manager.audio_to_mp3:main",
         ],
     },

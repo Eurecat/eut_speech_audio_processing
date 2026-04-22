@@ -9,23 +9,17 @@ services:
     runtime: ${DOCKER_RUNTIME:-runc}
     image: ${BUILT_IMAGE}
     privileged: true
-    # user: "coghri"  # User will be created in the entrypoint script
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - ~/.xauth_docker/share/:/tmp/xauth/
       - ./.vscode:/workspace/.vscode
-      # Logs volume for easy access from VS Code
       - ./logs:/workspace/log
-      #MAP DEPS if needed
       - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
-      - ../src/speech_recognition:/workspace/src/speech_recognition
+      # - ../src/speech_recognition:/workspace/src/speech_recognition
       - /dev:/dev
     tty: true
     stdin_open: true
     environment:
-      # - USER_ID=${USER_ID}
-      # - GROUP_ID=${GROUP_ID}
-      # - USERNAME=${USERNAME}
       - NVIDIA_VISIBLE_DEVICES=all 
       - NVIDIA_DRIVER_CAPABILITIES=all
       - DISPLAY=$DISPLAY
@@ -41,10 +35,5 @@ services:
       - 'c 180:* rwm'  # 180 is usb
       - 'c 189:* rwm' # 189 is usb_device
 
-    # cap_add:
-    #   - NET_RAW
-    #   - NET_ADMIN
-    # security_opt:
-    #   - seccomp:unconfined
     command: bash -c "source /workspace/install/setup.bash && /bin/bash"
     entrypoint: ["/entrypoint.sh"]
