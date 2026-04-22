@@ -1,14 +1,14 @@
 import os
-import time
 
 import numpy as np
 import rclpy
 from hri_msgs.msg import AudioAndDeviceInfo, Vad
 from rclpy.node import Node
+
 from speech_recognition.vad_engine import VADEngine
 
 
-class VADNode(Node):
+class VAD(Node):
     def __init__(self):
         super().__init__("vad_node")
 
@@ -29,8 +29,6 @@ class VADNode(Node):
         )
 
         self.vad_initialized = False
-        self.last_log_time = 0.0
-        self.log_interval = 1.0
 
         self.audio_sub = self.create_subscription(
             AudioAndDeviceInfo, "audio_and_device_info", self.listener_callback, 10
@@ -50,10 +48,6 @@ class VADNode(Node):
         audio_data = np.array(msg.audio, dtype=np.float32)
         prob = self.engine.predict(audio_data, int(msg.device_samplerate))
 
-        if time.time() - self.last_log_time >= self.log_interval:
-            self.get_logger().debug(f"VAD probability: {prob}")
-            self.last_log_time = time.time()
-
         vad_msg = Vad()
         vad_msg.header.stamp = self.get_clock().now().to_msg()
         vad_msg.vad_probability = prob
@@ -62,7 +56,7 @@ class VADNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = VADNode()
+    node = VAD()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
