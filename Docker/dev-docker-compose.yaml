@@ -15,7 +15,7 @@ services:
       - ./.vscode:/workspace/.vscode
       - ./logs:/workspace/log
       - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
-      # - ../src/speech_recognition:/workspace/src/speech_recognition
+      - ../src/speech_recognition:/workspace/src/speech_recognition
       - /dev:/dev
     tty: true
     stdin_open: true

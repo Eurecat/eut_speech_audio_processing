@@ -31,16 +31,12 @@ setup(
     maintainer_email="joan.omedes@eurecat.org",
     description="Speech recognition and processing for ROS2",
     license="Apache-2.0",
-    tests_require=['pytest'],
+    tests_require=["pytest"],
     entry_points={
         "console_scripts": [
-            "vad = speech_recognition.vad:main",
             "vad_node = speech_recognition.vad:main",
-            "diarization = speech_recognition.diarization:main",
             "diarization_node = speech_recognition.diarization:main",
-            "asr = speech_recognition.asr:main", 
             "asr_node = speech_recognition.asr:main",
-            "wake_word = speech_recognition.wake_word:main",
             "wake_word_node = speech_recognition.wake_word:main",
         ],
     },
