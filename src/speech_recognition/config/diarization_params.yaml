@@ -16,3 +16,4 @@ diarization_node:
 
     # Diarization 
     use_database: True                          # Whether to use MongoDB for storing diarization results
+    similarity_threshold: 0.3                   # Cosine distance threshold below which two DIART speakers are merged into one EUT speaker (lower = stricter)
