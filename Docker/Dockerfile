@@ -1,7 +1,7 @@
 # Choose the base image at build time. Defaults to Vulcanexus with GPU support.
-ARG BASE_IMAGE="eut_ros_vulcanexus_torch:jazzy"
+ARG BASE_IMAGE="eut_ros_torch:humble"
 ARG CPU_ONLY="false"
-ARG TARGET_DISTRO="jazzy"
+ARG TARGET_DISTRO="humble"
 
 FROM ${BASE_IMAGE}
 #https://github.com/Eurecat/EutRobAIDockers
