@@ -1,3 +1,4 @@
+import os
 import threading
 import time
 import warnings
@@ -387,21 +388,36 @@ class DiarizationEngine:
         if self._initialized:
             return True
         try:
-            import os
-
-            hf_token = os.environ.get("HF_TOKEN", None)
+            hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_HUB_TOKEN")
             if hf_token is None:
-                self._logger.warn("No HF_TOKEN found. Public models ok; gated models will fail.")
+                self._logger.warn(
+                    "No Hugging Face token found (HF_TOKEN/HUGGINGFACE_HUB_TOKEN). "
+                    "Gated models like pyannote/segmentation will fail unless weights are cached locally."
+                )
 
             self._logger.info(f"Loading segmentation model: {self.segmentation_model_name}")
             segmentation = m.SegmentationModel.from_pretrained(
                 self.segmentation_model_name, use_hf_token=hf_token
             )
+            if segmentation is None:
+                raise RuntimeError(
+                    f"Segmentation model '{self.segmentation_model_name}' could not be loaded "
+                    "(wrapper or internal model is None). Accept its conditions at "
+                    "https://hf.co/pyannote/segmentation and set HF_TOKEN."
+                )
+            self._logger.info(f"Segmentation model loaded: {type(segmentation.model).__name__}")
 
             self._logger.info(f"Loading embedding model: {self.embedding_model_name}")
             embedding = m.EmbeddingModel.from_pretrained(
                 self.embedding_model_name, use_hf_token=hf_token
             )
+            if embedding is None:
+                raise RuntimeError(
+                    f"Embedding model '{self.embedding_model_name}' could not be loaded "
+                    "(wrapper or internal model is None). Accept its conditions at "
+                    "https://hf.co/pyannote/embedding and set HF_TOKEN."
+                )
+            self._logger.info(f"Embedding model loaded: {type(embedding.model).__name__}")
 
             step_duration = 0.5
             self.config = SpeakerDiarizationConfig(
@@ -443,7 +459,10 @@ class DiarizationEngine:
             return True
 
         except Exception as e:
+            import traceback
+
             self._logger.error(f"Failed to initialize diarization engine: {e}")
+            self._logger.error(traceback.format_exc())
             return False
 
     def stop(self) -> None:

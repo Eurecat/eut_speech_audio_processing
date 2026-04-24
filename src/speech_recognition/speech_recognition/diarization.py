@@ -43,6 +43,7 @@ class DiarizationNode(Node):
         self.declare_parameter("ros4hri_with_id", True)
         self.declare_parameter("cleanup_inactive_topics", False)
         self.declare_parameter("inactive_topic_timeout", 10.0)
+        self.declare_parameter("init_retry_backoff_sec", 10.0)
 
         self.vad_threshold = self.get_parameter("vad_threshold").get_parameter_value().double_value
         self.ros4hri_enabled = (
@@ -53,6 +54,9 @@ class DiarizationNode(Node):
         )
         self.inactive_topic_timeout = (
             self.get_parameter("inactive_topic_timeout").get_parameter_value().double_value
+        )
+        self.init_retry_backoff_sec = (
+            self.get_parameter("init_retry_backoff_sec").get_parameter_value().double_value
         )
 
         # ------------------------------------------------------------------
@@ -70,7 +74,9 @@ class DiarizationNode(Node):
             .get_parameter_value()
             .string_value,
             vad_threshold=self.vad_threshold,
-            similarity_threshold=self.get_parameter("similarity_threshold").get_parameter_value().double_value,
+            similarity_threshold=self.get_parameter("similarity_threshold")
+            .get_parameter_value()
+            .double_value,
             use_database=self.get_parameter("use_database").get_parameter_value().bool_value,
             ros4hri_enabled=self.ros4hri_enabled,
             on_eut_speaker_changed=self._on_eut_speaker_changed,
@@ -82,6 +88,8 @@ class DiarizationNode(Node):
         # State owned by the node
         # ------------------------------------------------------------------
         self._device_initialized: bool = False
+        self._next_init_retry_at: float = 0.0
+        self._init_attempts: int = 0
         self._eut_speaker_id: Optional[str] = None
         self._speaker_activated: bool = False
 
@@ -132,9 +140,15 @@ class DiarizationNode(Node):
 
     def _audio_callback(self, msg: AudioAndDeviceInfo) -> None:
         if not self._device_initialized:
+            now = time.time()
+            if now < self._next_init_retry_at:
+                return
+
+            self._init_attempts += 1
             self.get_logger().info(
-                f"Diarization initialized with device: {msg.device_name} "
-                f"(Sample rate: {msg.device_samplerate} Hz)"
+                f"Listening audio from device: {msg.device_name} "
+                f"(Sample rate: {msg.device_samplerate} Hz) "
+                f"[attempt {self._init_attempts}]"
             )
             if not msg.device_samplerate or msg.device_samplerate <= 0:
                 self.get_logger().error(f"Invalid sample rate: {msg.device_samplerate}")
@@ -144,6 +158,10 @@ class DiarizationNode(Node):
             if success:
                 self._device_initialized = True
             else:
+                self._next_init_retry_at = now + max(self.init_retry_backoff_sec, 0.0)
+                self.get_logger().warn(
+                    f"Diarization init failed. Retrying in {self.init_retry_backoff_sec:.1f}s."
+                )
                 return
 
         audio_data = np.array(msg.audio, dtype=np.float32)
