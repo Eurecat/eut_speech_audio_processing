@@ -38,7 +38,7 @@ This repository contains the **speech and audio processing module** for the perc
 The system features a **decoupled two-component architecture** for robust operation and reliability:
 
 #### 🎙️ **Audio Stream Manager**
-Hardware-isolated audio capture that interfaces directly with audio devices, preventing hardware issues from affecting the speech processing pipeline.
+Hardware-isolated audio capture that interfaces directly with audio devices, preventing hardware issues from affecting the speech processing pipeline. Follows a decoupled design: the `AudioCapturing` ROS2 node is a thin wrapper that only handles parameters and publishing, while `AudioCaptureEngine` owns all audio logic (device discovery, streaming, resampling, fallback, recovery) with no ROS2 dependencies. A dedicated `DeviceWatchdog` runs background threads for disconnection detection and primary-device recovery. The `utils/` module provides reusable helpers: `SoundDeviceManager` for device queries and stream lifecycle, `ActiveDevice` dataclass for device state, and pure functions for audio resampling and RMS computation.
 
 #### 🧠 **Speech Recognition Pipeline**
 A modular processing chain that transforms raw audio into actionable insights:
