@@ -226,3 +226,6 @@ bin/act
 .pre-commit-cache/
 src/audio_stream_manager/test.wav
 log/
+
+# .mp3 files
+*.mp3

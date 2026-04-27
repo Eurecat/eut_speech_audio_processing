@@ -1,17 +1,56 @@
-hey_janaflowchart TD
-    A[Subscription to  <b>/audio_and_device_info</b>:<br>512 samples<br> Chunks of 0.032s] --> B[Buffering]
-    B --> C[VAD check]
-    C -- speech=True --> D[Accumulate chunk window]
-    D --> E[Trigger transcription]
-    E --> F[ASR model faster_whisper / local]
-    F --> G[Postprocess & result]
-    G --> H[ /speech_result SpeechResult]
+flowchart TD
+    LoadModel[<b>Load Whisper model</b><br/>from local snapshot or download if not present]
+    LoadModel --> Subs[Create subscriptions:<br/><b>/audio_and_device_info</b><br/><b>/vad</b><br/><b>/speech_activity_detection</b>]
 
-    C -- speech=False --> I[Drop or wait]
+    Subs --> AudioMsg[Audio message received]
+    AudioMsg --> PushBuffer[Append chunk to<br/>rolling audio buffer<br/>evict chunks older than 35s]
+    PushBuffer --> AudioMsg
 
-    style A fill:#FFA500
-    style H fill:#FFA500
+    Subs --> SpeakerMsg[Speaker ID message received]
+    SpeakerMsg --> StoreSpeaker[Store current speaker ID]
+    StoreSpeaker --> SpeakerMsg
 
-%% Notes
-%% - ASR buffers audio to form a context window before sending to model.
-%% - VAD can trigger or gate transcription to reduce compute.
+    Subs --> VADMsg[VAD probability received]
+    VADMsg --> ThreshCheck{Probability &gt;<br/>VAD threshold?}
+
+    ThreshCheck -->|Yes| SpeechStart[Record speech start time<br/>cancel any pending<br/>silence timer]
+    SpeechStart --> DurationCheck{Speech exceeds<br/>max chunk duration?}
+    DurationCheck -->|Yes| ForceSplit[Find quietest point<br/>in middle of chunk<br/>and split there]
+    ForceSplit --> Transcribe
+    DurationCheck -->|No| VADMsg
+
+    ThreshCheck -->|No| SilenceTimer[Start silence timer<br/>in background thread]
+    SilenceTimer --> TimerWait{Silence 1s timer<br/>elapsed without<br/>new speech?}
+    TimerWait -->|Cancelled - speech resumed| VADMsg
+    TimerWait -->|Elapsed| Transcribe[Extract audio from buffer<br/>speech start to silence end<br/>with pre-buffer prefix]
+
+    Transcribe --> LangResolve{Language<br/>configured?}
+    LangResolve -->|Fixed language| RunWhisper
+    LangResolve -->|Auto-detect| DetectLang[Run language detection<br/>pick best from allowed list]
+    DetectLang --> RunWhisper[Run Whisper model<br/>batched or standard inference<br/>with VAD filter]
+
+    RunWhisper --> HasText{Transcript<br/>non-empty?}
+    HasText -->|No| ResetTiming[Reset speech timing]
+    HasText -->|Yes| PublishResult[Publish <b>/speech_result</b><br/>SpeechResult:<br/>transcript, speaker ID, language]
+    PublishResult --> ROS4HRI{ROS4HRI<br/>enabled?}
+    ROS4HRI -->|Yes| PublishVoice[Publish to<br/><b>/humans/voices/&lt;speaker_id&gt;/speech</b>]
+    PublishVoice --> ResetTiming
+    ROS4HRI -->|No| ResetTiming
+    ResetTiming --> VADMsg
+
+    style LoadModel fill:#FFA500
+    style Subs fill:#FFA500
+    style AudioMsg fill:#FFA500
+    style PushBuffer fill:#FFA500
+    style SpeakerMsg fill:#FFA500
+    style StoreSpeaker fill:#FFA500
+    style VADMsg fill:#FFA500
+    style SpeechStart fill:#FFA500
+    style ForceSplit fill:#FFA500
+    style SilenceTimer fill:#FFA500
+    style Transcribe fill:#FFA500
+    style DetectLang fill:#FFA500
+    style RunWhisper fill:#FFA500
+    style PublishResult fill:#FFA500
+    style PublishVoice fill:#FFA500
+    style ResetTiming fill:#FFA500

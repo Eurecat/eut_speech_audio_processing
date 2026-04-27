@@ -1,5 +1,5 @@
 flowchart TD
-    A[Subscription to topic: <b>/audio_and_device_info</b>] -->  C[ROSAudioSource]
+    A[Subscription to topic: <b>/audio_and_device_info</b>] -->  C[<b>ROSAudioSource</b>]
     C --> D[Accumulate to 0.5s blocks]
     
     D --> E[StreamingInference Thread<br/>pyannote/diart pipeline]
@@ -12,7 +12,7 @@ flowchart TD
     
     H --> I[Annotation with DIART labels:<br/>speaker0, speaker1, etc.]
     
-    I --> J[DiarizationObserver]
+    I --> J[<b>DiarizationObserver</b>]
     
     J --> K{VAD probability<br/>> threshold?}
     
@@ -22,7 +22,7 @@ flowchart TD
     
     M --> N{Database enabled?}
     
-    N -->|Yes| O[Find speaker in MongoDB<br/>cosine distance < 0.5]
+    N -->|Yes| O[Find speaker in MongoDB<br/>cosine distance < similarity_threshold?]
     
     O -->|Match found| P[Use existing EUT_speaker ID]
     O -->|No match| Q[Assign new EUT_speaker ID]
@@ -34,12 +34,21 @@ flowchart TD
     
     S --> R
         
-    U[VAD subscription `/vad`] --> V[Track vad_probability<br/>+ RMS buffer 30 samples]
-    V --> W{RMS < 0.5<br/>sustained silence?}
-    W -->|Yes| X[Publish active=False<br/>for current speaker]
+
     
     style A fill:#FFA500
     style C fill:#FFA500
+    style D fill:#FFA500
     style E fill:#FFA500
+    style F fill:#FFA500
+    style G fill:#FFA500
+    style H fill:#FFA500
+    style I fill:#FFA500
+    style J fill:#FFA500
+    style L fill:#FFA500
+    style M fill:#FFA500
     style O fill:#FFA500
-
+    style P fill:#FFA500
+    style Q fill:#FFA500
+    style R fill:#FFA500
+    style S fill:#FFA500
