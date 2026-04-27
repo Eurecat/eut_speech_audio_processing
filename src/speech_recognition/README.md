@@ -49,7 +49,7 @@ Owns all VAD logic with zero ROS2 dependencies:
 **Published Topics**:
 - `/vad` (`hri_msgs/Vad`): Per-chunk speech probability
 
-**Diagram**: `vad_workflow.mmd`
+**Diagram**: [Open VAD workflow](vad_workflow.mmd)
 
 ---
 
@@ -79,7 +79,7 @@ Owns all wake-word logic with zero ROS2 dependencies:
 
 **Weights**: `.onnx` model files in `weights_openwakeword/` (e.g. `hey_jana.onnx`, `hey_robot.onnx`)
 
-**Diagram**: `wake_word_workflow.mmd`
+**Diagram**: [Open wake word workflow](wake_word_workflow.mmd)
 
 ---
 
@@ -127,7 +127,7 @@ Manages speaker embedding persistence in MongoDB:
 - `HF_TOKEN` environment variable or `huggingface-cli login` for gated pyannote models
 - MongoDB running and accessible (see root `README.md` for setup)
 
-**Diagram**: `diarization_workflow.mmd`
+**Diagram**: [Open diarization workflow](diarization_workflow.mmd)
 
 ---
 
@@ -161,7 +161,7 @@ Owns all ASR logic with zero ROS2 dependencies:
 - `/speech` (`hri_msgs/SpeechResult`): Final transcription results
 - `/live_speech` (`hri_msgs/LiveSpeech`): Intermediate (live) transcription results
 
-**Diagram**: `asr_workflow.mmd`
+**Diagram**: [Open ASR workflow](asr_workflow.mmd)
 
 ---
 
@@ -178,10 +178,10 @@ All workflows are documented as Mermaid diagrams alongside this file:
 
 | Component | Diagram |
 |-----------|---------|
-| VAD | `vad_workflow.mmd` |
-| Wake Word | `wake_word_workflow.mmd` |
-| Diarization | `diarization_workflow.mmd` |
-| ASR | `asr_workflow.mmd` |
-| Database | `database_workflow.mmd` |
+| VAD | [vad_workflow.mmd](vad_workflow.mmd) |
+| Wake Word | [wake_word_workflow.mmd](wake_word_workflow.mmd) |
+| Diarization | [diarization_workflow.mmd](diarization_workflow.mmd) |
+| ASR | [asr_workflow.mmd](asr_workflow.mmd) |
+| Database | [database_workflow.mmd](database_workflow.mmd) |
 
 To render diagrams, install a Mermaid renderer or use the VS Code Mermaid Preview extension.
