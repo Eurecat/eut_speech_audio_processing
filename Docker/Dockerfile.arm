@@ -1,0 +1,164 @@
+# eut_speech_audio_processing — Jetson Thor / ARM64 image
+#
+# Builds on top of the EutRobAIDockers ARM base image (ROS 2 Jazzy + PyTorch ARM64).
+# Build the base first:
+#   cd stack/EutRobAIDockers/Docker && ./build_container.sh --platform arm
+# Then build this image (run from Docker/ directory):
+#   ./build_container.sh --arm
+#
+# Build context is the repo root (parent of Docker/).
+# All COPY paths below are relative to the eut_speech_audio_processing repo root.
+#
+ARG BASE_IMAGE="eut_ros_torch:jazzy"
+
+FROM ${BASE_IMAGE}
+
+ARG BASE_IMAGE
+ARG PLATFORM_ARCH="arm"
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# ------------------------------------------------------------
+# System dependencies
+# portaudio19-dev / libasound2-dev / libpulse-dev: required by sounddevice
+# ffmpeg: used by librosa / audio decoding
+# ------------------------------------------------------------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3-rosdep \
+    python3-colcon-common-extensions \
+    python3-vcstool \
+    build-essential \
+    cmake \
+    git \
+    portaudio19-dev \
+    libasound2-dev \
+    libpulse-dev \
+    ffmpeg \
+    libsndfile1-dev \
+    ninja-build \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /workspace
+
+# ------------------------------------------------------------
+# Python deps (ARM-specific)
+# The NVIDIA Jetson PyTorch base ships a Debian-managed `blinker 1.7.0` without
+# a pip RECORD file, which blocks pip from uninstalling it when any package
+# wants blinker>=1.9.0. Force-overwrite it first via --ignore-installed,
+# then run the regular install.
+# torch / torchvision / numpy / numba / librosa are already in the base image.
+# ------------------------------------------------------------
+COPY Docker/requirements_arm.txt /workspace/requirements_arm.txt
+# The NVIDIA base ships blinker 1.7.0 as a distutils package without a pip
+# RECORD file, which blocks pip from uninstalling it when openwakeword/Flask
+# deps require blinker>=1.9.0. Force-overwrite it before the main install.
+#
+# NOTE: empy 3.3.4 (also distutils-installed in the base) must NOT be upgraded
+# here. empy 4.x changes the interpreter.string() API used by rosidl_generator_rs
+# for .em template expansion, which causes TransientParseError during colcon build.
+# empy 3.3.4 is sufficient for all colcon/ament builds on ARM.
+RUN pip install --no-cache-dir --ignore-installed blinker && \
+    pip install --no-cache-dir -r /workspace/requirements_arm.txt
+
+# ------------------------------------------------------------
+# torchaudio — build from source against installed NVIDIA torch
+# ------------------------------------------------------------
+# PyPI torchaudio links against PyPI torch 2.8.0 stable and fails with:
+#   OSError: _torchaudio.abi3.so: undefined symbol: torch_library_impl
+# when loaded against NVIDIA's ABI-incompatible torch 2.8.0a0+nv25.8.
+#
+# Fix: build from source with --no-build-isolation so cmake uses the installed
+# NVIDIA torch headers (via CMAKE_PREFIX_PATH) and links against the correct
+# libtorch ABI.
+#
+# USE_CUDA=0: build torchaudio without CUDA extensions.
+#   torchaudio v2.8.0 CUDA kernels (cuctc, forced_align GPU) use cub::FpLimits
+#   and cub::Max() which were removed in CCCL 2.x bundled with CUDA 13.0.
+#   pyannote / diart only use torchaudio for audio I/O (torchaudio.load,
+#   Resample) which are CPU ops — CUDA torchaudio extensions are not needed.
+ARG TORCHAUDIO_TAG="v2.8.0"
+RUN git clone --depth 1 --branch ${TORCHAUDIO_TAG} \
+        https://github.com/pytorch/audio.git /tmp/torchaudio_src && \
+    cd /tmp/torchaudio_src && \
+    export CMAKE_PREFIX_PATH="$(python3 -c 'import torch; print(torch.utils.cmake_prefix_path)')" && \
+    export USE_CUDA=0 && \
+    export BUILD_SOX=0 && \
+    export USE_FFMPEG=0 && \
+    export BUILD_RNNT=0 && \
+    export BUILD_CTC_DECODER=0 && \
+    export MAX_JOBS=4 && \
+    pip install --no-cache-dir --no-build-isolation --no-deps . && \
+    rm -rf /tmp/torchaudio_src
+# ------------------------------------------------------------
+# ctranslate2 — build from source with CUDA support
+# ------------------------------------------------------------
+# PyPI ctranslate2 aarch64 wheels are CPU-only. faster-whisper uses ctranslate2
+# for all inference — without a CUDA build, ASR always falls back to CPU.
+# Build for SM 11.0 (Jetson Thor / Blackwell, CUDA 13.0).
+# CMAKE_ARGS passed via scikit-build-core; WITH_CUDA=ON defaults to ON when
+# CUDA is detected, but we set it explicitly to be safe.
+ARG CT2_TAG="v4.5.0"
+RUN pip uninstall -y ctranslate2 || true && \
+    git clone --recursive --depth 1 --shallow-submodules --branch ${CT2_TAG} \
+        https://github.com/OpenNMT/CTranslate2.git /tmp/ct2_src && \
+    CT2_CMAKE_MODULES="$(python3 -c "import torch, os; print(os.path.join(os.path.dirname(torch.__file__), 'share/cmake/Caffe2/Modules_CUDA_fix/upstream'))")" && \
+    cmake -S /tmp/ct2_src -B /tmp/ct2_src/build \
+        "-DCMAKE_MODULE_PATH=${CT2_CMAKE_MODULES}" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DWITH_CUDA=ON \
+        -DWITH_CUDNN=ON \
+        -DWITH_MKL=OFF \
+        -DCUDA_ARCH_LIST="11.0" \
+        -DOPENMP_RUNTIME=COMP && \
+    cmake --build /tmp/ct2_src/build --parallel 4 && \
+    cmake --install /tmp/ct2_src/build && \
+    ldconfig && \
+    cd /tmp/ct2_src/python && \
+    pip install --no-cache-dir --no-build-isolation --no-deps . && \
+    rm -rf /tmp/ct2_src
+# ------------------------------------------------------------
+RUN [ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ] && \
+    /bin/bash -c "source /opt/ros/${ROS_DISTRO}/setup.bash && rosdep init" || \
+    echo "rosdep already initialized"
+RUN apt-get update && \
+    /bin/bash -c "source /opt/ros/${ROS_DISTRO}/setup.bash && rosdep update"
+
+# ------------------------------------------------------------
+# Copy ROS 2 packages (build context = repo root)
+# deps/ is populated by vcs import inside build_container.sh --arm
+# before the docker build command is invoked.
+# ------------------------------------------------------------
+COPY Docker/deps/hri_msgs                       /workspace/src/hri_msgs
+COPY Docker/deps/audio_common/audio_common_msgs /workspace/src/audio_common_msgs
+COPY src/audio_stream_manager                   /workspace/src/audio_stream_manager
+COPY src/speech_recognition                     /workspace/src/speech_recognition
+
+# ------------------------------------------------------------
+# Install ROS dependencies from package.xmls
+# ------------------------------------------------------------
+RUN /bin/bash -c "source /opt/ros/${ROS_DISTRO}/setup.bash && \
+    rosdep install --from-paths src --ignore-src -r -y"
+
+# ------------------------------------------------------------
+# Build workspace
+# --base-paths restricts colcon scanning to /workspace/src so it doesn't pick
+# up NVIDIA tutorial packages in the base image.
+# --packages-select makes the build explicit and avoids accidentally building
+# extra packages (same pattern as EutEntityDetection Dockerfile.arm).
+# ------------------------------------------------------------
+RUN /bin/bash -c "source /opt/ros/${ROS_DISTRO}/setup.bash && \
+    colcon build \
+        --base-paths /workspace/src \
+        --build-base  /workspace/build \
+        --install-base /workspace/install \
+        --event-handlers console_direct+ \
+        --symlink-install \
+        --packages-select hri_msgs audio_common_msgs audio_stream_manager speech_recognition"
+
+# Copy and set up the entrypoint script
+COPY Docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["/bin/bash"]

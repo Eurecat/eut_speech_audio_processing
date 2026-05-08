@@ -390,33 +390,61 @@ class DiarizationEngine:
         try:
             hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_HUB_TOKEN")
             if hf_token is None:
-                self._logger.warn(
-                    "No Hugging Face token found (HF_TOKEN/HUGGINGFACE_HUB_TOKEN). "
-                    "Gated models like pyannote/segmentation will fail unless weights are cached locally."
+                self._logger.error(
+                    "HF_TOKEN not set — pyannote models require a Hugging Face token. "
+                    "Set HF_TOKEN in Docker/.env, accept conditions at "
+                    "https://hf.co/pyannote/segmentation and https://hf.co/pyannote/embedding, "
+                    "then restart the container."
                 )
 
             self._logger.info(f"Loading segmentation model: {self.segmentation_model_name}")
+            # PyTorch 2.6+ defaults torch.load to weights_only=True. Pyannote checkpoints
+            # use omegaconf objects which are not in the default allowlist. Register them
+            # as safe globals before triggering any model load.
+            try:
+                import torch.serialization
+                import omegaconf
+                import omegaconf.base
+                import omegaconf.listconfig
+                import omegaconf.dictconfig
+                torch.serialization.add_safe_globals([
+                    omegaconf.listconfig.ListConfig,
+                    omegaconf.dictconfig.DictConfig,
+                    omegaconf.base.ContainerMetadata,
+                    omegaconf.base.Metadata,
+                    omegaconf.base.Node,
+                    omegaconf.base.ValueKind,
+                    omegaconf.base.SCMode,
+                ])
+            except Exception:
+                pass  # older torch / missing omegaconf — let the load fail naturally
+
             segmentation = m.SegmentationModel.from_pretrained(
                 self.segmentation_model_name, use_hf_token=hf_token
             )
-            if segmentation is None:
+            # from_pretrained returns a LazyModel — .model is None until .load() is called.
+            # Call .load() now so the download runs and any auth/network error surfaces here
+            # with a clear message rather than as an AttributeError inside SpeakerDiarization.
+            try:
+                segmentation.load()
+            except Exception as load_err:
                 raise RuntimeError(
-                    f"Segmentation model '{self.segmentation_model_name}' could not be loaded "
-                    "(wrapper or internal model is None). Accept its conditions at "
-                    "https://hf.co/pyannote/segmentation and set HF_TOKEN."
-                )
+                    f"Segmentation model '{self.segmentation_model_name}' failed to load: {load_err}. "
+                    "Accept its conditions at https://hf.co/pyannote/segmentation and ensure HF_TOKEN is set."
+                ) from load_err
             self._logger.info(f"Segmentation model loaded: {type(segmentation.model).__name__}")
 
             self._logger.info(f"Loading embedding model: {self.embedding_model_name}")
             embedding = m.EmbeddingModel.from_pretrained(
                 self.embedding_model_name, use_hf_token=hf_token
             )
-            if embedding is None:
+            try:
+                embedding.load()
+            except Exception as load_err:
                 raise RuntimeError(
-                    f"Embedding model '{self.embedding_model_name}' could not be loaded "
-                    "(wrapper or internal model is None). Accept its conditions at "
-                    "https://hf.co/pyannote/embedding and set HF_TOKEN."
-                )
+                    f"Embedding model '{self.embedding_model_name}' failed to load: {load_err}. "
+                    "Accept its conditions at https://hf.co/pyannote/embedding and ensure HF_TOKEN is set."
+                ) from load_err
             self._logger.info(f"Embedding model loaded: {type(embedding.model).__name__}")
 
             step_duration = 0.5

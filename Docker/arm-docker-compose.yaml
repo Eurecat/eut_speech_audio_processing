@@ -1,0 +1,142 @@
+# eut_speech_audio_processing — Jetson Thor / ARM64 compose
+#
+# Use after building the ARM image:
+#   ./build_container.sh --arm          (produces eut_audio_arm:jazzy)
+#
+# Run:
+#   docker compose -f arm-docker-compose.yaml up
+#
+# Key differences from docker-compose.yaml (x86 dev):
+#  - runtime: nvidia (Jetson NVIDIA runtime — not runc)
+#  - No CycloneDDS XML mount: uses CycloneDDS auto-discovery (no hardcoded
+#    ethernet interface like enx00e04c6801e5 that doesn't exist on Jetson)
+#  - Set CYCLONE_CONFIG_FILE in .env to override (e.g. cyclonedds_localhost.xml)
+#    for fully isolated local testing, or cyclonedds_wifi.xml for wireless.
+#  - Source packages ARE live-mounted (same as docker-compose.yaml) so edits
+#    on the host are picked up without rebuilding the image.
+#
+name: coghri_audio_arm
+
+services:
+  audio_device_manager_service:
+    container_name: "audio_device_manager"
+    network_mode: host
+    ipc: host
+    shm_size: 1gb
+    runtime: ${DOCKER_RUNTIME:-nvidia}
+    image: ${BUILT_IMAGE:-eut_audio_arm:jazzy}
+    privileged: true
+    depends_on:
+      - mongodb_service
+    volumes:
+      - ./logs:/workspace/log
+      - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
+      - ../src/speech_recognition:/workspace/src/speech_recognition
+      - /dev:/dev
+    tty: true
+    stdin_open: true
+    environment:
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-12}
+      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}
+      - PACKAGE_NAME=audio_stream_manager
+      - BUILD_LOGS_TO_KEEP=${BUILD_LOGS_TO_KEEP:-2}
+      - RUNTIME_LOGS_TO_KEEP=${RUNTIME_LOGS_TO_KEEP:-2}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - HF_TOKEN=${HF_TOKEN}
+      - TORCH_HOME=/root/.cache/torch
+      - AI_VENV=/opt/ros_python_env
+    devices:
+      - /dev/snd:/dev/snd
+      - /dev/bus/usb:/dev/bus/usb
+    device_cgroup_rules:
+      - 'c 180:* rwm'  # USB devices
+      - 'c 189:* rwm'  # USB devices
+    command: >
+      bash -c "source /workspace/install/setup.bash &&
+      exec ros2 launch audio_stream_manager audio_stream_manager.launch.py"
+    stop_signal: SIGINT
+    stop_grace_period: 30s
+
+  speech_recognition_service:
+    container_name: "speech_recognition"
+    network_mode: host
+    ipc: host
+    shm_size: 1gb
+    runtime: ${DOCKER_RUNTIME:-nvidia}
+    image: ${BUILT_IMAGE:-eut_audio_arm:jazzy}
+    privileged: true
+    depends_on:
+      - mongodb_service
+    volumes:
+      - ./logs:/workspace/log
+      - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
+      - ../src/speech_recognition:/workspace/src/speech_recognition
+      # Pyannote weights volume — persists downloaded HF models across restarts
+      - pyannote_weights:/workspace/src/speech_recognition/speech_recognition/weights_pyannote
+      - /dev:/dev
+    tty: true
+    stdin_open: true
+    environment:
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-12}
+      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}
+      - PACKAGE_NAME=speech_recognition
+      - BUILD_LOGS_TO_KEEP=${BUILD_LOGS_TO_KEEP:-2}
+      - RUNTIME_LOGS_TO_KEEP=${RUNTIME_LOGS_TO_KEEP:-2}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - HF_TOKEN=${HF_TOKEN}
+      - TORCH_HOME=/root/.cache/torch
+      - AI_VENV=/opt/ros_python_env
+    devices:
+      - /dev/snd:/dev/snd
+      - /dev/bus/usb:/dev/bus/usb
+    device_cgroup_rules:
+      - 'c 180:* rwm'
+      - 'c 189:* rwm'
+    # Enable/disable components via launch file arguments:
+    # ros2 launch speech_recognition speech_recognition.launch.py enable_vad:=false enable_diarization:=false enable_asr:=false enable_wake_word:=false
+    command: >
+      bash -c "source /workspace/install/setup.bash &&
+      exec ros2 launch speech_recognition speech_recognition.launch.py"
+    stop_signal: SIGINT
+    stop_grace_period: 30s
+
+  mongodb_service:
+    image: mongo:7
+    container_name: "mongodb"
+    restart: unless-stopped
+    network_mode: host
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=eurecat
+      - MONGO_INITDB_ROOT_PASSWORD=cerdanyola
+    stop_signal: SIGTERM
+    stop_grace_period: 60s
+
+  mongo_express:
+    image: mongo-express:latest
+    container_name: "mongo-express"
+    restart: unless-stopped
+    network_mode: host
+    depends_on:
+      - mongodb_service
+    ports:
+      - "8081:8081"
+    environment:
+      - ME_CONFIG_MONGODB_ENABLE_ADMIN=true
+      - ME_CONFIG_MONGODB_ADMINUSERNAME=eurecat
+      - ME_CONFIG_MONGODB_ADMINPASSWORD=cerdanyola
+      - ME_CONFIG_MONGODB_SERVER=mongodb_service
+      - ME_CONFIG_MONGODB_URL=mongodb://eurecat:cerdanyola@mongodb_service:27017/?authSource=admin
+
+volumes:
+  mongodb_data:
+    name: coghri_speakers_mongodb_data
+    driver: local
+  pyannote_weights:
+    name: coghri_audio_arm_pyannote_weights
+    driver: local

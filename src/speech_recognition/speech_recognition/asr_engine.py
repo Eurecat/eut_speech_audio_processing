@@ -5,6 +5,7 @@ import time
 from collections import deque
 from typing import Callable, List, Optional
 
+import ctranslate2
 import numpy as np
 import torch
 from faster_whisper import BatchedInferencePipeline, WhisperModel
@@ -121,7 +122,7 @@ class ASREngine:
         return WHISPER_MODELS[model_size]
 
     def _load_model(self, model_size: str, compute_type: str, weights_dir: str):
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        device = "cuda" if ctranslate2.get_cuda_device_count() > 0 else "cpu"
         self._logger.info(f"Using device on ASR: {device}")
 
         os.makedirs(weights_dir, exist_ok=True)

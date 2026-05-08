@@ -3,13 +3,18 @@
 # Build script for EUT Speech Audio Processing Docker container
 #
 # Usage:
-# - Default (Vulcanexus with GPU): ./build_container.sh
+# - Default (Jazzy with GPU): ./build_container.sh
 # - Vulcanexus with GPU: ./build_container.sh --vulcanexus
 # - Humble Vulcanexus with GPU: ./build_container.sh --humble --vulcanexus
 # - CPU-only version: ./build_container.sh --cpu
 # - With Humble: ./build_container.sh --humble
 # - CPU-only Vulcanexus: ./build_container.sh --cpu --vulcanexus
-# - Clean rebuild: ./build_container.sh --clean-rebuild [--vulcanexus] [--cpu] [--humble]
+# - Jetson Thor / ARM64: ./build_container.sh --arm
+# - Clean rebuild: ./build_container.sh --clean-rebuild [--vulcanexus] [--cpu] [--humble] [--arm]
+#
+# --arm uses Dockerfile.arm and the ARM base image eut_ros_torch:jazzy
+# (built by EutRobAIDockers/Docker/build_container.sh --platform arm).
+# It is mutually exclusive with --vulcanexus / --humble / --cpu (Jazzy + GPU only).
 #
 
 export DOCKER_BUILDKIT=1
@@ -40,6 +45,7 @@ REBUILD=false
 NO_VCS=false
 USE_VULCANEXUS=false
 USE_HUMBLE=false
+USE_ARM=false
 for arg in "$@"; do
     if [ "$arg" == "--clean-rebuild" ]; then
         REBUILD=true
@@ -57,10 +63,32 @@ for arg in "$@"; do
     if [ "$arg" == "--no-vcs" ]; then
         NO_VCS=true
     fi
+    if [ "$arg" == "--arm" ]; then
+        USE_ARM=true
+    fi
 done
 
+# --arm validation: mutually exclusive with --vulcanexus / --humble / --cpu
+if $USE_ARM; then
+    if $USE_VULCANEXUS; then
+        echo "Error: --arm is not supported with --vulcanexus (ARM base is standard ROS 2 Jazzy)."
+        exit 1
+    fi
+    if $USE_HUMBLE; then
+        echo "Error: --arm is not supported with --humble (ARM base is forced to Jazzy)."
+        exit 1
+    fi
+    if [ "$CPU_ONLY" = "true" ]; then
+        echo "Error: --arm requires the Jetson GPU-enabled base image; --cpu is incompatible."
+        exit 1
+    fi
+    TARGET_DISTRO="jazzy"
+fi
+
 # Resolve base image from selected flags
-if $USE_VULCANEXUS; then
+if $USE_ARM; then
+    BASE_IMAGE="eut_ros_torch:${TARGET_DISTRO}"
+elif $USE_VULCANEXUS; then
     BASE_IMAGE="eut_ros_vulcanexus_torch:${TARGET_DISTRO}"
 else
     BASE_IMAGE="eut_ros_torch:${TARGET_DISTRO}"
@@ -94,14 +122,18 @@ else
 fi
 
 # Display build configuration
-if [[ "${BASE_IMAGE}" == *"vulcanexus"* ]]; then
+if $USE_ARM; then
+    echo "Building Jetson Thor / ARM64 (Jazzy + PyTorch ARM) image..."
+elif [[ "${BASE_IMAGE}" == *"vulcanexus"* ]]; then
     echo "Building with Vulcanexus ${TARGET_DISTRO} base image..."
 else
     echo "Building with standard ROS2 ${TARGET_DISTRO} base image..."
 fi
 
-# Set image name based on the base image choice and CPU flag
-if [[ "${BASE_IMAGE}" == *"vulcanexus"* ]]; then
+# Set image name based on the base image choice and CPU/ARM flags
+if $USE_ARM; then
+    IMAGE_NAME="eut_audio_arm:${TARGET_DISTRO}"
+elif [[ "${BASE_IMAGE}" == *"vulcanexus"* ]]; then
     if [ "$CPU_ONLY" = "true" ]; then
         IMAGE_NAME="eut_audio_vulcanexus_cpu:${TARGET_DISTRO}"
     else
@@ -117,13 +149,39 @@ fi
 
 echo "Base image: ${BASE_IMAGE}"
 echo "CPU Only: ${CPU_ONLY}"
+echo "ARM build: ${USE_ARM}"
 echo "Output image: ${IMAGE_NAME}"
 
-if $REBUILD; then
-    echo "Rebuilding the application Docker image..."
-    docker build --no-cache . --build-arg BASE_IMAGE="${BASE_IMAGE}" --build-arg CPU_ONLY="${CPU_ONLY}" --build-arg TARGET_DISTRO="${TARGET_DISTRO}" -t ${IMAGE_NAME} -f Dockerfile
+# Build:
+# - --arm uses Dockerfile.arm with build context = repo root (..) so it can
+#   COPY src/audio_stream_manager, src/speech_recognition and Docker/deps/*.
+# - x86_64 path keeps the historical behavior: build context = Docker dir
+#   and ROS packages mounted via docker-compose at runtime.
+if $USE_ARM; then
+    DOCKERFILE="Dockerfile.arm"
+    BUILD_CONTEXT=".."
+    BUILD_PLATFORM="linux/arm64"
+    BUILD_ARGS=(
+        --platform "${BUILD_PLATFORM}"
+        --build-arg BASE_IMAGE="${BASE_IMAGE}"
+        --build-arg PLATFORM_ARCH="arm"
+        -t "${IMAGE_NAME}"
+        -f "${DOCKERFILE}"
+        "${BUILD_CONTEXT}"
+    )
+    if $REBUILD; then
+        echo "Rebuilding ARM image (no cache)..."
+        docker build --no-cache "${BUILD_ARGS[@]}"
+    else
+        docker build "${BUILD_ARGS[@]}"
+    fi
 else
-    docker build . --build-arg BASE_IMAGE="${BASE_IMAGE}" --build-arg CPU_ONLY="${CPU_ONLY}" --build-arg TARGET_DISTRO="${TARGET_DISTRO}" -t ${IMAGE_NAME} -f Dockerfile
+    if $REBUILD; then
+        echo "Rebuilding the application Docker image..."
+        docker build --no-cache . --build-arg BASE_IMAGE="${BASE_IMAGE}" --build-arg CPU_ONLY="${CPU_ONLY}" --build-arg TARGET_DISTRO="${TARGET_DISTRO}" -t ${IMAGE_NAME} -f Dockerfile
+    else
+        docker build . --build-arg BASE_IMAGE="${BASE_IMAGE}" --build-arg CPU_ONLY="${CPU_ONLY}" --build-arg TARGET_DISTRO="${TARGET_DISTRO}" -t ${IMAGE_NAME} -f Dockerfile
+    fi
 fi
 
 # Set or Update BUILT_IMAGE 
@@ -133,20 +191,7 @@ else
     echo "BUILT_IMAGE=$IMAGE_NAME" >> "$ENV_FILE"
 fi
 
-# Set or Update DOCKER_RUNTIME based on CPU_ONLY flag
-if [ "$CPU_ONLY" = "true" ]; then
-    DOCKER_RUNTIME="runc"
-else
-    DOCKER_RUNTIME="nvidia"
-fi
-
-if grep -q -E "^DOCKER_RUNTIME=" "$ENV_FILE"; then
-    sed -i "s/^DOCKER_RUNTIME=.*/DOCKER_RUNTIME=$DOCKER_RUNTIME/" "$ENV_FILE"
-else
-    echo "DOCKER_RUNTIME=$DOCKER_RUNTIME" >> "$ENV_FILE"
-fi
-
-# Set or Update DOCKER_RUNTIME based on CPU_ONLY flag
+# Set or Update DOCKER_RUNTIME based on CPU_ONLY flag (ARM always uses nvidia runtime)
 if [ "$CPU_ONLY" = "true" ]; then
     DOCKER_RUNTIME="runc"
 else
@@ -160,7 +205,8 @@ else
 fi
 
 # Set or Update RMW_IMPLEMENTATION based on TARGET_DISTRO
-if [ "$TARGET_DISTRO" = "humble" ]; then
+# ARM (Jazzy) uses CycloneDDS; Humble also CycloneDDS; standard Jazzy uses FastRTPS
+if [ "$TARGET_DISTRO" = "humble" ] || $USE_ARM; then
     RMW_IMPLEMENTATION="rmw_cyclonedds_cpp"
     IMG_RAW_TOPIC="/head_front_camera/color/image_raw/compressed"
 else
