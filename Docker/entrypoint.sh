@@ -43,8 +43,20 @@ fi
 # Build speech audio processing packages
 echo "Building ros2 packages of this repo..."
 cd /workspace
-# rm -rf build/ install/
-colcon build --event-handlers console_direct+ --symlink-install
+# --base-paths /workspace/src restricts colcon scanning so we don't pick up
+# NVIDIA tutorial packages (custom_ops, dispatcher, infer, warp_perspective)
+# that live under /workspace/tutorials/ in the ARM base image.
+# We also explicitly remove any stale build artifacts for those packages.
+for _stale in custom_ops warp_perspective dispatcher infer; do
+    rm -rf "/workspace/build/${_stale}" "/workspace/install/${_stale}" 2>/dev/null || true
+done
+colcon build \
+    --base-paths /workspace/src \
+    --build-base  /workspace/build \
+    --install-base /workspace/install \
+    --packages-ignore custom_ops warp_perspective dispatcher infer \
+    --event-handlers console_direct+ \
+    --symlink-install
 
 # Cleanup: Keep only the last N build/runtime logs
 # BUILD_LOGS_TO_KEEP:   number of build log sessions to retain.   -1 = never delete.
