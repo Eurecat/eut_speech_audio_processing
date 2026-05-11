@@ -32,11 +32,21 @@ class AudioToMp3(Node):
             10,
         )
         self.audio_buffer = []  # list of numpy float32 arrays
+        self._chunks_received = 0
+        self.create_timer(10.0, self._status_callback)
         self.get_logger().info("AudioToMp3 node started, subscribing to /audio_and_device_info")
 
     def audio_callback(self, msg):
         chunk = np.array(msg.audio, dtype=np.float32)
         self.audio_buffer.append(chunk)
+        self._chunks_received += 1
+
+    def _status_callback(self):
+        total_samples = sum(len(c) for c in self.audio_buffer)
+        duration_s = total_samples / self.sample_rate if self.sample_rate else 0
+        self.get_logger().info(
+            f"Recording: {duration_s:.1f}s buffered ({self._chunks_received} chunks) → {self.output_mp3}"
+        )
 
 
 def main(args=None):
