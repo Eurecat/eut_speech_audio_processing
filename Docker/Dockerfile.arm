@@ -96,9 +96,16 @@ RUN git clone --depth 1 --branch ${TORCHAUDIO_TAG} \
 # PyPI ctranslate2 aarch64 wheels are CPU-only. faster-whisper uses ctranslate2
 # for all inference — without a CUDA build, ASR always falls back to CPU.
 # Build for SM 11.0 (Jetson Thor / Blackwell, CUDA 13.0).
-# CMAKE_ARGS passed via scikit-build-core; WITH_CUDA=ON defaults to ON when
-# CUDA is detected, but we set it explicitly to be safe.
-ARG CT2_TAG="v4.5.0"
+#
+# jetson-containers approach: they use ctranslate2 4.7.1 and auto-detect CUDA arch
+# via CMake. We mirror that version and set CUDA_ARCH_LIST="11.0" explicitly
+# since we may build without --gpus all (cross-compile scenario).
+#
+# Note: jetson-containers prebuilt images (dustynv/faster-whisper:r36.4.0-cu128-24.04)
+# target CUDA 12.6/12.8 (JetPack 6 / L4T r36.x) and are NOT compatible with our
+# CUDA 13.0 (JetPack 7.0 / L4T r38.x). Source build is required until dusty-nv
+# publishes r38 (JetPack 7.0) images.
+ARG CT2_TAG="v4.7.1"
 RUN pip uninstall -y ctranslate2 || true && \
     git clone --recursive --depth 1 --shallow-submodules --branch ${CT2_TAG} \
         https://github.com/OpenNMT/CTranslate2.git /tmp/ct2_src && \

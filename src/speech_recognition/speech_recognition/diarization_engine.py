@@ -399,15 +399,18 @@ class DiarizationEngine:
 
             self._logger.info(f"Loading segmentation model: {self.segmentation_model_name}")
             # PyTorch 2.6+ defaults torch.load to weights_only=True. Pyannote checkpoints
-            # use omegaconf objects which are not in the default allowlist. Register them
-            # as safe globals before triggering any model load.
+            # use omegaconf objects and typing.Any which are not in the default allowlist.
+            # Register them as safe globals before triggering any model load.
+            # PyTorch 2.8 (NVIDIA nv25.8) is even stricter — typing.Any must be added too.
             try:
+                import typing
                 import torch.serialization
                 import omegaconf
                 import omegaconf.base
                 import omegaconf.listconfig
                 import omegaconf.dictconfig
                 torch.serialization.add_safe_globals([
+                    typing.Any,
                     omegaconf.listconfig.ListConfig,
                     omegaconf.dictconfig.DictConfig,
                     omegaconf.base.ContainerMetadata,
