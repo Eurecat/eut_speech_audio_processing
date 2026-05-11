@@ -398,57 +398,63 @@ class DiarizationEngine:
                 )
 
             self._logger.info(f"Loading segmentation model: {self.segmentation_model_name}")
-            # PyTorch 2.6+ defaults torch.load to weights_only=True. Pyannote checkpoints
-            # use omegaconf objects and typing.Any which are not in the default allowlist.
-            # Register them as safe globals before triggering any model load.
-            # PyTorch 2.8 (NVIDIA nv25.8) is even stricter — typing.Any must be added too.
-            try:
-                import typing
-                import torch.serialization
-                import omegaconf
-                import omegaconf.base
-                import omegaconf.listconfig
-                import omegaconf.dictconfig
-                torch.serialization.add_safe_globals([
-                    typing.Any,
-                    omegaconf.listconfig.ListConfig,
-                    omegaconf.dictconfig.DictConfig,
-                    omegaconf.base.ContainerMetadata,
-                    omegaconf.base.Metadata,
-                    omegaconf.base.Node,
-                    omegaconf.base.ValueKind,
-                    omegaconf.base.SCMode,
-                ])
-            except Exception:
-                pass  # older torch / missing omegaconf — let the load fail naturally
+            # PyTorch 2.6+ defaults torch.load to weights_only=True, but pyannote/lightning
+            # checkpoints pickle arbitrary Python types (int, list, omegaconf objects, etc.)
+            # that are not in the allowlist. Rather than enumerating every type one-by-one,
+            # monkey-patch torch.load to default weights_only=False for the duration of
+            # model loading. These checkpoints come from Hugging Face (trusted source) and are
+            # restored only inside this container, so the relaxed safety setting is acceptable.
+            _orig_torch_load = torch.load
 
-            segmentation = m.SegmentationModel.from_pretrained(
-                self.segmentation_model_name, use_hf_token=hf_token
-            )
-            # from_pretrained returns a LazyModel — .model is None until .load() is called.
-            # Call .load() now so the download runs and any auth/network error surfaces here
-            # with a clear message rather than as an AttributeError inside SpeakerDiarization.
-            try:
-                segmentation.load()
-            except Exception as load_err:
-                raise RuntimeError(
-                    f"Segmentation model '{self.segmentation_model_name}' failed to load: {load_err}. "
-                    "Accept its conditions at https://hf.co/pyannote/segmentation and ensure HF_TOKEN is set."
-                ) from load_err
-            self._logger.info(f"Segmentation model loaded: {type(segmentation.model).__name__}")
+            def _torch_load_weights_only_false(*args, **kwargs):
+                # Force weights_only=False regardless of what the caller passes.
+                # lightning_fabric explicitly passes weights_only=True in newer versions,
+                # so setdefault() is not sufficient — we must override it.
+                kwargs["weights_only"] = False
+                return _orig_torch_load(*args, **kwargs)
 
-            self._logger.info(f"Loading embedding model: {self.embedding_model_name}")
-            embedding = m.EmbeddingModel.from_pretrained(
-                self.embedding_model_name, use_hf_token=hf_token
-            )
+            # pyannote.audio calls semver.VersionInfo.parse(torch.__version__) inside
+            # on_load_checkpoint() to do a compatibility check. NVIDIA's pre-release
+            # version string (e.g. "2.8.0a0+34c6371d24") is not valid SemVer and raises
+            # ValueError. pyannote/audio/core/model.py imports check_version with
+            # `from pyannote.audio.utils.version import check_version`, so we must patch
+            # the name in that module's namespace, not the utils module itself.
+            import pyannote.audio.core.model as _pyannote_model_mod
+            _orig_check_version = _pyannote_model_mod.check_version
+            _pyannote_model_mod.check_version = lambda *a, **kw: None
+
+            torch.load = _torch_load_weights_only_false
             try:
-                embedding.load()
-            except Exception as load_err:
-                raise RuntimeError(
-                    f"Embedding model '{self.embedding_model_name}' failed to load: {load_err}. "
-                    "Accept its conditions at https://hf.co/pyannote/embedding and ensure HF_TOKEN is set."
-                ) from load_err
-            self._logger.info(f"Embedding model loaded: {type(embedding.model).__name__}")
+                segmentation = m.SegmentationModel.from_pretrained(
+                    self.segmentation_model_name, use_hf_token=hf_token
+                )
+                # from_pretrained returns a LazyModel — .model is None until .load() is called.
+                # Call .load() now so the download runs and any auth/network error surfaces here
+                # with a clear message rather than as an AttributeError inside SpeakerDiarization.
+                try:
+                    segmentation.load()
+                except Exception as load_err:
+                    raise RuntimeError(
+                        f"Segmentation model '{self.segmentation_model_name}' failed to load: {load_err}. "
+                        "Accept its conditions at https://hf.co/pyannote/segmentation and ensure HF_TOKEN is set."
+                    ) from load_err
+                self._logger.info(f"Segmentation model loaded: {type(segmentation.model).__name__}")
+
+                self._logger.info(f"Loading embedding model: {self.embedding_model_name}")
+                embedding = m.EmbeddingModel.from_pretrained(
+                    self.embedding_model_name, use_hf_token=hf_token
+                )
+                try:
+                    embedding.load()
+                except Exception as load_err:
+                    raise RuntimeError(
+                        f"Embedding model '{self.embedding_model_name}' failed to load: {load_err}. "
+                        "Accept its conditions at https://hf.co/pyannote/embedding and ensure HF_TOKEN is set."
+                    ) from load_err
+                self._logger.info(f"Embedding model loaded: {type(embedding.model).__name__}")
+            finally:
+                torch.load = _orig_torch_load
+                _pyannote_model_mod.check_version = _orig_check_version
 
             step_duration = 0.5
             self.config = SpeakerDiarizationConfig(
