@@ -375,14 +375,14 @@ class ASREngine:
                 segments, info = self.batched_model.transcribe(
                     audio_data,
                     batch_size=self.batch_size,
-                    vad_filter=True,
+                    vad_filter=False,  # external VAD already gates audio; skip redundant internal pass
                     word_timestamps=False,
                     language=transcription_language,
                 )
             else:
                 segments, info = self.model.transcribe(
                     audio_data,
-                    vad_filter=True,
+                    vad_filter=False,  # external VAD already gates audio; skip redundant internal pass
                     word_timestamps=False,
                     language=transcription_language,
                 )
