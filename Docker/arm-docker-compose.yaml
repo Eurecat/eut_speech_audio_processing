@@ -44,6 +44,7 @@ services:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
       - HF_TOKEN=${HF_TOKEN}
+      - BUILT_IMAGE=${BUILT_IMAGE:-eut_audio_arm:jazzy}
       - TORCH_HOME=/root/.cache/torch
       - AI_VENV=/opt/ros_python_env
     devices:
@@ -86,6 +87,8 @@ services:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
       - HF_TOKEN=${HF_TOKEN}
+      - HF_HOME=/workspace/src/speech_recognition/speech_recognition/weights_pyannote
+      - BUILT_IMAGE=${BUILT_IMAGE:-eut_audio_arm:jazzy}
       - TORCH_HOME=/root/.cache/torch
       - AI_VENV=/opt/ros_python_env
     devices:

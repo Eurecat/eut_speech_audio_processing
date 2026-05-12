@@ -167,8 +167,20 @@ if $USE_ARM; then
         --build-arg PLATFORM_ARCH="arm"
         -t "${IMAGE_NAME}"
         -f "${DOCKERFILE}"
-        "${BUILD_CONTEXT}"
     )
+
+    # Pass HF_TOKEN as a BuildKit secret so pyannote models are pre-downloaded
+    # into the image without baking the token into any layer.
+    # If HF_TOKEN is not set, the download is skipped gracefully at build time
+    # and models will be fetched on first container run (requires internet).
+    if [ -n "${HF_TOKEN:-}" ]; then
+        echo "HF_TOKEN found — pyannote models will be pre-downloaded into the image."
+        BUILD_ARGS+=(--secret id=hf_token,env=HF_TOKEN)
+    else
+        echo "HF_TOKEN not set — pyannote models will download on first container run (requires internet)."
+    fi
+
+    BUILD_ARGS+=("${BUILD_CONTEXT}")
     if $REBUILD; then
         echo "Rebuilding ARM image (no cache)..."
         docker build --no-cache "${BUILD_ARGS[@]}"
