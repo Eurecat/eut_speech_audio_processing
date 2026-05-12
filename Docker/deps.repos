@@ -2,7 +2,7 @@ repositories:
   hri_msgs:
     type: git
     url: https://github.com/Eurecat/hri_msgs.git
-    version: feat/speech_refactor
+    version: jazzy-devel
   audio_common:
     type: git
     url: https://github.com/ros-drivers/audio_common.git
