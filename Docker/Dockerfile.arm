@@ -41,6 +41,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set working directory
 WORKDIR /workspace
 
+# HF_HOME controls where huggingface_hub caches model files.
+# Pointing it to the weights_pyannote dir means:
+#   • Docker build: pre-downloaded models land here (baked into the image layer)
+#   • First container run: named volume `pyannote_weights` is initialised from
+#     the image content at this path (Docker seeds named volumes from image on
+#     first mount), giving immediate offline access.
+#   • Subsequent runs: models served from the named volume.
+ENV HF_HOME=/workspace/src/speech_recognition/speech_recognition/weights_pyannote
+
 # ------------------------------------------------------------
 # Python deps (ARM-specific)
 # The NVIDIA Jetson PyTorch base ships a Debian-managed `blinker 1.7.0` without
@@ -162,6 +171,19 @@ RUN /bin/bash -c "source /opt/ros/${ROS_DISTRO}/setup.bash && \
         --event-handlers console_direct+ \
         --symlink-install \
         --packages-select hri_msgs audio_common_msgs audio_stream_manager speech_recognition"
+
+# ------------------------------------------------------------
+# Pre-download pyannote models at build time
+# HF_TOKEN is passed as a BuildKit secret — never stored in any image layer.
+# The script applies the ARM torch.load + semver patches required by the
+# NVIDIA pre-release PyTorch base (weights_only=False, check_version stub).
+# If the secret is absent (HF_TOKEN not set on the build machine) the script
+# exits 0 so the build still succeeds; models will download on first run.
+# ------------------------------------------------------------
+COPY Docker/download_pyannote_models.py /tmp/download_pyannote_models.py
+RUN --mount=type=secret,id=hf_token,required=false \
+    python3 /tmp/download_pyannote_models.py && \
+    rm /tmp/download_pyannote_models.py
 
 # Copy and set up the entrypoint script
 COPY Docker/entrypoint.sh /entrypoint.sh

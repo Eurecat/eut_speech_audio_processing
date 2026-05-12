@@ -30,6 +30,7 @@ services:
       - QT_X11_NO_MITSHM=1
       - XAUTHORITY=/tmp/xauth/.docker.xauth     
       - HF_TOKEN=${HF_TOKEN}      
+      - HF_HOME=/root/.cache/torch/pyannote
       - TORCH_HOME=/root/.cache/torch
 
     devices:
@@ -71,6 +72,7 @@ services:
       - QT_X11_NO_MITSHM=1
       - XAUTHORITY=/tmp/xauth/.docker.xauth     
       - HF_TOKEN=${HF_TOKEN}      
+      - HF_HOME=/root/.cache/torch/pyannote
       - TORCH_HOME=/root/.cache/torch
 
     devices:

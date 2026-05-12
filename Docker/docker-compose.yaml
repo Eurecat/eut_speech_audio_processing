@@ -36,7 +36,8 @@ services:
       - DISPLAY=$DISPLAY
       - QT_X11_NO_MITSHM=1
       - XAUTHORITY=/tmp/xauth/.docker.xauth     
-      - HF_TOKEN=${HF_TOKEN}      
+      - HF_TOKEN=${HF_TOKEN}
+      - HF_HOME=/root/.cache/torch/pyannote
       - TORCH_HOME=/root/.cache/torch
       - AI_VENV=/opt/ros_python_env
 
@@ -89,6 +90,7 @@ services:
       - QT_X11_NO_MITSHM=1
       - XAUTHORITY=/tmp/xauth/.docker.xauth     
       - HF_TOKEN=${HF_TOKEN}
+      - HF_HOME=/root/.cache/torch/pyannote
       - TORCH_HOME=/root/.cache/torch
       - AI_VENV=/opt/ros_python_env
 
