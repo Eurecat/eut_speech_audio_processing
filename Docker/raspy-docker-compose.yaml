@@ -21,7 +21,7 @@ services:
     stdin_open: true
     environment:
       # - RMW_FASTRTPS_PUBLICATION_MODE=ASYNCHRONOUS
-      # - FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA
+      - FASTDDS_BUILTIN_TRANSPORTS=${FASTDDS_BUILTIN_TRANSPORTS:-}
       # - RMW_IMPLEMENTATION=rmw_fastrtps_cpp    
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-2}    
       - NVIDIA_VISIBLE_DEVICES=all 
@@ -63,7 +63,7 @@ services:
     stdin_open: true
     environment:
       # - RMW_FASTRTPS_PUBLICATION_MODE=ASYNCHRONOUS
-      # - FASTDDS_BUILTIN_TRANSPORTS=LARGE_DATA
+      - FASTDDS_BUILTIN_TRANSPORTS=${FASTDDS_BUILTIN_TRANSPORTS:-}
       # - RMW_IMPLEMENTATION=rmw_fastrtps_cpp    
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-2}    
       - NVIDIA_VISIBLE_DEVICES=all 

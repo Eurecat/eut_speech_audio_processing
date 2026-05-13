@@ -29,7 +29,8 @@ services:
     environment:
       - CYCLONEDDS_URI=file:///etc/cyclonedds.xml
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-2}  
-      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}   
+      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}
+      - FASTDDS_BUILTIN_TRANSPORTS=${FASTDDS_BUILTIN_TRANSPORTS:-}
       - PACKAGE_NAME=audio_stream_manager
       - NVIDIA_VISIBLE_DEVICES=all 
       - NVIDIA_DRIVER_CAPABILITIES=all
@@ -82,7 +83,8 @@ services:
     environment:
       - CYCLONEDDS_URI=file:///etc/cyclonedds.xml
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-2}  
-      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}   
+      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}
+      - FASTDDS_BUILTIN_TRANSPORTS=${FASTDDS_BUILTIN_TRANSPORTS:-}
       - PACKAGE_NAME=speech_recognition
       - NVIDIA_VISIBLE_DEVICES=all 
       - NVIDIA_DRIVER_CAPABILITIES=all
