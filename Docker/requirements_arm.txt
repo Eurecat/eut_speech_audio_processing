@@ -14,7 +14,7 @@ librosa>=0.10.0,<0.12          # 0.11.0 already in base; keep range for flexibil
 numpy>=1.26,<2                 # 1.26.4 in base; keep <2 for broad compat
 numba>=0.59,<0.65              # 0.59.1 in base; do NOT pin 0.63.1 — LLVM may conflict on ARM
 
-# ── ASR / Whisper ─────────────────────────────────────────────────────────────
+# ── ASR / Whisper ───────────────────────────────stack/eut_speech_audio_processing/Docker──────────────────────────────
 # CTranslate2 ships ARM64 wheels; faster-whisper uses it for optimized Whisper inference
 faster-whisper>=1.0.0
 
@@ -24,6 +24,7 @@ openwakeword>=0.4.0
 # onnxruntime (CPU variant) — no onnxruntime-gpu pip wheel available for Jetson ARM via PyPI.
 # OpenWakeWord uses ONNX for its models; CPU inference is sufficient for wake word detection.
 # For full TensorRT acceleration, models can be exported separately (out of scope here).
+#Check EutHRIFaces repo that we achieved onnuxruntime on using https://pypi.jetson-ai-lab.io/sbsa/cu130
 onnxruntime>=1.16.0
 
 # ── torchaudio ────────────────────────────────────────────────────────────────
