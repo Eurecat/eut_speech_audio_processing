@@ -11,7 +11,7 @@ audio_capturing:
     target_samplerate: 16000                # Target sample rate for audio output (Hz)
     
     # Disconnection Detection
-    disconnection_timeout: 3.0              # Time (seconds) before considering device disconnected
+    disconnection_timeout: 300.0              # Time (seconds) before considering device disconnected
     disconnection_check_interval: 1.0       # Interval (seconds) between disconnection checks
     test_stream_duration: 0.1               # Duration (seconds) for testing device connectivity
     

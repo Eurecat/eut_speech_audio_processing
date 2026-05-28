@@ -9,7 +9,7 @@ asr_node:
                                             # int8_float16: int8 weights + float16 accumulation — fastest on Jetson Thor SM_110 tensor cores - or float16, but not anythign else for jetson thor
     
     # Language Configuration
-    language: "auto"                         # Language options:
+    language: "es,ca"                        # Language options:
                                             #   - "auto": Auto-detect language
                                             #   - "en": English only
                                             #   - "es,fr,de": Comma-separated list of allowed languages # now limited to en, ca, es only in code
@@ -23,7 +23,7 @@ asr_node:
     silence_detection_threshold: 0.00001     # RMS threshold for silence detection
     
     # Timing Parameters
-    min_silence_duration: 1.0                # Minimum silence duration (seconds) before processing speech
+    min_silence_duration: 0.5                # Minimum silence duration (seconds) before processing speech
     max_chunk_duration: 30.0                 # Maximum duration (seconds) of a single speech chunk
     pre_buffer_duration: 0.3                 # Duration (seconds) of audio to prepend to speech chunks
     
