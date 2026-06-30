@@ -121,7 +121,7 @@ Manages speaker embedding persistence in MongoDB:
 - `/vad` (`hri_msgs/Vad`): VAD probabilities (gates the diarization pipeline)
 
 **Published Topics**:
-- `/voice_activity` (`hri_msgs/SpeechActivityDetection`): Per-speaker speech activity
+- `/speech_activity_detection` (`hri_msgs/SpeechActivityDetection`): Per-speaker speech activity
 
 **Requires**:
 - `HF_TOKEN` environment variable or `huggingface-cli login` for gated pyannote models
@@ -158,8 +158,8 @@ Owns all ASR logic with zero ROS2 dependencies:
 - `/voice_activity` (`hri_msgs/SpeechActivityDetection`): Speaker ID from diarization (optional)
 
 **Published Topics**:
-- `/speech` (`hri_msgs/SpeechResult`): Final transcription results
-- `/live_speech` (`hri_msgs/LiveSpeech`): Intermediate (live) transcription results
+- `/speech_result` (`hri_msgs/SpeechResult`): Final transcription results
+- `/humans/voices/{speaker_id}/speech` (`hri_msgs/LiveSpeech`): Intermediate (live) transcription results
 
 **Diagram**: [Open ASR workflow](asr_workflow.mmd)
 
