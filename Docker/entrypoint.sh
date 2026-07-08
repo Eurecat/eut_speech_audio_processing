@@ -40,6 +40,13 @@ if [ -f "/workspace/install/setup.bash" ]; then
     source /workspace/install/setup.bash
 fi
 
+# Activate Python virtualenv if present so runtime uses installed site-packages
+if [ -f "/opt/ros_python_env/bin/activate" ]; then
+    echo "Activating /opt/ros_python_env virtualenv..."
+    # shellcheck disable=SC1091
+    source /opt/ros_python_env/bin/activate
+fi
+
 # Build speech audio processing packages
 echo "Building ros2 packages of this repo..."
 cd /workspace
