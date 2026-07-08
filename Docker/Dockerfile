@@ -62,6 +62,13 @@ RUN if [ "$CPU_ONLY" = "true" ]; then \
     fi
 #we need to install onnxruntime separately because openwakeword has a dependency on onnxruntime, and we want to ensure the GPU version is installed if no using cpu flag
 
+# Humble (Python 3.10, /usr/bin/python3 entrypoints) can mix venv matplotlib
+# with system mpl_toolkits and crash in diarization.
+# Keep system matplotlib pair by removing venv matplotlib only on Humble.
+RUN if [ "$TARGET_DISTRO" = "humble" ]; then \
+        /bin/bash -c "source /opt/ros_python_env/bin/activate && uv pip uninstall -y matplotlib || true"; \
+    fi
+
 # ------------------------------------------------------------
 # Setup rosdep
 # (init system-wide, update for this user)
