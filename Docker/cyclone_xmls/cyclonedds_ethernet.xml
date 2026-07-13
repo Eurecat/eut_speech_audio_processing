@@ -5,7 +5,10 @@
       <AllowMulticast>false</AllowMulticast>
       <Interfaces>
         <!-- Pin Tiago Ethernet NIC by host IP to avoid wrong selection when many NICs are up -->
+        <NetworkInterface name="ipvlan-host" priority="3" presence_required="false"/>
         <NetworkInterface address="10.68.0.2" priority="2" presence_required="true"/>
+        <!-- <NetworkInterface name="enx00e04c680396" priority="2" presence_required="true"/> -->
+
         <NetworkInterface name="lo" priority="0"/>
       </Interfaces>
     </General>
@@ -16,6 +19,10 @@
       <Peers>
         <Peer Address="localhost"/>
         <Peer Address="10.68.0.1"/> <!-- robot IP over Tiago Pro Ethernet -->
+        <Peer Address="10.68.0.3"/> <!-- tiago person_tracking -->
+        <Peer Address="10.68.0.4"/> <!-- tiago context_postprocessors -->
+        <Peer Address="10.68.0.5"/> <!-- tiago mission_controller_reactive -->
+        <Peer Address="10.68.0.6"/> <!-- tiago bt_forest -->
       </Peers>
     </Discovery>
   </Domain>
