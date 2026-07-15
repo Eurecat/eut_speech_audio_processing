@@ -6,8 +6,8 @@
       <Interfaces>
         <!-- Pin Tiago Ethernet NIC by host IP to avoid wrong selection when many NICs are up -->
         <NetworkInterface name="ipvlan-host" priority="3" presence_required="false"/>
-        <NetworkInterface address="10.68.0.2" priority="2" presence_required="true"/>
-        <!-- <NetworkInterface name="enx00e04c680396" priority="2" presence_required="true"/> -->
+        <!-- <NetworkInterface address="10.68.0.2" priority="2" presence_required="true"/> -->
+        <NetworkInterface name="enx00e04c680396" priority="2" presence_required="true"/>
 
         <NetworkInterface name="lo" priority="0"/>
       </Interfaces>
