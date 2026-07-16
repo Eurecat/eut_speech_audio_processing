@@ -73,7 +73,7 @@ class ASREngine:
         silence_detection_threshold: float,
         pre_buffer_duration: float,
         weights_dir: str,
-        on_transcript_ready: Callable[[str, str, str], None],
+        on_transcript_ready: Callable[[str, str, str, int, int, float], None],
         logger,
     ):
         self._logger = logger
@@ -375,6 +375,7 @@ class ASREngine:
 
         duration = len(audio_data) / self.sample_rate
         self._logger.info(f"Transcribing {duration:.2f}s of audio...")
+        transcribe_start = time.time()
 
         transcription_language = self._resolve_language(audio_data)
 
@@ -402,10 +403,25 @@ class ASREngine:
 
             if transcript:
                 speaker = self.speaker_id or "unknown"
-                self._logger.info(
-                    f"Transcript: '{transcript}' (lang: {detected_language}, speaker: {speaker})"
+                processing_ms = int((time.time() - transcribe_start) * 1000)
+                audio_duration_ms = int(duration * 1000)
+                realtime_factor = (
+                    float(processing_ms) / float(audio_duration_ms)
+                    if audio_duration_ms > 0
+                    else 0.0
                 )
-                self._on_transcript_ready(transcript, speaker, detected_language)
+                self._logger.info(
+                    f"Transcript: '{transcript}' (lang: {detected_language}, speaker: {speaker}, "
+                    f"proc={processing_ms}ms, audio={audio_duration_ms}ms, x{realtime_factor:.2f})"
+                )
+                self._on_transcript_ready(
+                    transcript,
+                    speaker,
+                    detected_language,
+                    processing_ms,
+                    audio_duration_ms,
+                    realtime_factor,
+                )
             else:
                 self._logger.info("Empty transcript — not publishing.")
 

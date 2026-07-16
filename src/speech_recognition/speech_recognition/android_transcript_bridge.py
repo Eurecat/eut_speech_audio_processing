@@ -2,6 +2,7 @@ import json
 import queue
 import socket
 import threading
+import time
 from dataclasses import dataclass
 from typing import Dict, Tuple
 
@@ -54,14 +55,46 @@ class AndroidTranscriptBridge(Node):
         )
 
     def _speech_result_to_bytes(self, msg: SpeechResult) -> bytes:
+        processing_ms = int(msg.transcript_confidence)
+        audio_duration_ms = None
+        realtime_factor = None
+
+        if msg.locale:
+            parts = [p.strip() for p in msg.locale.split(";") if p.strip()]
+            kv = {}
+            for part in parts:
+                if "=" not in part:
+                    continue
+                k, v = part.split("=", 1)
+                kv[k.strip()] = v.strip()
+
+            if "audio_ms" in kv:
+                try:
+                    audio_duration_ms = int(kv["audio_ms"])
+                except ValueError:
+                    audio_duration_ms = None
+            if "rtf" in kv:
+                try:
+                    realtime_factor = float(kv["rtf"])
+                except ValueError:
+                    realtime_factor = None
+
+        if processing_ms <= 0:
+            now_ms = int(time.time() * 1000)
+            stamp_ms = (int(msg.header.stamp.sec) * 1000) + (int(msg.header.stamp.nanosec) // 1_000_000)
+            processing_ms = max(0, now_ms - stamp_ms)
+
         payload = {
             "type": "speech_result",
             "transcript": msg.transcript,
-            "transcript_confidence": float(msg.transcript_confidence),
+            "transcript_confidence": 0.0,
             "speaker_id": msg.speaker_id,
             "speaker_id_confidence": float(msg.speaker_id_confidence),
             "language_code": msg.language_code,
             "locale": msg.locale,
+            "processing_ms": processing_ms,
+            "audio_duration_ms": audio_duration_ms,
+            "realtime_factor": realtime_factor,
             "stamp": {
                 "sec": int(msg.header.stamp.sec),
                 "nanosec": int(msg.header.stamp.nanosec),

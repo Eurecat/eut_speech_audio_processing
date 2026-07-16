@@ -165,19 +165,30 @@ class ASRNode(Node):
     # Engine callback
     # ------------------------------------------------------------------
 
-    def _publish_transcript(self, transcript: str, speaker_id: str, language_code: str) -> None:
+    def _publish_transcript(
+        self,
+        transcript: str,
+        speaker_id: str,
+        language_code: str,
+        processing_ms: int,
+        audio_duration_ms: int,
+        realtime_factor: float,
+    ) -> None:
         """Called by the engine when a transcript is ready. Stamps and publishes."""
         msg = SpeechResult()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.transcript = transcript
         msg.speaker_id = speaker_id
         msg.language_code = language_code
-        msg.transcript_confidence = 0.0
+        # Keep confidence channel as optional edge metric carrier for Android bridge.
+        msg.transcript_confidence = float(processing_ms)
         msg.speaker_id_confidence = 0.0
+        msg.locale = f"audio_ms={audio_duration_ms};rtf={realtime_factor:.4f}"
         self.asr_pub.publish(msg)
 
         self.get_logger().info(
-            f"Published transcript: '{transcript}' (lang: {language_code}, speaker: {speaker_id})"
+            f"Published transcript: '{transcript}' (lang: {language_code}, speaker: {speaker_id}, "
+            f"proc={processing_ms}ms, audio={audio_duration_ms}ms, x{realtime_factor:.2f})"
         )
 
         if self.ros4hri_enabled and speaker_id and speaker_id != "unknown":
