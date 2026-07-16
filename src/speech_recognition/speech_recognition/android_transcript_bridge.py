@@ -35,8 +35,10 @@ class AndroidTranscriptBridge(Node):
         )
         self._topic_name = self.get_parameter("topic_name").get_parameter_value().string_value
 
-        self._clients: Dict[str, ClientSession] = {}
-        self._clients_lock = threading.Lock()
+        # IMPORTANT: do not use attribute name `_clients` because rclpy.Node
+        # reserves it internally for ROS service clients.
+        self._tcp_clients: Dict[str, ClientSession] = {}
+        self._tcp_clients_lock = threading.Lock()
         self._stop_event = threading.Event()
         self._server_thread = threading.Thread(target=self._serve, daemon=True)
 
@@ -70,8 +72,8 @@ class AndroidTranscriptBridge(Node):
     def _speech_result_callback(self, msg: SpeechResult) -> None:
         encoded = self._speech_result_to_bytes(msg)
 
-        with self._clients_lock:
-            sessions = list(self._clients.values())
+        with self._tcp_clients_lock:
+            sessions = list(self._tcp_clients.values())
 
         for session in sessions:
             try:
@@ -96,13 +98,13 @@ class AndroidTranscriptBridge(Node):
                 if self._messages_sent % 250 == 0:
                     self.get_logger().info(
                         f"Transcript bridge sent={self._messages_sent}, "
-                        f"dropped={self._dropped_messages}, clients={len(self._clients)}"
+                        f"dropped={self._dropped_messages}, clients={len(self._tcp_clients)}"
                     )
         except OSError as exc:
             self.get_logger().warn(f"Transcript bridge client {client_id} disconnected: {exc}")
         finally:
-            with self._clients_lock:
-                session = self._clients.pop(client_id, None)
+            with self._tcp_clients_lock:
+                session = self._tcp_clients.pop(client_id, None)
             if session is not None:
                 try:
                     session.socket_obj.close()
@@ -118,8 +120,8 @@ class AndroidTranscriptBridge(Node):
             args=(client_id, conn, out_q),
             daemon=True,
         )
-        with self._clients_lock:
-            self._clients[client_id] = ClientSession(
+        with self._tcp_clients_lock:
+            self._tcp_clients[client_id] = ClientSession(
                 socket_obj=conn,
                 queue_obj=out_q,
                 thread=thread,
@@ -154,9 +156,9 @@ class AndroidTranscriptBridge(Node):
 
     def destroy_node(self) -> bool:
         self._stop_event.set()
-        with self._clients_lock:
-            sessions = list(self._clients.values())
-            self._clients.clear()
+        with self._tcp_clients_lock:
+            sessions = list(self._tcp_clients.values())
+            self._tcp_clients.clear()
         for session in sessions:
             try:
                 session.socket_obj.close()
