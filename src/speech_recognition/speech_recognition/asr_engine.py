@@ -403,7 +403,11 @@ class ASREngine:
 
             if transcript:
                 speaker = self.speaker_id or "unknown"
-                processing_ms = int((time.time() - transcribe_start) * 1000)
+                model_processing_ms = int((time.time() - transcribe_start) * 1000)
+                if self.last_silence_time > 0:
+                    processing_ms = int((time.time() - self.last_silence_time) * 1000)
+                else:
+                    processing_ms = model_processing_ms
                 audio_duration_ms = int(duration * 1000)
                 realtime_factor = (
                     float(processing_ms) / float(audio_duration_ms)
@@ -412,7 +416,8 @@ class ASREngine:
                 )
                 self._logger.info(
                     f"Transcript: '{transcript}' (lang: {detected_language}, speaker: {speaker}, "
-                    f"proc={processing_ms}ms, audio={audio_duration_ms}ms, x{realtime_factor:.2f})"
+                    f"proc={processing_ms}ms, model={model_processing_ms}ms, "
+                    f"audio={audio_duration_ms}ms, x{realtime_factor:.2f})"
                 )
                 self._on_transcript_ready(
                     transcript,
