@@ -1,4 +1,5 @@
 import base64
+import codecs
 import json
 import queue
 import socket
@@ -130,30 +131,46 @@ class AndroidAudioBridge(Node):
 
         with conn:
             conn.settimeout(1.0)
-            file_obj = conn.makefile("r", encoding="utf-8")
             try:
-                for line in file_obj:
-                    if self._stop_event.is_set():
-                        break
-                    line = line.strip()
-                    if not line:
-                        continue
+                decoder = codecs.getincrementaldecoder("utf-8")()
+                pending = ""
+                while not self._stop_event.is_set():
                     try:
-                        payload = json.loads(line)
-                    except json.JSONDecodeError as exc:
-                        self.get_logger().warn(f"Invalid JSON from {client_label}: {exc}")
+                        raw = conn.recv(4096)
+                    except socket.timeout:
                         continue
-                    if not isinstance(payload, dict):
-                        self.get_logger().warn(f"Ignoring non-object JSON payload from {client_label}")
-                        continue
-                    self._handle_payload(payload, client_label)
+
+                    if not raw:
+                        break
+
+                    try:
+                        text = decoder.decode(raw)
+                    except UnicodeDecodeError:
+                        self.get_logger().warn(
+                            f"Non UTF-8 payload from {client_label}. "
+                            "This port expects NDJSON (not gRPC binary). Closing client."
+                        )
+                        return
+
+                    pending += text
+                    while "\n" in pending:
+                        line, pending = pending.split("\n", 1)
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            payload = json.loads(line)
+                        except json.JSONDecodeError as exc:
+                            self.get_logger().warn(f"Invalid JSON from {client_label}: {exc}")
+                            continue
+                        if not isinstance(payload, dict):
+                            self.get_logger().warn(
+                                f"Ignoring non-object JSON payload from {client_label}"
+                            )
+                            continue
+                        self._handle_payload(payload, client_label)
             except OSError as exc:
                 self.get_logger().warn(f"Socket error from {client_label}: {exc}")
-            finally:
-                try:
-                    file_obj.close()
-                except OSError:
-                    pass
 
         self.get_logger().info(f"Android audio client disconnected: {client_label}")
 
