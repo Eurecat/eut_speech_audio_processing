@@ -4,6 +4,24 @@ import time
 import warnings
 from typing import Callable, Dict, List, Optional, Set
 
+# Compatibility shim for pyannote on newer matplotlib versions.
+try:
+    import matplotlib.cm as _mpl_cm
+
+    if not hasattr(_mpl_cm, "get_cmap"):
+        from matplotlib import colormaps as _mpl_colormaps
+
+        def _compat_get_cmap(name=None, lut=None):
+            cmap_name = name if name is not None else "viridis"
+            cmap = _mpl_colormaps.get_cmap(cmap_name)
+            if lut is not None and hasattr(cmap, "resampled"):
+                return cmap.resampled(lut)
+            return cmap
+
+        _mpl_cm.get_cmap = _compat_get_cmap
+except Exception:
+    pass
+
 import diart.models as m
 import numpy as np
 import torch

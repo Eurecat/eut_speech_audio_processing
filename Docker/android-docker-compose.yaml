@@ -1,0 +1,149 @@
+name: coghri_audio_android_bridge
+
+services:
+  audio_device_manager_service:
+    container_name: "audio_device_manager_android"
+    network_mode: host
+    ipc: host
+    shm_size: 1gb
+    runtime: ${DOCKER_RUNTIME:-runc}
+    image: ${BUILT_IMAGE}
+    privileged: true
+    depends_on:
+      - mongodb_service
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ~/.xauth_docker/share/:/tmp/xauth/
+      - ./.vscode:/workspace/.vscode
+      - ./logs:/workspace/log
+      - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
+      - ../src/speech_recognition:/workspace/src/speech_recognition
+      - ../src/speech_recognition/speech_recognition/weights_pyannote:/root/.cache/torch/pyannote:rw
+      - /dev:/dev
+      - ./cyclone_xmls/${CYCLONE_CONFIG_FILE:-cyclonedds_ethernet.xml}:/etc/cyclonedds.xml:ro
+    tty: true
+    stdin_open: true
+    environment:
+      - CYCLONEDDS_URI=file:///etc/cyclonedds.xml
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-2}
+      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
+      - FASTDDS_BUILTIN_TRANSPORTS=${FASTDDS_BUILTIN_TRANSPORTS:-UDPv4}
+      - PACKAGE_NAME=audio_stream_manager
+      - BUILD_LOGS_TO_KEEP=${BUILD_LOGS_TO_KEEP:-2}
+      - RUNTIME_LOGS_TO_KEEP=${RUNTIME_LOGS_TO_KEEP:-2}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - DISPLAY=$DISPLAY
+      - QT_X11_NO_MITSHM=1
+      - XAUTHORITY=/tmp/xauth/.docker.xauth
+      - HF_TOKEN=${HF_TOKEN}
+      - HF_HOME=/root/.cache/torch/pyannote
+      - TORCH_HOME=/root/.cache/torch
+      - AI_VENV=/opt/ros_python_env
+
+    devices:
+      - /dev/dri:/dev/dri
+      - /dev/snd:/dev/snd
+      - /dev/bus/usb:/dev/bus/usb
+    device_cgroup_rules:
+      - 'c 180:* rwm'
+      - 'c 189:* rwm'
+
+    command: >
+      bash -c "source /workspace/install/setup.bash &&
+      exec ros2 launch audio_stream_manager audio_stream_android.launch.py
+      bind_host:=0.0.0.0
+      bind_port:=${ANDROID_AUDIO_PORT:-17000}
+      default_samplerate:=${ANDROID_DEFAULT_SAMPLERATE:-16000.0}"
+
+  speech_recognition_service:
+    container_name: "speech_recognition_android"
+    network_mode: host
+    ipc: host
+    shm_size: 1gb
+    runtime: ${DOCKER_RUNTIME:-runc}
+    image: ${BUILT_IMAGE}
+    privileged: true
+    depends_on:
+      - mongodb_service
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ~/.xauth_docker/share/:/tmp/xauth/
+      - ./.vscode:/workspace/.vscode
+      - ./logs:/workspace/log
+      - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
+      - ../src/speech_recognition:/workspace/src/speech_recognition
+      - ../src/speech_recognition/speech_recognition/weights_pyannote:/root/.cache/torch/pyannote:rw
+      - /dev:/dev
+      - ./cyclone_xmls/${CYCLONE_CONFIG_FILE:-cyclonedds_ethernet.xml}:/etc/cyclonedds.xml:ro
+    tty: true
+    stdin_open: true
+    environment:
+      - CYCLONEDDS_URI=file:///etc/cyclonedds.xml
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-2}
+      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
+      - FASTDDS_BUILTIN_TRANSPORTS=${FASTDDS_BUILTIN_TRANSPORTS:-UDPv4}
+      - PACKAGE_NAME=speech_recognition
+      - BUILD_LOGS_TO_KEEP=${BUILD_LOGS_TO_KEEP:-2}
+      - RUNTIME_LOGS_TO_KEEP=${RUNTIME_LOGS_TO_KEEP:-2}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - DISPLAY=$DISPLAY
+      - QT_X11_NO_MITSHM=1
+      - XAUTHORITY=/tmp/xauth/.docker.xauth
+      - HF_TOKEN=${HF_TOKEN}
+      - HF_HOME=/root/.cache/torch/pyannote
+      - TORCH_HOME=/root/.cache/torch
+      - AI_VENV=/opt/ros_python_env
+
+    devices:
+      - /dev/dri:/dev/dri
+      - /dev/snd:/dev/snd
+      - /dev/bus/usb:/dev/bus/usb
+    device_cgroup_rules:
+      - 'c 180:* rwm'
+      - 'c 189:* rwm'
+
+    command: >
+      bash -c "source /workspace/install/setup.bash &&
+      exec ros2 launch speech_recognition speech_recognition.launch.py
+      enable_android_transcript_bridge:=true
+      android_transcript_bind_host:=0.0.0.0
+      android_transcript_bind_port:=${ANDROID_TRANSCRIPT_PORT:-17001}"
+
+    stop_signal: SIGINT
+    stop_grace_period: 30s
+
+  mongodb_service:
+    image: mongo:7
+    container_name: "mongodb_android"
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=eurecat
+      - MONGO_INITDB_ROOT_PASSWORD=cerdanyola
+    stop_signal: SIGTERM
+    stop_grace_period: 60s
+
+  mongo_express:
+    image: mongo-express:latest
+    container_name: "mongo-express_android"
+    restart: unless-stopped
+    depends_on:
+      - mongodb_service
+    ports:
+      - "8081:8081"
+    environment:
+      - ME_CONFIG_MONGODB_ENABLE_ADMIN=true
+      - ME_CONFIG_MONGODB_ADMINUSERNAME=eurecat
+      - ME_CONFIG_MONGODB_ADMINPASSWORD=cerdanyola
+      - ME_CONFIG_MONGODB_SERVER=mongodb_service
+      - ME_CONFIG_MONGODB_URL=mongodb://eurecat:cerdanyola@mongodb_service:27017/?authSource=admin
+
+volumes:
+  mongodb_data:
+    name: coghri_speakers_mongodb_data_android
+    driver: local

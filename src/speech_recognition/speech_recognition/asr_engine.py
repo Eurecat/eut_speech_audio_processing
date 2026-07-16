@@ -125,6 +125,14 @@ class ASREngine:
         device = "cuda" if ctranslate2.get_cuda_device_count() > 0 else "cpu"
         self._logger.info(f"Using device on ASR: {device}")
 
+        effective_compute_type = compute_type
+        if device == "cpu" and "float16" in compute_type:
+            # CTranslate2 on CPU does not support efficient float16 inference.
+            self._logger.warn(
+                f"compute_type '{compute_type}' is not supported on CPU. Falling back to 'float32'."
+            )
+            effective_compute_type = "float32"
+
         os.makedirs(weights_dir, exist_ok=True)
 
         model_dir_name = "models--" + WHISPER_MODELS[model_size].replace("/", "--")
@@ -132,7 +140,7 @@ class ASREngine:
 
         if resolved_path:
             self._logger.info(f"Using local snapshot: {resolved_path}")
-            model = WhisperModel(resolved_path, device=device, compute_type=compute_type)
+            model = WhisperModel(resolved_path, device=device, compute_type=effective_compute_type)
         else:
             self._logger.info(
                 f"No valid local snapshot found — downloading '{model_size}' to {weights_dir}"
@@ -140,14 +148,14 @@ class ASREngine:
             model = WhisperModel(
                 model_size,
                 device=device,
-                compute_type=compute_type,
+                compute_type=effective_compute_type,
                 download_root=weights_dir,
             )
 
         device_label = "GPU" if device == "cuda" else "CPU"
         self._logger.info(
             f"Faster-Whisper model '{model_size}' loaded on {device_label} "
-            f"with compute_type '{compute_type}'."
+            f"with compute_type '{effective_compute_type}'."
         )
 
         batched_model = (

@@ -1,6 +1,9 @@
 from setuptools import find_packages, setup
+import os
 
 package_name = "audio_stream_manager"
+
+launch_files = [f"launch/{f}" for f in os.listdir("launch") if f.endswith(".launch.py")]
 
 setup(
     name=package_name,
@@ -9,7 +12,7 @@ setup(
     data_files=[
         ("share/ament_index/resource_index/packages", ["resource/" + package_name]),
         ("share/" + package_name, ["package.xml"]),
-        ("share/" + package_name, ["launch/audio_stream_manager.launch.py"]),
+        ("share/" + package_name, launch_files),
         ("share/" + package_name + "/config", ["config/audio_params.yaml"]),
     ],
     install_requires=["setuptools", "numpy", "sounddevice"],
@@ -23,6 +26,7 @@ setup(
         "console_scripts": [
             "audio_capturing = audio_stream_manager.audio_capturing:main",
             "audio_to_mp3 = audio_stream_manager.audio_to_mp3:main",
+            "android_audio_bridge = audio_stream_manager.android_audio_bridge:main",
         ],
     },
 )
