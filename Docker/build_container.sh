@@ -12,7 +12,7 @@
 # - Jetson Thor / ARM64: ./build_container.sh --arm
 # - Clean rebuild: ./build_container.sh --clean-rebuild [--vulcanexus] [--cpu] [--humble] [--arm]
 #
-# --arm uses Dockerfile.arm and the ARM base image eut_ros_torch:jazzy
+# --arm uses Dockerfile.arm and the ARM base image eut_ros_torch_arm:jazzy
 # (built by EutRobAIDockers/Docker/build_container.sh --platform arm).
 # It is mutually exclusive with --vulcanexus / --humble / --cpu (Jazzy + GPU only).
 #
@@ -132,7 +132,7 @@ fi
 
 # Resolve base image from selected flags
 if $USE_ARM; then
-    BASE_IMAGE="eut_ros_torch:${TARGET_DISTRO}"
+    BASE_IMAGE="eut_ros_torch_arm:${TARGET_DISTRO}"
 elif $USE_VULCANEXUS; then
     BASE_IMAGE="eut_ros_vulcanexus_torch:${TARGET_DISTRO}"
 else
@@ -262,11 +262,17 @@ else
 fi
 
 # Set or Update RMW_IMPLEMENTATION based on TARGET_DISTRO
-# ARM (Jazzy) uses CycloneDDS; Humble also CycloneDDS; standard Jazzy uses FastRTPS
-if [ "$TARGET_DISTRO" = "humble" ] || $USE_ARM; then
+# Humble defaults to CycloneDDS. Jazzy defaults to FastDDS.
+if [ "$TARGET_DISTRO" = "humble" ]; then
     RMW_IMPLEMENTATION="rmw_cyclonedds_cpp"
     IMG_RAW_TOPIC="/head_front_camera/color/image_raw/compressed"
 else
+    RMW_IMPLEMENTATION="rmw_fastrtps_cpp"
+    IMG_RAW_TOPIC="/camera/image_raw/compressed"
+fi
+
+# ARM dev/profile parity with other stack repos: use Jazzy + FastDDS defaults.
+if $USE_ARM; then
     RMW_IMPLEMENTATION="rmw_fastrtps_cpp"
     IMG_RAW_TOPIC="/camera/image_raw/compressed"
 fi
