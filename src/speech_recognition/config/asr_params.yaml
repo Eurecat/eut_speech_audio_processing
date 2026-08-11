@@ -9,7 +9,7 @@ asr_node:
                                             # int8_float16: int8 weights + float16 accumulation — fastest on Jetson Thor SM_110 tensor cores - or float16, but not anythign else for jetson thor
     
     # Language Configuration
-    language: "es,ca"                        # Language options:
+    language: "en"                           # Language options:
                                             #   - "auto": Auto-detect language
                                             #   - "en": English only
                                             #   - "es,fr,de": Comma-separated list of allowed languages # now limited to en, ca, es only in code
@@ -23,7 +23,13 @@ asr_node:
     silence_detection_threshold: 0.00001     # RMS threshold for silence detection
     
     # Timing Parameters
-    min_silence_duration: 0.5                # Minimum silence duration (seconds) before processing speech
+    min_silence_duration: 0.9                # Minimum silence duration (seconds) before processing speech
+                                            # (was 0.5 - too short: a normal mid-sentence breath/pause could
+                                            # exceed it, splitting one sentence into several ASR segments,
+                                            # each independently triggering the reactive agent downstream.
+                                            # coghri_reactive_tasks_generator's reactive_generator_node.py
+                                            # also debounces on its end as a second line of defense for
+                                            # whatever fragmentation still slips through.)
     max_chunk_duration: 30.0                 # Maximum duration (seconds) of a single speech chunk
     pre_buffer_duration: 0.3                 # Duration (seconds) of audio to prepend to speech chunks
     
