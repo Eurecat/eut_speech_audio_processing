@@ -71,6 +71,32 @@ class TestAudioToMp3:
                 node.audio_buffer[0], np.array(test_audio_data, dtype=np.float32)
             )
 
+    @patch("audio_stream_manager.audio_stream_manager.audio_to_mp3.convert_wav_to_mp3")
+    @patch("audio_stream_manager.audio_stream_manager.audio_to_mp3.save_to_wav")
+    def test_flush_buffer_when_limit_reached(self, mock_save_to_wav, mock_convert):
+        """The recorder should flush to disk before the in-memory buffer grows unbounded."""
+        with patch("rclpy.node.Node.__init__"), patch.object(
+            AudioToMp3, "create_subscription"
+        ), patch.object(AudioToMp3, "get_logger"):
+            node = AudioToMp3()
+            node.max_buffer_seconds = 0.1
+            node.audio_buffer = [np.ones(16000, dtype=np.float32)]
+
+            node.flush_buffer_to_wav()
+
+            assert node.audio_buffer == []
+            mock_save_to_wav.assert_called_once_with(
+                node.audio_buffer,
+                node.temp_wav,
+                node.sample_rate,
+                logger=node.get_logger(),
+            )
+            mock_convert.assert_called_once_with(
+                node.temp_wav,
+                node.output_mp3,
+                logger=node.get_logger(),
+            )
+
     def test_multiple_audio_callbacks(self):
         """Test multiple audio callbacks accumulate correctly"""
         with patch("rclpy.node.Node.__init__"), patch.object(
