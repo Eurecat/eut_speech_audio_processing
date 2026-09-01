@@ -125,29 +125,54 @@ class ASREngine:
         device = "cuda" if ctranslate2.get_cuda_device_count() > 0 else "cpu"
         self._logger.info(f"Using device on ASR: {device}")
 
+        # float16 variants are not reliable on CPU; pick a portable CPU default.
+        effective_compute_type = compute_type
+        if device == "cpu" and compute_type in {"float16", "int8_float16"}:
+            effective_compute_type = "int8"
+            self._logger.warn(
+                f"ASR compute_type '{compute_type}' is not supported on CPU. "
+                f"Falling back to '{effective_compute_type}'."
+            )
+
         os.makedirs(weights_dir, exist_ok=True)
 
         model_dir_name = "models--" + WHISPER_MODELS[model_size].replace("/", "--")
         resolved_path = self._resolve_local_snapshot(weights_dir, model_dir_name)
 
-        if resolved_path:
-            self._logger.info(f"Using local snapshot: {resolved_path}")
-            model = WhisperModel(resolved_path, device=device, compute_type=compute_type)
-        else:
+        def _build_model(selected_compute_type: str):
+            if resolved_path:
+                self._logger.info(f"Using local snapshot: {resolved_path}")
+                return WhisperModel(
+                    resolved_path,
+                    device=device,
+                    compute_type=selected_compute_type,
+                )
+
             self._logger.info(
                 f"No valid local snapshot found — downloading '{model_size}' to {weights_dir}"
             )
-            model = WhisperModel(
+            return WhisperModel(
                 model_size,
                 device=device,
-                compute_type=compute_type,
+                compute_type=selected_compute_type,
                 download_root=weights_dir,
             )
+
+        try:
+            model = _build_model(effective_compute_type)
+        except ValueError as e:
+            fallback_compute_type = "float32"
+            self._logger.warn(
+                f"ASR model load failed with compute_type '{effective_compute_type}': {e}. "
+                f"Retrying with '{fallback_compute_type}'."
+            )
+            model = _build_model(fallback_compute_type)
+            effective_compute_type = fallback_compute_type
 
         device_label = "GPU" if device == "cuda" else "CPU"
         self._logger.info(
             f"Faster-Whisper model '{model_size}' loaded on {device_label} "
-            f"with compute_type '{compute_type}'."
+            f"with compute_type '{effective_compute_type}'."
         )
 
         batched_model = (

@@ -4,6 +4,23 @@ import time
 import warnings
 from typing import Callable, Dict, List, Optional, Set
 
+# Compatibility shim: newer matplotlib builds may no longer expose
+# matplotlib.cm.get_cmap, but pyannote imports it directly.
+try:
+    import matplotlib.cm as _mpl_cm
+
+    if not hasattr(_mpl_cm, "get_cmap"):
+        from matplotlib import colormaps as _mpl_colormaps
+
+        def _compat_get_cmap(name=None, lut=None):
+            cmap = _mpl_colormaps.get_cmap("viridis" if name is None else name)
+            return cmap if lut is None else cmap.resampled(lut)
+
+        _mpl_cm.get_cmap = _compat_get_cmap
+except Exception:
+    # If matplotlib is unavailable or behaves unexpectedly, keep startup path unchanged.
+    pass
+
 import diart.models as m
 import numpy as np
 import torch
