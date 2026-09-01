@@ -1,20 +1,23 @@
+import os
 import subprocess
 import wave
 
 import numpy as np
 
 
-def save_to_wav(audio_buffer: list, wav_path: str, sample_rate: int, logger=None) -> bool:
-    """Convert a list of float32 numpy arrays to a 16-bit PCM WAV file.
+def save_to_wav(
+    audio_buffer: list,
+    wav_path: str,
+    sample_rate: int,
+    logger=None,
+    append: bool = False,
+) -> bool:
+    """Convert a list of float32 numpy arrays to 16-bit PCM WAV data.
 
-    Args:
-        audio_buffer: List of numpy float32 arrays with samples in [-1.0, 1.0].
-        wav_path: Destination path for the WAV file.
-        sample_rate: Sample rate in Hz.
-        logger: Optional ROS2 logger for status messages.
-
-    Returns:
-        True if the file was written successfully, False if the buffer was empty.
+    The WAV module does not support append mode, so when appending we must read the
+    existing WAV header and frame payload, then rewrite a combined file with the new
+    samples appended. This preserves the periodic flush strategy without triggering
+    the invalid wave.open() mode error.
     """
     if not audio_buffer:
         if logger:
@@ -22,19 +25,39 @@ def save_to_wav(audio_buffer: list, wav_path: str, sample_rate: int, logger=None
         return False
 
     samples = np.concatenate(audio_buffer)
-
-    # Convert [-1.0, 1.0] float32 → int16 PCM
     samples = np.clip(samples, -1.0, 1.0)
-    samples_int16 = (samples * 32767.0).astype(np.int16)
+    new_samples_int16 = (samples * 32767.0).astype(np.int16)
+    new_frames = new_samples_int16.tobytes()
+
+    file_exists = os.path.exists(wav_path)
+    if append and file_exists:
+        with wave.open(wav_path, "rb") as wf:
+            if wf.getnchannels() != 1 or wf.getsampwidth() != 2 or wf.getframerate() != sample_rate:
+                raise ValueError(
+                    f"Existing WAV metadata mismatch: {wf.getnchannels()}ch, "
+                    f"{wf.getsampwidth()*8}bit, {wf.getframerate()}Hz"
+                )
+            previous_frames = wf.readframes(wf.getnframes())
+
+        combined = previous_frames + new_frames
+        with wave.open(wav_path, "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(sample_rate)
+            wf.writeframes(combined)
+
+        if logger:
+            logger.info(f"WAV updated to {wav_path}, +{len(new_samples_int16)} samples")
+        return True
 
     with wave.open(wav_path, "wb") as wf:
         wf.setnchannels(1)
-        wf.setsampwidth(2)  # 2 bytes = 16 bits
+        wf.setsampwidth(2)
         wf.setframerate(sample_rate)
-        wf.writeframes(samples_int16.tobytes())
+        wf.writeframes(new_frames)
 
     if logger:
-        logger.info(f"WAV written to {wav_path}, {len(samples_int16)} samples")
+        logger.info(f"WAV written to {wav_path}, {len(new_samples_int16)} samples")
     return True
 
 
