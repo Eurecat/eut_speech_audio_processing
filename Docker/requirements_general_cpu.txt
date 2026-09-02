@@ -1,3 +1,5 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+
 numpy>=1.20.2,<2.0.0
 sounddevice==0.5.5
 librosa==0.10.1
@@ -7,10 +9,12 @@ faster-whisper==1.2.1
 openwakeword==0.4.0
 onnxruntime==1.20.1
 
-# CPU versions of PyTorch
-# torch>=2.0,<2.5
-# torchaudio>=2.0,<2.5
-torchaudio==2.4.1
+# CPU versions of PyTorch - must match the same +cpu build flavor, or
+# torchaudio's default (CUDA-linked) wheel will fail with
+# "OSError: libtorch_cuda.so: cannot open shared object file" even though
+# the version numbers "match" and no GPU is involved.
+torch==2.4.1+cpu
+torchaudio==2.4.1+cpu
 
 # Diarization packages
 diart>=0.9.2
