@@ -47,9 +47,14 @@ RUN if [ "$CPU_ONLY" = "true" ]; then \
 
 
 # Install all packages in the single ros_python_env
+# --index-strategy unsafe-best-match is required for the CPU path: the CPU
+# requirements file adds the https://download.pytorch.org/whl/cpu extra index
+# (for torch/torchaudio +cpu wheels), and that index also happens to host an
+# old "requests" release. uv's default "first-index" strategy would then pin
+# requests to that old version and fail to satisfy diart's requests>=2.31.0.
 RUN if [ "$CPU_ONLY" = "true" ]; then \
         /bin/bash -c "source /opt/ros_python_env/bin/activate && \
-        uv pip install -r requirements_general_active.txt"; \
+        uv pip install --index-strategy unsafe-best-match -r requirements_general_active.txt"; \
     else \
         /bin/bash -c "source /opt/ros_python_env/bin/activate && \
         uv pip install -r requirements_general_active.txt && \

@@ -157,6 +157,10 @@ fi
 if ! $NO_VCS; then
     echo "Importing/updating dependencies repository using VCS..."
     if [ -s deps.repos ]; then
+        # Disable git's interactive username/password prompt so a transient
+        # network/proxy hiccup or GitHub anonymous-clone rate limiting fails
+        # fast with a clear error instead of hanging forever waiting for input.
+        export GIT_TERMINAL_PROMPT=0
         vcs import ${DEPS_DIR} < deps.repos
         vcs pull ${DEPS_DIR}
     else
