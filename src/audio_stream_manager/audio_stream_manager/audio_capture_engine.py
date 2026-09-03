@@ -68,18 +68,30 @@ class DeviceWatchdog:
 
     def _disconnection_loop(self) -> None:
         while self._disconnection_running:
-            self._check_disconnection()
+            try:
+                self._check_disconnection()
+            except Exception:
+                # An uncaught exception here (e.g. a cross-thread rclpy call
+                # racing with the executor) would otherwise silently kill this
+                # daemon thread forever, permanently disabling disconnection
+                # detection for the rest of the process lifetime with zero log
+                # output. Never let that happen.
+                self._logger.error("Exception in disconnection watchdog loop:", exc_info=True)
+                self.handling_disconnection = False
             time.sleep(self._check_interval)
 
     def _primary_loop(self) -> None:
         while self._primary_running:
-            should_check = (
-                self.is_using_fallback
-                and self.primary_device_name is not None
-                and self.primary_device_name != ""
-            )
-            if should_check:
-                self._on_check_recovery()
+            try:
+                should_check = (
+                    self.is_using_fallback
+                    and self.primary_device_name is not None
+                    and self.primary_device_name != ""
+                )
+                if should_check:
+                    self._on_check_recovery()
+            except Exception:
+                self._logger.error("Exception in primary-device recovery loop:", exc_info=True)
             time.sleep(self._recovery_interval)
 
     def _check_disconnection(self) -> None:
@@ -318,6 +330,21 @@ class AudioCaptureEngine:
         with self._callback_lock:
             self.last_callback_time = time.time()
 
+        try:
+            self._process_input(indata, status)
+        except Exception:
+            # PortAudio silently aborts the stream forever if an exception
+            # escapes this callback (no log, no exception, no overflow flag —
+            # just dead silence). Catching here guarantees the watchdog is the
+            # only thing that decides when the stream is dead, instead of an
+            # unrelated bug (e.g. a resample edge case or a cross-thread ROS2
+            # call hiccup) silently killing capture until the disconnection
+            # timeout eventually notices.
+            self._logger.error("Exception in audio input_callback:", exc_info=True)
+            with self._callback_lock:
+                self.last_callback_time = 0.0
+
+    def _process_input(self, indata, status) -> None:
         audio_data = indata[:, 0].astype(np.float32)
 
         if status:
@@ -373,7 +400,12 @@ class AudioCaptureEngine:
 
     def _on_device_disconnected(self) -> None:
         """Watchdog callback: triggered when no audio arrives within timeout."""
-        self._on_device_changed("")  # notify node to clear its device_name param
+        try:
+            self._on_device_changed("")  # notify node to clear its device_name param
+        except Exception:
+            # Cross-thread rclpy call (set_parameters) racing with the executor
+            # can occasionally raise; never let that abort the recovery below.
+            self._logger.error("Exception notifying node of device change:", exc_info=True)
         self._logger.error("Device disconnected. Stopping stream and searching for replacement.")
         self._stop_stream()
         self._handle_device_disconnection()

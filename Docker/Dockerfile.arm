@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # eut_speech_audio_processing — Jetson Thor / ARM64 image
 #
 # Builds on top of the EutRobAIDockers ARM base image (ROS 2 Jazzy + PyTorch ARM64).
@@ -30,6 +31,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
     git \
+    openssh-client \
     portaudio19-dev \
     libasound2-dev \
     libpulse-dev \
@@ -87,8 +89,15 @@ RUN pip install --no-cache-dir --ignore-installed blinker && \
 #   pyannote / diart only use torchaudio for audio I/O (torchaudio.load,
 #   Resample) which are CPU ops — CUDA torchaudio extensions are not needed.
 ARG TORCHAUDIO_TAG="v2.8.0"
-RUN git clone --depth 1 --branch ${TORCHAUDIO_TAG} \
-        https://github.com/pytorch/audio.git /tmp/torchaudio_src && \
+# Use a Docker-native tarball fetch (ADD) instead of `git clone` — it avoids
+# the git-upload-pack protocol that GitHub's unauthenticated rate limiter
+# throttles hardest, using a single plain HTTPS GET instead.
+# (pytorch/audio has no git submodules at this tag, so a plain source
+# tarball is a complete, buildable checkout.)
+ADD https://github.com/pytorch/audio/archive/refs/tags/${TORCHAUDIO_TAG}.tar.gz /tmp/torchaudio.tar.gz
+RUN mkdir -p /tmp/torchaudio_src && \
+    tar -xzf /tmp/torchaudio.tar.gz -C /tmp/torchaudio_src --strip-components=1 && \
+    rm /tmp/torchaudio.tar.gz && \
     cd /tmp/torchaudio_src && \
     export CMAKE_PREFIX_PATH="$(python3 -c 'import torch; print(torch.utils.cmake_prefix_path)')" && \
     export USE_CUDA=0 && \
@@ -115,9 +124,20 @@ RUN git clone --depth 1 --branch ${TORCHAUDIO_TAG} \
 # CUDA 13.0 (JetPack 7.0 / L4T r38.x). Source build is required until dusty-nv
 # publishes r38 (JetPack 7.0) images.
 ARG CT2_TAG="v4.7.1"
-RUN pip uninstall -y ctranslate2 || true && \
-    git clone --recursive --depth 1 --shallow-submodules --branch ${CT2_TAG} \
-        https://github.com/OpenNMT/CTranslate2.git /tmp/ct2_src && \
+# NOTE: CTranslate2 pulls submodules (cutlass, thrust, etc.) via --recursive,
+# so a plain source tarball won't work here (unlike torchaudio/tips above).
+# Clone over SSH using the host's forwarded SSH agent/key (--ssh in the build
+# command) so the request is authenticated instead of hitting GitHub's
+# unauthenticated-download rate limit.
+RUN --mount=type=ssh mkdir -p -m 0700 /root/.ssh && \
+    ssh-keyscan -t rsa,ecdsa,ed25519 github.com >> /root/.ssh/known_hosts 2>/dev/null && \
+    git config --global url."git@github.com:".insteadOf "https://github.com/" && \
+    pip uninstall -y ctranslate2 || true && \
+    for i in 1 2 3 4 5; do \
+        git clone --recursive --depth 1 --shallow-submodules --branch ${CT2_TAG} \
+            git@github.com:OpenNMT/CTranslate2.git /tmp/ct2_src && break || \
+        { echo "git clone failed (attempt $i/5), retrying in 30s..."; rm -rf /tmp/ct2_src; sleep 30; }; \
+    done && \
     CT2_CMAKE_MODULES="$(python3 -c "import torch, os; print(os.path.join(os.path.dirname(torch.__file__), 'share/cmake/Caffe2/Modules_CUDA_fix/upstream'))")" && \
     cmake -S /tmp/ct2_src -B /tmp/ct2_src/build \
         "-DCMAKE_MODULE_PATH=${CT2_CMAKE_MODULES}" \

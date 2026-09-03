@@ -4,7 +4,8 @@
 audio_capturing:
   ros__parameters:
     # Device Configuration
-    device_name: "jabra"                      # Name or partial name of the audio input device to use
+    # device_name is now set via the DEVICE_NAME env var (Docker/.env) and the
+    # 'device_name' launch argument in audio_stream_manager.launch.py, not here.
     dtype: "float32"                        # Audio data type (float32, int16, etc.)
     channels: 1                             # Number of audio channels to capture
     chunk: 512                              # Audio chunk size (number of samples per callback)
