@@ -230,6 +230,21 @@ if $USE_ARM; then
         echo "HF_TOKEN not set — pyannote models will download on first container run (requires internet)."
     fi
 
+    # Forward an SSH key/agent so `git clone` of build-time deps with
+    # submodules (e.g. ctranslate2) authenticate to GitHub instead of
+    # hitting the anonymous-download rate limit. Override the key path
+    # via BUILD_SSH_KEY if a running ssh-agent isn't available.
+    BUILD_SSH_KEY="${BUILD_SSH_KEY:-$HOME/.ssh/josepeut_github}"
+    if [ -n "${SSH_AUTH_SOCK:-}" ]; then
+        echo "Forwarding SSH agent (SSH_AUTH_SOCK) into build."
+        BUILD_ARGS+=(--ssh default)
+    elif [ -f "$BUILD_SSH_KEY" ]; then
+        echo "Forwarding SSH key ${BUILD_SSH_KEY} into build."
+        BUILD_ARGS+=(--ssh "default=${BUILD_SSH_KEY}")
+    else
+        echo "No SSH agent or key found for --ssh forwarding — GitHub clones may hit anonymous rate limits."
+    fi
+
     BUILD_ARGS+=("${BUILD_CONTEXT}")
     if $REBUILD; then
         echo "Rebuilding ARM image (no cache)..."

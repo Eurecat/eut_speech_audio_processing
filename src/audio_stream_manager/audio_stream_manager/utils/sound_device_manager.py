@@ -79,8 +79,8 @@ class SoundDeviceManager:
                     samplerate=samplerate,
                     channels=actual_channels,
                     dtype=dtype,
-                    blocksize=max(int(chunk), 1024),
-                    latency="high",
+                    blocksize=chunk,
+                    latency="low",
                 )
                 test_stream.start()
                 audio_data, _ = test_stream.read(chunk)
@@ -142,9 +142,9 @@ class SoundDeviceManager:
                 samplerate=active_device.samplerate,
                 channels=active_device.channels,
                 dtype=dtype,
-                blocksize=max(int(chunk), 1024),
+                blocksize=chunk,
                 callback=callback,
-                latency="high",
+                latency="low",
             )
             stream.start()
         return stream

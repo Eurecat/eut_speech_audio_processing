@@ -3,7 +3,8 @@ import subprocess
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import LogInfo, SetEnvironmentVariable
+from launch.actions import DeclareLaunchArgument, LogInfo, SetEnvironmentVariable
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 VENV_PATH = os.environ.get("AI_VENV", "/opt/ros_python_env")  # set AI_VENV or uses default
@@ -28,6 +29,12 @@ def generate_launch_description():
 
     return LaunchDescription(
         [
+            DeclareLaunchArgument(
+                "device_name",
+                default_value=os.environ.get("DEVICE_NAME", "jabra"),
+                description="Name or partial name of the audio input device to use "
+                "(defaults to the DEVICE_NAME env var, see Docker/.env)",
+            ),
             LogInfo(msg=f"[audio_stream_manager] Using AI venv: {VENV_PATH}"),
             LogInfo(msg=f"[audio_stream_manager] Injecting site-packages: {site_pkgs}"),
             LogInfo(msg=f"[audio_stream_manager] Loading config from: {config_file}"),
@@ -37,7 +44,10 @@ def generate_launch_description():
                 executable="audio_capturing",
                 name="audio_capturing",
                 output="screen",
-                parameters=[config_file],
+                parameters=[
+                    config_file,
+                    {"device_name": LaunchConfiguration("device_name")},
+                ],
             ),
             Node(
                 package="audio_stream_manager",

@@ -41,6 +41,7 @@ services:
       - HF_HOME=/root/.cache/torch/pyannote
       - TORCH_HOME=/root/.cache/torch
       - AI_VENV=/opt/ros_python_env
+      - DEVICE_NAME=${DEVICE_NAME:-jabra}
 
     devices:
       - /dev/dri:/dev/dri
@@ -50,6 +51,7 @@ services:
       - 'c 180:* rwm'  # 180 is usb
       - 'c 189:* rwm' # 189 is usb_device
 
+    # Modify audio input device name in this repo's Docker/.env (DEVICE_NAME=...)
     command: >
       bash -c "source /workspace/install/setup.bash &&
       exec ros2 launch audio_stream_manager audio_stream_manager.launch.py"
