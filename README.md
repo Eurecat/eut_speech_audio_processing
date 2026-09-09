@@ -153,6 +153,60 @@ command: bash -c "source /workspace/install/setup.bash && ros2 launch speech_rec
 - **Diarization** requires **VAD** to work properly
 - **ASR** requires both **VAD** and **Diarization** for optimal performance
 
+### Android Edge Bridge Mode
+
+This repository now includes an Android bridge profile that lets an Android app stream audio into ROS2 and receive `SpeechResult` back in real time.
+
+Launch it from the Docker folder:
+
+```bash
+docker compose -f android-docker-compose.yaml up
+```
+
+The profile starts two TCP bridges in host network mode:
+
+- Android -> edge audio ingest (`audio_stream_manager/android_audio_bridge.py`)
+  - Binds on `0.0.0.0:${ANDROID_AUDIO_PORT:-17000}`
+  - Accepts NDJSON messages and publishes `audio_and_device_info` (`AudioAndDeviceInfo.msg`)
+- edge -> Android transcript egress (`speech_recognition/android_transcript_bridge.py`)
+  - Binds on `0.0.0.0:${ANDROID_TRANSCRIPT_PORT:-17001}`
+  - Subscribes to `speech_result` (`SpeechResult.msg`) and streams NDJSON to connected clients
+
+#### Android -> edge NDJSON payloads
+
+One JSON object per line over TCP:
+
+```json
+{"type":"stream_start","stream_id":"session-123"}
+{"type":"audio_chunk","stream_id":"session-123","seq":1,"sample_rate":16000,"device_name":"pixel","device_id":1,"audio":[0.01,-0.02,0.03]}
+{"type":"stream_end","stream_id":"session-123"}
+```
+
+`audio_chunk` also supports `audio_b64_f32le` as an alternative to the `audio` array.
+
+#### edge -> Android NDJSON payload
+
+One JSON object per line over TCP:
+
+```json
+{
+  "type": "speech_result",
+  "transcript": "hola",
+  "transcript_confidence": 0.0,
+  "speaker_id": "speaker_1",
+  "speaker_id_confidence": 0.0,
+  "language_code": "es",
+  "locale": "",
+  "stamp": {"sec": 1, "nanosec": 2000000}
+}
+```
+
+#### Notes
+
+- Both bridges use bounded queues to avoid unbounded memory growth.
+- The audio bridge drops the oldest queued chunk when saturated and logs drop counters.
+- Keep Android and host in the same network (or use ADB reverse/forward if needed).
+
 
 
 ### Managing the Speaker Recognition Database

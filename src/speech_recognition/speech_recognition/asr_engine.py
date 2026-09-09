@@ -73,7 +73,7 @@ class ASREngine:
         silence_detection_threshold: float,
         pre_buffer_duration: float,
         weights_dir: str,
-        on_transcript_ready: Callable[[str, str, str], None],
+        on_transcript_ready: Callable[[str, str, str, int, int, float], None],
         logger,
     ):
         self._logger = logger
@@ -125,14 +125,13 @@ class ASREngine:
         device = "cuda" if ctranslate2.get_cuda_device_count() > 0 else "cpu"
         self._logger.info(f"Using device on ASR: {device}")
 
-        # float16 variants are not reliable on CPU; pick a portable CPU default.
         effective_compute_type = compute_type
-        if device == "cpu" and compute_type in {"float16", "int8_float16"}:
-            effective_compute_type = "int8"
+        if device == "cpu" and "float16" in compute_type:
+            # CTranslate2 on CPU does not support efficient float16 inference.
             self._logger.warn(
-                f"ASR compute_type '{compute_type}' is not supported on CPU. "
-                f"Falling back to '{effective_compute_type}'."
+                f"compute_type '{compute_type}' is not supported on CPU. Falling back to 'float32'."
             )
+            effective_compute_type = "float32"
 
         os.makedirs(weights_dir, exist_ok=True)
 
@@ -392,6 +391,7 @@ class ASREngine:
 
         duration = len(audio_data) / self.sample_rate
         self._logger.info(f"Transcribing {duration:.2f}s of audio...")
+        transcribe_start = time.time()
 
         transcription_language = self._resolve_language(audio_data)
 
@@ -419,10 +419,30 @@ class ASREngine:
 
             if transcript:
                 speaker = self.speaker_id or "unknown"
-                self._logger.info(
-                    f"Transcript: '{transcript}' (lang: {detected_language}, speaker: {speaker})"
+                model_processing_ms = int((time.time() - transcribe_start) * 1000)
+                if self.last_silence_time > 0:
+                    processing_ms = int((time.time() - self.last_silence_time) * 1000)
+                else:
+                    processing_ms = model_processing_ms
+                audio_duration_ms = int(duration * 1000)
+                realtime_factor = (
+                    float(processing_ms) / float(audio_duration_ms)
+                    if audio_duration_ms > 0
+                    else 0.0
                 )
-                self._on_transcript_ready(transcript, speaker, detected_language)
+                self._logger.info(
+                    f"Transcript: '{transcript}' (lang: {detected_language}, speaker: {speaker}, "
+                    f"proc={processing_ms}ms, model={model_processing_ms}ms, "
+                    f"audio={audio_duration_ms}ms, x{realtime_factor:.2f})"
+                )
+                self._on_transcript_ready(
+                    transcript,
+                    speaker,
+                    detected_language,
+                    processing_ms,
+                    audio_duration_ms,
+                    realtime_factor,
+                )
             else:
                 self._logger.info("Empty transcript — not publishing.")
 

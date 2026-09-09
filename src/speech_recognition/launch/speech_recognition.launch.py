@@ -37,6 +37,15 @@ def _setup(context, *args, **kwargs):
     enable_asr = LaunchConfiguration("enable_asr").perform(context)
     diarization_delay = float(LaunchConfiguration("diarization_delay").perform(context))
     asr_delay = float(LaunchConfiguration("asr_delay").perform(context))
+    enable_android_transcript_bridge = (
+        LaunchConfiguration("enable_android_transcript_bridge").perform(context).lower() == "true"
+    )
+    android_transcript_bind_host = LaunchConfiguration("android_transcript_bind_host").perform(
+        context
+    )
+    android_transcript_bind_port = int(
+        LaunchConfiguration("android_transcript_bind_port").perform(context)
+    )
 
     # Get ros4hri_with_id parameter
     ros4hri_with_id = LaunchConfiguration("ros4hri_with_id").perform(context).lower() == "true"
@@ -234,6 +243,34 @@ def _setup(context, *args, **kwargs):
             )
         )
 
+    if enable_android_transcript_bridge:
+        log_messages.extend(
+            [
+                LogInfo(
+                    msg=(
+                        "[speech_recognition] Android transcript bridge enabled on "
+                        f"{android_transcript_bind_host}:{android_transcript_bind_port}"
+                    )
+                ),
+            ]
+        )
+
+        nodes_to_launch.append(
+            Node(
+                package="speech_recognition",
+                executable="android_transcript_bridge",
+                name="android_transcript_bridge",
+                output="screen",
+                parameters=[
+                    {
+                        "bind_host": android_transcript_bind_host,
+                        "bind_port": android_transcript_bind_port,
+                        "topic_name": "speech_result",
+                    }
+                ],
+            )
+        )
+
     # Combine all log messages and nodes
     return log_messages + nodes_to_launch
 
@@ -288,6 +325,21 @@ def generate_launch_description():
                 "inactive_topic_timeout",
                 default_value="10.0",
                 description="Timeout in seconds before destroying inactive topics",
+            ),
+            DeclareLaunchArgument(
+                "enable_android_transcript_bridge",
+                default_value="false",
+                description="Enable TCP bridge that forwards SpeechResult to Android clients",
+            ),
+            DeclareLaunchArgument(
+                "android_transcript_bind_host",
+                default_value="0.0.0.0",
+                description="Bind host for Android transcript bridge",
+            ),
+            DeclareLaunchArgument(
+                "android_transcript_bind_port",
+                default_value="17001",
+                description="Bind port for Android transcript bridge",
             ),
             # Add informational log message
             LogInfo(msg="[speech_recognition] Starting Speech Recognition Suite"),
