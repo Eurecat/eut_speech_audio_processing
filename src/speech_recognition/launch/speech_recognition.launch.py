@@ -34,6 +34,7 @@ def _setup(context, *args, **kwargs):
     enable_vad = LaunchConfiguration("enable_vad").perform(context)
     enable_wake_word = LaunchConfiguration("enable_wake_word").perform(context)
     enable_diarization = LaunchConfiguration("enable_diarization").perform(context)
+    diarization_backend = LaunchConfiguration("diarization_backend").perform(context).lower()
     enable_asr = LaunchConfiguration("enable_asr").perform(context)
     diarization_delay = float(LaunchConfiguration("diarization_delay").perform(context))
     asr_delay = float(LaunchConfiguration("asr_delay").perform(context))
@@ -60,6 +61,12 @@ def _setup(context, *args, **kwargs):
     # Common setup for environment variables
     nodes_to_launch = []
     log_messages = []
+
+    if diarization_backend not in {"diart", "redimnet2"}:
+        raise ValueError(
+            f"Unsupported diarization_backend '{diarization_backend}'. "
+            "Use 'diart' or 'redimnet2'."
+        )
 
     # VAD Node Setup
 
@@ -169,6 +176,9 @@ def _setup(context, *args, **kwargs):
                 LogInfo(
                     msg=f"[speech_recognition] Diarization: ROS4HRI with ID: {'enabled' if ros4hri_with_id else 'disabled'}"
                 ),
+                LogInfo(
+                    msg=f"[speech_recognition] Diarization backend: {diarization_backend}"
+                ),
             ]
         )
 
@@ -189,6 +199,7 @@ def _setup(context, *args, **kwargs):
                                 "ros4hri_with_id": ros4hri_with_id,
                                 "cleanup_inactive_topics": cleanup_inactive_topics,
                                 "inactive_topic_timeout": inactive_topic_timeout,
+                                "diarization_backend": diarization_backend,
                             },
                         ],
                         condition=IfCondition(LaunchConfiguration("enable_diarization")),
@@ -295,6 +306,11 @@ def generate_launch_description():
                 "enable_diarization",
                 default_value="true",
                 description="Enable Diarization (Speaker Identification) node",
+            ),
+            DeclareLaunchArgument(
+                "diarization_backend",
+                default_value="diart",
+                description="Diarization backend: 'diart' or 'redimnet2'",
             ),
             DeclareLaunchArgument(
                 "diarization_delay",

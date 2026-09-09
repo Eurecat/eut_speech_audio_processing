@@ -411,6 +411,34 @@ class DiarizationEngine:
         if self.source is not None and self._initialized:
             self.source.add_audio_chunk(audio_data)
 
+    @property
+    def speaker_confidence(self) -> float:
+        """Confidence of the latest speaker assignment, if the backend provides one."""
+        return 0.0
+
+    def _create_embedding_model(self, hf_token: Optional[str]):
+        """Factory hook used by selectable embedding backends."""
+        return m.EmbeddingModel.from_pretrained(
+            self.embedding_model_name, use_hf_token=hf_token
+        )
+
+    def _create_observer(self) -> DiarizationObserver:
+        """Factory hook used by selectable identity backends."""
+        return DiarizationObserver(
+            use_database=self.use_database,
+            ros4hri_enabled=self.ros4hri_enabled,
+            vad_threshold=self.vad_threshold,
+            similarity_threshold=self.similarity_threshold,
+            get_current_vad_probability=lambda: self._current_vad_probability,
+            get_pipeline=lambda: self.model,
+            get_last_audio_block=lambda: self.source.last_emitted_block
+            if self.source
+            else None,
+            on_eut_speaker_changed=self._on_eut_speaker_changed,
+            on_voice_update=self._on_voice_update,
+            logger=self._logger,
+        )
+
     def initialize(self, sample_rate: int) -> bool:
         """Load models and set up the pipeline. Returns True on success."""
         if self._initialized:
@@ -488,9 +516,7 @@ class DiarizationEngine:
                     self._logger.info(f"Segmentation model loaded: {type(segmentation.model).__name__}")
 
                     self._logger.info(f"Loading embedding model: {self.embedding_model_name}")
-                    embedding = m.EmbeddingModel.from_pretrained(
-                        self.embedding_model_name, use_hf_token=hf_token
-                    )
+                    embedding = self._create_embedding_model(hf_token)
                     try:
                         embedding.load()
                     except Exception as load_err:
@@ -544,9 +570,7 @@ class DiarizationEngine:
                 self._logger.info(f"Segmentation model loaded: {type(segmentation.model).__name__}")
 
                 self._logger.info(f"Loading embedding model: {self.embedding_model_name}")
-                embedding = m.EmbeddingModel.from_pretrained(
-                    self.embedding_model_name, use_hf_token=hf_token
-                )
+                embedding = self._create_embedding_model(hf_token)
                 try:
                     embedding.load()
                 except Exception as load_err:
@@ -578,20 +602,7 @@ class DiarizationEngine:
             self.source = ROSAudioSource(sample_rate=sample_rate, block_duration=step_duration)
             self.source.read()
 
-            self.observer = DiarizationObserver(
-                use_database=self.use_database,
-                ros4hri_enabled=self.ros4hri_enabled,
-                vad_threshold=self.vad_threshold,
-                similarity_threshold=self.similarity_threshold,
-                get_current_vad_probability=lambda: self._current_vad_probability,
-                get_pipeline=lambda: self.model,
-                get_last_audio_block=lambda: self.source.last_emitted_block
-                if self.source
-                else None,
-                on_eut_speaker_changed=self._on_eut_speaker_changed,
-                on_voice_update=self._on_voice_update,
-                logger=self._logger,
-            )
+            self.observer = self._create_observer()
 
             self._initialized = True
             self._diarization_thread = threading.Thread(target=self._run_diarization, daemon=True)

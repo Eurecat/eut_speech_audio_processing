@@ -44,6 +44,21 @@ class DiarizationNode(Node):
         self.declare_parameter("cleanup_inactive_topics", False)
         self.declare_parameter("inactive_topic_timeout", 10.0)
         self.declare_parameter("init_retry_backoff_sec", 10.0)
+        self.declare_parameter("diarization_backend", "diart")
+        self.declare_parameter("redi_repository", "PalabraAI/redimnet2:v1.0.0")
+        self.declare_parameter("redi_model_name", "b6")
+        self.declare_parameter("redi_train_type", "lm")
+        self.declare_parameter("redi_dataset", "vb2+vox2+cnc2_v0")
+        self.declare_parameter("redi_match_threshold", 0.68)
+        self.declare_parameter("redi_match_margin", 0.08)
+        self.declare_parameter("redi_continue_threshold", 0.58)
+        self.declare_parameter("redi_switch_threshold", 0.74)
+        self.declare_parameter("redi_update_threshold", 0.72)
+        self.declare_parameter("redi_min_update_quality", 0.70)
+        self.declare_parameter("redi_min_confirm_embeddings", 3)
+        self.declare_parameter("redi_min_confirm_seconds", 1.5)
+        self.declare_parameter("redi_max_prototypes", 6)
+        self.declare_parameter("redi_mongo_uri", "")
 
         self.vad_threshold = self.get_parameter("vad_threshold").get_parameter_value().double_value
         self.ros4hri_enabled = (
@@ -62,7 +77,44 @@ class DiarizationNode(Node):
         # ------------------------------------------------------------------
         # Engine
         # ------------------------------------------------------------------
-        self.engine = DiarizationEngine(
+        backend = self.get_parameter("diarization_backend").value.lower()
+        if backend not in {"diart", "redimnet2"}:
+            raise ValueError(
+                f"Unsupported diarization_backend '{backend}'. Use 'diart' or 'redimnet2'."
+            )
+
+        engine_class = DiarizationEngine
+        backend_options = {}
+        if backend == "redimnet2":
+            from speech_recognition.redi_diarization_engine import RediDiarizationEngine
+
+            engine_class = RediDiarizationEngine
+            backend_options = {
+                "redi_repository": self.get_parameter("redi_repository").value,
+                "redi_model_name": self.get_parameter("redi_model_name").value,
+                "redi_train_type": self.get_parameter("redi_train_type").value,
+                "redi_dataset": self.get_parameter("redi_dataset").value,
+                "redi_match_threshold": self.get_parameter("redi_match_threshold").value,
+                "redi_match_margin": self.get_parameter("redi_match_margin").value,
+                "redi_continue_threshold": self.get_parameter(
+                    "redi_continue_threshold"
+                ).value,
+                "redi_switch_threshold": self.get_parameter("redi_switch_threshold").value,
+                "redi_update_threshold": self.get_parameter("redi_update_threshold").value,
+                "redi_min_update_quality": self.get_parameter(
+                    "redi_min_update_quality"
+                ).value,
+                "redi_min_confirm_embeddings": self.get_parameter(
+                    "redi_min_confirm_embeddings"
+                ).value,
+                "redi_min_confirm_seconds": self.get_parameter(
+                    "redi_min_confirm_seconds"
+                ).value,
+                "redi_max_prototypes": self.get_parameter("redi_max_prototypes").value,
+                "redi_mongo_uri": self.get_parameter("redi_mongo_uri").value,
+            }
+
+        self.engine = engine_class(
             chunk_duration=self.get_parameter("chunk_duration").get_parameter_value().double_value,
             overlap_duration=self.get_parameter("overlap_duration")
             .get_parameter_value()
@@ -82,7 +134,9 @@ class DiarizationNode(Node):
             on_eut_speaker_changed=self._on_eut_speaker_changed,
             on_voice_update=self._on_voice_update,
             logger=self.get_logger(),
+            **backend_options,
         )
+        self.get_logger().info(f"Selected diarization backend: {backend}")
 
         # ------------------------------------------------------------------
         # State owned by the node
@@ -263,6 +317,7 @@ class DiarizationNode(Node):
         msg = SpeechActivityDetection()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.speaker_id = eut_speaker_id.replace("EUT_", "")
+        msg.speaker_id_confidence = float(self.engine.speaker_confidence)
         msg.active = active
         self.speech_activity_pub.publish(msg)
 

@@ -10,6 +10,23 @@ diarization_node:
     # Model Configuration
     segmentation_model_name: "pyannote/segmentation"  # Model name for speaker segmentation
     embedding_model_name: "pyannote/embedding"        # Model name for speaker embedding
+    diarization_backend: "diart"                       # diart (legacy) or redimnet2
+
+    # ReDimNet2 backend (used only when diarization_backend=redimnet2)
+    redi_repository: "PalabraAI/redimnet2:v1.0.0"      # Pin source for reproducible torch.hub loading
+    redi_model_name: "b6"
+    redi_train_type: "lm"                              # Large-margin checkpoint (recommended upstream)
+    redi_dataset: "vb2+vox2+cnc2_v0"
+    redi_match_threshold: 0.68                         # Absolute identity match threshold
+    redi_match_margin: 0.08                            # Required top-1 minus top-2 margin
+    redi_continue_threshold: 0.58                      # Lower threshold for track hysteresis
+    redi_switch_threshold: 0.74                        # Strong evidence required to switch identity
+    redi_update_threshold: 0.72                        # Guard identity centroid/prototype updates
+    redi_min_update_quality: 0.70                      # Minimum external VAD probability
+    redi_min_confirm_embeddings: 3                     # Provisional -> confirmed lifecycle
+    redi_min_confirm_seconds: 1.5
+    redi_max_prototypes: 6                             # Bounded acoustic-condition prototype bank
+    redi_mongo_uri: ""                                 # Empty uses MONGODB_URI or local legacy default
     
     # VAD Integration
     vad_threshold: 0.75                       # VAD threshold for publishing speech activity

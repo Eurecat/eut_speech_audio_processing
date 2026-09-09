@@ -14,6 +14,8 @@ speech_recognition/
 ├── wake_word_engine.py     # All wake-word logic: OpenWakeWord, sliding-window inference
 ├── diarization.py          # ROS2 node (thin wrapper)
 ├── diarization_engine.py   # All diarization logic: diart pipeline, observer, speaker mapping
+├── redi_diarization_engine.py # DIART segmentation/tracking + ReDimNet2 embedding backend
+├── redi_speaker_identity.py   # In-RAM identity manager + optional MongoDB persistence
 ├── asr.py                  # ROS2 node (thin wrapper)
 ├── asr_engine.py           # All ASR logic: Whisper model, VAD state machine, buffering
 ├── ros_audio_source.py     # AudioSource adapter: bridges ROS audio chunks to diart
@@ -126,6 +128,35 @@ Manages speaker embedding persistence in MongoDB:
 **Requires**:
 - `HF_TOKEN` environment variable or `huggingface-cli login` for gated pyannote models
 - MongoDB running and accessible (see root `README.md` for setup)
+
+#### Selectable ReDimNet2 backend
+
+The legacy backend remains the default. Select the alternative at launch with
+`diarization_backend:=redimnet2`; use `diarization_backend:=diart` to select the
+original implementation explicitly.
+
+The ReDimNet2 path intentionally keeps DIART's pyannote segmentation, overlap
+handling and streaming track production, but replaces its embedding model with
+the public ReDimNet2 checkpoint. It then maps transient DIART tracks to stable
+`EUT_speakerN` identities using an in-memory manager with:
+
+- L2-normalized 192-dimensional embeddings;
+- centroid plus a bounded bank of acoustic-condition prototypes;
+- absolute score and top-1/top-2 margin checks;
+- track hysteresis with separate continue and switch thresholds;
+- provisional identities that require multiple clean windows before persistence;
+- overlap, duration, VAD-quality and confidence gates before centroid updates.
+
+MongoDB is not queried in the real-time loop. Confirmed identities are loaded
+at startup, compared by matrix/vector operations in memory, and checkpointed
+only after confirmation or several accepted updates. ReDimNet2 records use a
+model-specific collection schema and are never mixed with legacy pyannote
+embeddings.
+
+All REDI thresholds and model choices are documented in
+`config/diarization_params.yaml`. The upstream checkpoint is loaded from the
+pinned public `PalabraAI/redimnet2:v1.0.0` torch hub source. Internet access is
+required for the first load; later starts use the torch cache.
 
 **Diagram**: [Open diarization workflow](diarization_workflow.mmd)
 
