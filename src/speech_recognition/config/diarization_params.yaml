@@ -4,8 +4,16 @@
 diarization_node:
   ros__parameters:
     # Audio Processing Configuration
-    chunk_duration: 2.0                     # Duration (seconds) of audio chunks for diarization
+    chunk_duration: 1.0                     # Duration (seconds) of audio chunks for diarization
     overlap_duration: 0.5                   # Overlap (seconds) between consecutive chunks
+    step_duration: 0.5                      # Sliding-window step (seconds). Lower = finer speaker
+                                            # change resolution but more compute.
+    
+    # Diart clustering (online speaker tracking)
+    tau_active: 0.5                         # Min. activity probability for a speaker to count as active
+    delta_new: 0.90                         # Cosine-distance threshold to spawn a NEW speaker.
+                                            # Raise (e.g. 0.95) to fight over-segmentation.
+    max_speakers: 10                        # Upper bound of concurrently tracked speakers
     
     # Model Configuration
     segmentation_model_name: "pyannote/segmentation"  # Model name for speaker segmentation
@@ -29,9 +37,9 @@ diarization_node:
     redi_mongo_uri: ""                                 # Empty uses MONGODB_URI or local legacy default
     
     # VAD Integration
-    vad_threshold: 0.75                       # VAD threshold for publishing speech activity
+    vad_threshold: 0.5                        # VAD threshold for publishing speech activity (kept aligned with the ASR gate)
 
     # Diarization 
     use_database: False                          # Whether to use MongoDB for storing diarization results
-    similarity_threshold: 0.2                   # Cosine distance threshold below which two DIART speakers are merged into one EUT speaker (lower = stricter)
+    similarity_threshold: 0.35                  # Cosine distance threshold below which two DIART speakers are merged into one EUT speaker (lower = stricter, higher = more merging)
     init_retry_backoff_sec: 10.0                # Delay between failed engine initialization retries

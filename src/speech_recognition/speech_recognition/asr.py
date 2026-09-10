@@ -43,6 +43,12 @@ class ASRNode(Node):
         self.declare_parameter("max_chunk_duration", 30.0)
         self.declare_parameter("silence_detection_threshold", 0.00001)
         self.declare_parameter("pre_buffer_duration", 0.3)
+        self.declare_parameter("diarization_offset", 0.0)
+        self.declare_parameter("min_speaker_run_tokens", 2)
+        self.declare_parameter("min_speaker_run_duration", 0.4)
+        self.declare_parameter("snap_splits_to_sentences", True)
+        self.declare_parameter("speaker_interval_tolerance", 3.0)
+        self.declare_parameter("min_speaker_chunk_duration", 0.3)
         self.declare_parameter("ros4hri_with_id", True)
         self.declare_parameter("cleanup_inactive_topics", False)
         self.declare_parameter("inactive_topic_timeout", 10.0)
@@ -90,6 +96,24 @@ class ASRNode(Node):
             .get_parameter_value()
             .double_value,
             pre_buffer_duration=self.get_parameter("pre_buffer_duration")
+            .get_parameter_value()
+            .double_value,
+            diarization_offset=self.get_parameter("diarization_offset")
+            .get_parameter_value()
+            .double_value,
+            min_speaker_run_tokens=self.get_parameter("min_speaker_run_tokens")
+            .get_parameter_value()
+            .integer_value,
+            min_speaker_run_duration=self.get_parameter("min_speaker_run_duration")
+            .get_parameter_value()
+            .double_value,
+            snap_splits_to_sentences=self.get_parameter("snap_splits_to_sentences")
+            .get_parameter_value()
+            .bool_value,
+            speaker_interval_tolerance=self.get_parameter("speaker_interval_tolerance")
+            .get_parameter_value()
+            .double_value,
+            min_speaker_chunk_duration=self.get_parameter("min_speaker_chunk_duration")
             .get_parameter_value()
             .double_value,
             weights_dir=weights_dir,
@@ -153,7 +177,7 @@ class ASRNode(Node):
         self.engine.update_vad(msg.vad_probability)
 
     def _speech_activity_callback(self, msg: SpeechActivityDetection) -> None:
-        self.engine.update_speaker(msg.speaker_id)
+        self.engine.update_speaker(msg.speaker_id, bool(msg.active))
 
         # Create ROS4HRI speech publisher for this speaker if needed
         if self.ros4hri_enabled and msg.speaker_id and msg.speaker_id != "unknown":

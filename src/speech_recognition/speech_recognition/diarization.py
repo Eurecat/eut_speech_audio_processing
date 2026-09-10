@@ -44,6 +44,10 @@ class DiarizationNode(Node):
         self.declare_parameter("cleanup_inactive_topics", False)
         self.declare_parameter("inactive_topic_timeout", 10.0)
         self.declare_parameter("init_retry_backoff_sec", 10.0)
+        self.declare_parameter("step_duration", 0.5)
+        self.declare_parameter("tau_active", 0.7)
+        self.declare_parameter("delta_new", 0.90)
+        self.declare_parameter("max_speakers", 10)
         self.declare_parameter("diarization_backend", "diart")
         self.declare_parameter("redi_repository", "PalabraAI/redimnet2:v1.0.0")
         self.declare_parameter("redi_model_name", "b6")
@@ -129,6 +133,10 @@ class DiarizationNode(Node):
             similarity_threshold=self.get_parameter("similarity_threshold")
             .get_parameter_value()
             .double_value,
+            step_duration=self.get_parameter("step_duration").get_parameter_value().double_value,
+            tau_active=self.get_parameter("tau_active").get_parameter_value().double_value,
+            delta_new=self.get_parameter("delta_new").get_parameter_value().double_value,
+            max_speakers=self.get_parameter("max_speakers").get_parameter_value().integer_value,
             use_database=self.get_parameter("use_database").get_parameter_value().bool_value,
             ros4hri_enabled=self.ros4hri_enabled,
             on_eut_speaker_changed=self._on_eut_speaker_changed,
