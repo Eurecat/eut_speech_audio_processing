@@ -10,7 +10,7 @@ diarization_node:
     # Model Configuration
     segmentation_model_name: "pyannote/segmentation"  # Model name for speaker segmentation
     embedding_model_name: "pyannote/embedding"        # Model name for speaker embedding
-    diarization_backend: "diart"                       # diart (legacy) or redimnet2
+    diarization_backend: "redimnet2"                       # diart (legacy) or redimnet2
 
     # ReDimNet2 backend (used only when diarization_backend=redimnet2)
     redi_repository: "PalabraAI/redimnet2:v1.0.0"      # Pin source for reproducible torch.hub loading
