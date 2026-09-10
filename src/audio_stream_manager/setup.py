@@ -26,6 +26,7 @@ setup(
         "console_scripts": [
             "audio_capturing = audio_stream_manager.audio_capturing:main",
             "audio_to_mp3 = audio_stream_manager.audio_to_mp3:main",
+            "audio_file_publisher = audio_stream_manager.audio_file_publisher:main",
             "android_audio_bridge = audio_stream_manager.android_audio_bridge:main",
         ],
     },
