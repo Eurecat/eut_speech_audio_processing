@@ -13,9 +13,10 @@ speech_recognition/
 ├── wake_word.py            # ROS2 node (thin wrapper)
 ├── wake_word_engine.py     # All wake-word logic: OpenWakeWord, sliding-window inference
 ├── diarization.py          # ROS2 node (thin wrapper)
-├── diarization_engine.py   # All diarization logic: diart pipeline, observer, speaker mapping
-├── redi_diarization_engine.py # DIART segmentation/tracking + ReDimNet2 embedding backend
-├── redi_speaker_identity.py   # In-RAM identity manager + optional MongoDB persistence
+├── diarization_engine.py   # diart backend (legacy): diart pipeline, observer, speaker mapping
+├── diart_identity_engine.py # diart backend using VoiceIdentityManager (diart_use_voice_identity_manager)
+├── redi_voice_engine.py    # redimnet2 backend, no diart: VAD turns -> ReDimNet2 -> VoiceIdentityManager
+├── voice_identity_manager.py # Shared speaker identities: matching, merging, persistence
 ├── asr.py                  # ROS2 node (thin wrapper)
 ├── asr_engine.py           # All ASR logic: Whisper model, VAD state machine, buffering
 ├── ros_audio_source.py     # AudioSource adapter: bridges ROS audio chunks to diart

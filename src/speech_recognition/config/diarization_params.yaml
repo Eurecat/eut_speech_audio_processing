@@ -20,30 +20,65 @@ diarization_node:
     embedding_model_name: "pyannote/embedding"        # Model name for speaker embedding
     diarization_backend: "redimnet2"                       # diart (legacy) or redimnet2
 
+    # Diart backend identity layer (used only when diarization_backend=diart)
+    diart_use_voice_identity_manager: False            # True routes diart's local tracks through the shared
+                                                        # VoiceIdentityManager (exclusive assignment, stickiness,
+                                                        # gated updates, merging). False keeps the legacy mapping,
+                                                        # which pins a diart track to an identity forever and
+                                                        # updates it on every call without any similarity check.
+    diart_identity_similarity_threshold: 0.60          # Calibrated for diart CENTROIDS, which are already
+    diart_identity_young_threshold: 0.60               # averaged. Unlike single ReDimNet2 utterances they are not
+                                                        # noisy when new, so there is deliberately no young-identity
+                                                        # relief: a lower young bar would let a new speaker's
+                                                        # centroid fold into an existing identity.
+    diart_identity_match_margin: 0.08
+    diart_identity_stickiness_margin: 0.20
+    diart_identity_merge_threshold: 0.85
+
     # ReDimNet2 backend (used only when diarization_backend=redimnet2)
-    redi_repository: "PalabraAI/redimnet2:c5bbe0b76e37df698c403f8844e41304ceab6307"  # Pin source for
-                                                        # reproducible torch.hub loading. NOT the "v1.0.0"
-                                                        # tag: that tag predates the b6/vb2+vox2+cnc2_v0
-                                                        # checkpoint (added upstream commit e8bfa167,
-                                                        # 2026-04-23, "agg_gnorm" support) and was uploaded
-                                                        # to the same v1.0.0 release without a new tag, so
-                                                        # the tag's code cannot load this checkpoint's config
+    # Independent of diart: VAD speech turns -> ReDimNet2 embedding -> VoiceIdentityManager.
+    # See plans/plan_REDI_diart.md.
+    redi_repository: "PalabraAI/redimnet2:c5bbe0b76e37df698c403f8844e41304ceab6307"
+                                                        # Pinned commit, NOT the "v1.0.0" tag: that tag predates
+                                                        # the b6/vb2+vox2+cnc2_v0 checkpoint (added upstream in
+                                                        # e8bfa167) and cannot load its config
                                                         # (TypeError: unexpected keyword argument 'agg_gnorm').
-                                                        # Pinned instead to upstream main HEAD as of 2026-09-15.
     redi_model_name: "b6"
     redi_train_type: "lm"                              # Large-margin checkpoint (recommended upstream)
     redi_dataset: "vb2+vox2+cnc2_v0"
-    redi_match_threshold: 0.68                         # Absolute identity match threshold
-    redi_match_margin: 0.08                            # Required top-1 minus top-2 margin
-    redi_continue_threshold: 0.58                      # Lower threshold for track hysteresis
-    redi_switch_threshold: 0.74                        # Strong evidence required to switch identity
-    redi_update_threshold: 0.72                        # Guard identity centroid/prototype updates
-    redi_min_update_quality: 0.70                      # Minimum external VAD probability
-    redi_min_confirm_embeddings: 3                     # Provisional -> confirmed lifecycle
-    redi_min_confirm_seconds: 1.5
-    redi_max_prototypes: 6                             # Bounded acoustic-condition prototype bank
-    redi_mongo_uri: ""                                 # Empty uses MONGODB_URI or local legacy default
-    
+    redi_mongo_uri: ""                                 # Empty uses MONGODB_URI or local default
+
+    # Turn segmentation
+    redi_turn_silence_seconds: 0.35                    # Pause that ends a speaker turn. Kept below the ASR's
+                                                        # min_silence_duration (0.45) so a turn's final label is
+                                                        # ready by the time ASR publishes the utterance.
+    redi_min_embed_seconds: 0.8                        # Speech needed before a turn can match a known speaker
+    redi_min_create_seconds: 1.5                       # Speech needed before a window may CREATE a new speaker.
+                                                        # A 0.8s ReDimNet2 embedding is too noisy to define a
+                                                        # voice: identities seeded from one scored under 0.21
+                                                        # against the same person later, so that person came
+                                                        # back under a new id. Cost: an unheard speaker's first
+                                                        # label arrives ~0.7s later.
+    redi_embed_interval_seconds: 0.5                   # Refresh the label this often while a turn continues
+    redi_max_embed_seconds: 2.0                        # Embed only the most recent speech. Short on purpose: the
+                                                        # label must follow whoever is talking NOW, so when someone
+                                                        # takes over without a pause the label switches and ASR
+                                                        # splits the utterance. At 6.0 a whole A/B exchange blended
+                                                        # into one embedding and poisoned the identity it learned.
+
+    # Identity matching (VoiceIdentityManager)
+    redi_identity_similarity_threshold: 0.55           # Match bar for a confirmed identity
+    redi_identity_young_threshold: 0.40                # Match bar while an identity is still young: its mean is
+                                                        # one or two utterances, so the same speaker scores lower
+                                                        # against it. The margin below still applies. Was briefly
+                                                        # 0.30 to compensate for identities seeded from 0.8s
+                                                        # windows; redi_min_create_seconds fixes that at the
+                                                        # source, and 0.30 was already reaching the
+                                                        # different-speaker range (0.05-0.21).
+    redi_identity_match_margin: 0.06                   # Required lead over the second-best speaker
+    redi_identity_stickiness_margin: 0.25              # A turn stays on its speaker unless another beats it by this
+    redi_identity_merge_threshold: 0.80                # Merge two identities that turn out to be one person
+
     # VAD Integration
     vad_threshold: 0.5                        # VAD threshold for publishing speech activity (kept aligned with the ASR gate)
 

@@ -129,6 +129,10 @@ class ASREngine:
         # resumed utterance after that point starts a fresh segment instead of
         # being merged into the one already dispatched to Whisper.
         self._segment_dispatched: bool = False
+        # True while the current segment began at a real speech onset. A segment
+        # that begins at a mid-speech split continues audio that was already
+        # published, so it must not get the onset pre-buffer prepended again.
+        self._segment_has_onset: bool = True
         self._segment_lock = threading.Lock()
         self.should_stop: bool = False
         # Whisper calls are serialised: a speaker-change split and the silence
@@ -258,6 +262,7 @@ class ASREngine:
                     self._segment_dispatched = False
                 if self.speech_start_time == 0 or dispatched:
                     self.speech_start_time = current_time
+                    self._segment_has_onset = True
                     self._logger.debug("Speech started.")
                 else:
                     self._logger.debug("Speech continued from previous segment.")
@@ -345,6 +350,7 @@ class ASREngine:
         # Everything before the change belongs to the previous speaker; carry
         # on accumulating from the change point.
         self.speech_start_time = change_time
+        self._segment_has_onset = False
         threading.Thread(
             target=self._transcribe_with_data,
             args=(audio_data, start_time, stop_time),
@@ -521,6 +527,7 @@ class ASREngine:
         if audio_data is not None:
             self._transcribe_with_data(audio_data, start_time, stop_time)
             self.speech_start_time = split_time
+            self._segment_has_onset = False
 
     def _transcribe_speech_chunk(
         self, end_time: Optional[float] = None, expected_start_time: Optional[float] = None
@@ -546,10 +553,18 @@ class ASREngine:
         """
         if self.speech_start_time <= 0:
             return None, 0.0, 0.0
-        actual_start = self.speech_start_time - self.pre_buffer_duration
-        chunks = [
-            c["audio"] for c in self.audio_buffer if actual_start <= c["timestamp"] <= end_time
-        ]
+        if self._segment_has_onset:
+            actual_start = self.speech_start_time - self.pre_buffer_duration
+            chunks = [
+                c["audio"] for c in self.audio_buffer if actual_start <= c["timestamp"] <= end_time
+            ]
+        else:
+            # Strictly after the split point: the previous chunk ended at it,
+            # inclusively.
+            actual_start = self.speech_start_time
+            chunks = [
+                c["audio"] for c in self.audio_buffer if actual_start < c["timestamp"] <= end_time
+            ]
         if not chunks:
             return None, 0.0, 0.0
         return np.concatenate(chunks), actual_start, end_time

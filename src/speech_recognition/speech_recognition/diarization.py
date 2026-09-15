@@ -53,16 +53,23 @@ class DiarizationNode(Node):
         self.declare_parameter("redi_model_name", "b6")
         self.declare_parameter("redi_train_type", "lm")
         self.declare_parameter("redi_dataset", "vb2+vox2+cnc2_v0")
-        self.declare_parameter("redi_match_threshold", 0.68)
-        self.declare_parameter("redi_match_margin", 0.08)
-        self.declare_parameter("redi_continue_threshold", 0.58)
-        self.declare_parameter("redi_switch_threshold", 0.74)
-        self.declare_parameter("redi_update_threshold", 0.72)
-        self.declare_parameter("redi_min_update_quality", 0.70)
-        self.declare_parameter("redi_min_confirm_embeddings", 3)
-        self.declare_parameter("redi_min_confirm_seconds", 1.5)
-        self.declare_parameter("redi_max_prototypes", 6)
         self.declare_parameter("redi_mongo_uri", "")
+        self.declare_parameter("redi_turn_silence_seconds", 0.35)
+        self.declare_parameter("redi_min_embed_seconds", 0.8)
+        self.declare_parameter("redi_embed_interval_seconds", 0.5)
+        self.declare_parameter("redi_max_embed_seconds", 2.0)
+        self.declare_parameter("redi_min_create_seconds", 1.5)
+        self.declare_parameter("redi_identity_similarity_threshold", 0.55)
+        self.declare_parameter("redi_identity_young_threshold", 0.40)
+        self.declare_parameter("redi_identity_match_margin", 0.06)
+        self.declare_parameter("redi_identity_stickiness_margin", 0.25)
+        self.declare_parameter("redi_identity_merge_threshold", 0.80)
+        self.declare_parameter("diart_use_voice_identity_manager", False)
+        self.declare_parameter("diart_identity_similarity_threshold", 0.60)
+        self.declare_parameter("diart_identity_young_threshold", 0.60)
+        self.declare_parameter("diart_identity_match_margin", 0.08)
+        self.declare_parameter("diart_identity_stickiness_margin", 0.20)
+        self.declare_parameter("diart_identity_merge_threshold", 0.85)
 
         self.vad_threshold = self.get_parameter("vad_threshold").get_parameter_value().double_value
         self.ros4hri_enabled = (
@@ -89,33 +96,54 @@ class DiarizationNode(Node):
 
         engine_class = DiarizationEngine
         backend_options = {}
-        if backend == "redimnet2":
-            from speech_recognition.redi_diarization_engine import RediDiarizationEngine
+        if backend == "diart" and self.get_parameter("diart_use_voice_identity_manager").value:
+            from speech_recognition.diart_identity_engine import DiartManagedIdentityEngine
 
-            engine_class = RediDiarizationEngine
+            engine_class = DiartManagedIdentityEngine
             backend_options = {
-                "redi_repository": self.get_parameter("redi_repository").value,
-                "redi_model_name": self.get_parameter("redi_model_name").value,
-                "redi_train_type": self.get_parameter("redi_train_type").value,
-                "redi_dataset": self.get_parameter("redi_dataset").value,
-                "redi_match_threshold": self.get_parameter("redi_match_threshold").value,
-                "redi_match_margin": self.get_parameter("redi_match_margin").value,
-                "redi_continue_threshold": self.get_parameter(
-                    "redi_continue_threshold"
-                ).value,
-                "redi_switch_threshold": self.get_parameter("redi_switch_threshold").value,
-                "redi_update_threshold": self.get_parameter("redi_update_threshold").value,
-                "redi_min_update_quality": self.get_parameter(
-                    "redi_min_update_quality"
-                ).value,
-                "redi_min_confirm_embeddings": self.get_parameter(
-                    "redi_min_confirm_embeddings"
-                ).value,
-                "redi_min_confirm_seconds": self.get_parameter(
-                    "redi_min_confirm_seconds"
-                ).value,
-                "redi_max_prototypes": self.get_parameter("redi_max_prototypes").value,
-                "redi_mongo_uri": self.get_parameter("redi_mongo_uri").value,
+                "identity_options": {
+                    "similarity_threshold": self.get_parameter(
+                        "diart_identity_similarity_threshold"
+                    ).value,
+                    "young_identity_threshold": self.get_parameter(
+                        "diart_identity_young_threshold"
+                    ).value,
+                    "match_margin": self.get_parameter("diart_identity_match_margin").value,
+                    "stickiness_margin": self.get_parameter(
+                        "diart_identity_stickiness_margin"
+                    ).value,
+                    "merge_threshold": self.get_parameter(
+                        "diart_identity_merge_threshold"
+                    ).value,
+                },
+            }
+        if backend == "redimnet2":
+            from speech_recognition.redi_voice_engine import RediVoiceEngine
+
+            def value(name):
+                return self.get_parameter(name).value
+
+            engine_class = RediVoiceEngine
+            backend_options = {
+                "redi_repository": value("redi_repository"),
+                "redi_model_name": value("redi_model_name"),
+                "redi_train_type": value("redi_train_type"),
+                "redi_dataset": value("redi_dataset"),
+                "redi_mongo_uri": value("redi_mongo_uri"),
+                "min_create_seconds": value("redi_min_create_seconds"),
+                "turn_options": {
+                    "turn_silence_seconds": value("redi_turn_silence_seconds"),
+                    "min_embed_seconds": value("redi_min_embed_seconds"),
+                    "embed_interval_seconds": value("redi_embed_interval_seconds"),
+                    "max_embed_seconds": value("redi_max_embed_seconds"),
+                },
+                "identity_options": {
+                    "similarity_threshold": value("redi_identity_similarity_threshold"),
+                    "young_identity_threshold": value("redi_identity_young_threshold"),
+                    "match_margin": value("redi_identity_match_margin"),
+                    "stickiness_margin": value("redi_identity_stickiness_margin"),
+                    "merge_threshold": value("redi_identity_merge_threshold"),
+                },
             }
 
         self.engine = engine_class(
@@ -144,7 +172,9 @@ class DiarizationNode(Node):
             logger=self.get_logger(),
             **backend_options,
         )
-        self.get_logger().info(f"Selected diarization backend: {backend}")
+        self.get_logger().info(
+            f"Selected diarization backend: {backend} (engine={engine_class.__name__})"
+        )
 
         # ------------------------------------------------------------------
         # State owned by the node

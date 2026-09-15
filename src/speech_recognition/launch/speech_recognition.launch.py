@@ -309,7 +309,7 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument(
                 "diarization_backend",
-                default_value="diart",
+                default_value="redimnet2",
                 description="Diarization backend: 'diart' or 'redimnet2'",
             ),
             DeclareLaunchArgument(
