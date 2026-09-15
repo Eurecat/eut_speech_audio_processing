@@ -66,7 +66,8 @@ services:
       enable_diarization:=true
       enable_asr:=true
       enable_wake_word:=false
-      diarization_backend:=${DIARIZATION_BACKEND:-diart}"
+      diarization_backend:=${DIARIZATION_BACKEND:-diart}
+      redi_use_database:=${REDI_USE_DATABASE:-false}"
 
     stop_signal: SIGINT
     stop_grace_period: 30s

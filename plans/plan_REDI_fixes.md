@@ -46,7 +46,7 @@ python3 -m pytest test/test_voice_identity_manager.py test/test_redi_turn_segmen
     -q -p no:cacheprovider --noconftest
 ```
 
-No ROS, no GPU, no model; under a second. Current result: **45 passed, 1 xfailed** (plus `test_asr_chunk_boundaries.py`).
+No ROS, no GPU, no model; under a second. Current result: **49 passed, 1 xfailed** (plus `test_asr_chunk_boundaries.py`).
 
 This step exists because almost every regression in §4 would have been caught for free by a unit
 test, and instead each cost a 2-3 minute docker run to discover.
@@ -272,7 +272,8 @@ Fixes, each with unit tests:
    full 2s window, so a 1s seed never becomes a permanent weak reference (the Step 3 failure).
 3. **Short-window match bar** (`redi_identity_short_window_seconds: 1.5`,
    `..._threshold: 0.45`) — windows under 1.5s match a known speaker at 0.45 instead of 0.55, per the
-   table above. Diart's managed identity path leaves it disabled (default `0.0`).
+   table above (later lowered to 0.40, see Step 4b). Diart's managed identity path leaves it
+   disabled (default `0.0`).
 
 Offline, whole 12-minute mp3: one extra identity compared with no probe (a change scoring 0.078 at
 392s); no false splits in single-speaker speech. `probe_seconds: 0.8` switched earlier but split
@@ -302,6 +303,43 @@ already published transcript once A is known, which the ASR output contract does
 Also still visible: "Look, Celia," is missing from the transcript in runs 4 and 5. B's first label
 arrives ~0.6s into B's speech (B is new, so it waits for `redi_min_create_seconds`), and the ASR
 flush at that label cuts through those words. An ASR chunk-edge issue, not a wrong label.
+
+### Step 4b — MongoDB persistence across restarts — DONE
+
+Same idea as EutHRIFaces: speakers survive a restart and keep their `EUT_speakerN`.
+
+- **Switch:** `redi_use_database: True` in `diarization_params.yaml`, separate from `use_database`
+  (legacy diart, still `False`). `docker-compose_mp3.yaml` forces it off through
+  `redi_use_database:=${REDI_USE_DATABASE:-false}`, so ground-truth runs start from zero; run with
+  `REDI_USE_DATABASE=true` to test persistence. The launch argument is empty by default (yaml wins).
+- **Where:** database `speaker_recognition`, collection `voice_identities`, filtered by
+  `model_key=redimnet2:b6:lm:vb2+vox2+cnc2_v0`. Legacy diart uses collection `speakers`; embeddings
+  of different models are never mixed. Reset REDI speakers with
+  `db.getSiblingDB("speaker_recognition").voice_identities.deleteMany({model_key: "redimnet2:b6:lm:vb2+vox2+cnc2_v0"})`.
+- **What is saved:** confirmed speakers, and unconfirmed ones with ≥2 embeddings from ≥3.0s of
+  speech (`min_persist_seconds`). A single short seed is never saved. The `confirmed` flag is
+  stored and restored, so a thin speaker reloads with the young match bar. Persisted speakers are
+  exempt from inactive cleanup (a reloaded one always looks stale).
+- **When:** first time a speaker becomes persistable, every 5 updates, **at every turn end**, and at
+  shutdown. Faces only save at shutdown; here the mp3 runs showed the shutdown flush cannot be
+  relied on when the container is stopped, so turn-end saves carry it. A database error is logged
+  and never stops diarization.
+
+Found while testing: once A was confirmed (the second session), the overlapped 1s probe of
+"Whatever, Tom" scored 0.41-0.43 against A, under the 0.45 short-window bar, and created a duplicate
+id. That would also happen in any long single session. `redi_identity_short_window_threshold`
+lowered to **0.40** (1.0s windows: different speakers ≤0.36). Offline over the whole mp3: 6 ids
+instead of 7, conversation labels unchanged.
+
+Runs (mp3, `REDI_USE_DATABASE=true`, database wiped first):
+
+| Run | Loaded | Result |
+|---|---|---|
+| e | none | B=s2, A=s3 created and persisted (2 embeddings, 4.0s each) |
+| f, g (bar 0.45) | s2, s3 | A and B matched their saved ids; "Whatever, Tom" created s5 |
+| h (bar 0.40) | s2, s3 (now confirmed) | every A and B line on its saved id, **no new id created** |
+
+The test speakers were deleted from the database afterwards.
 
 ### Step 3b — old diart-coupled REDI code — DONE
 

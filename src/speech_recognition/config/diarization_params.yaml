@@ -47,6 +47,13 @@ diarization_node:
     redi_train_type: "lm"                              # Large-margin checkpoint (recommended upstream)
     redi_dataset: "vb2+vox2+cnc2_v0"
     redi_mongo_uri: ""                                 # Empty uses MONGODB_URI or local default
+    redi_use_database: True                            # Persist confirmed REDI speakers in MongoDB and reload them
+                                                        # at startup, like EutHRIFaces: a restart keeps the same
+                                                        # EUT_speakerN for the same voice. Database speaker_recognition,
+                                                        # collection voice_identities, one model_key per ReDimNet2
+                                                        # checkpoint. Independent of use_database (legacy diart).
+                                                        # docker-compose_mp3.yaml forces it off (REDI_USE_DATABASE)
+                                                        # so ground-truth runs start from zero.
 
     # Turn segmentation
     redi_turn_silence_seconds: 0.35                    # Pause that ends a speaker turn. Kept below the ASR's
@@ -91,9 +98,12 @@ diarization_node:
     redi_identity_stickiness_margin: 0.25              # A turn stays on its speaker unless another beats it by this
     redi_identity_merge_threshold: 0.80                # Merge two identities that turn out to be one person
     redi_identity_short_window_seconds: 1.5            # Windows shorter than this (turn starts, change probes)...
-    redi_identity_short_window_threshold: 0.45         # ...match a known speaker at this bar instead: a 0.8-1.0s
-                                                        # window scores 0.40-0.82 against its own speaker, so the
-                                                        # confirmed bar (0.55) kept stale labels ~0.7s longer.
+    redi_identity_short_window_threshold: 0.40         # ...match a known speaker at this bar instead: a 1.0s
+                                                        # window scores 0.42-0.82 against its own speaker and at
+                                                        # most 0.36 against another, so the confirmed bar (0.55)
+                                                        # kept stale labels ~0.7s longer. 0.45 missed an
+                                                        # overlapped 1s probe (0.41-0.43) of a confirmed speaker
+                                                        # and created a duplicate id.
 
     # VAD Integration
     vad_threshold: 0.5                        # VAD threshold for publishing speech activity (kept aligned with the ASR gate)

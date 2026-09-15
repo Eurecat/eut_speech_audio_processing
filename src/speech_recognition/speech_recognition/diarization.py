@@ -54,6 +54,7 @@ class DiarizationNode(Node):
         self.declare_parameter("redi_train_type", "lm")
         self.declare_parameter("redi_dataset", "vb2+vox2+cnc2_v0")
         self.declare_parameter("redi_mongo_uri", "")
+        self.declare_parameter("redi_use_database", True)
         self.declare_parameter("redi_turn_silence_seconds", 0.35)
         self.declare_parameter("redi_min_embed_seconds", 0.8)
         self.declare_parameter("redi_embed_interval_seconds", 0.5)
@@ -62,7 +63,7 @@ class DiarizationNode(Node):
         self.declare_parameter("redi_probe_seconds", 1.0)
         self.declare_parameter("redi_change_threshold", 0.35)
         self.declare_parameter("redi_identity_short_window_seconds", 1.5)
-        self.declare_parameter("redi_identity_short_window_threshold", 0.45)
+        self.declare_parameter("redi_identity_short_window_threshold", 0.40)
         self.declare_parameter("redi_identity_similarity_threshold", 0.55)
         self.declare_parameter("redi_identity_young_threshold", 0.40)
         self.declare_parameter("redi_identity_match_margin", 0.06)
@@ -173,7 +174,13 @@ class DiarizationNode(Node):
             tau_active=self.get_parameter("tau_active").get_parameter_value().double_value,
             delta_new=self.get_parameter("delta_new").get_parameter_value().double_value,
             max_speakers=self.get_parameter("max_speakers").get_parameter_value().integer_value,
-            use_database=self.get_parameter("use_database").get_parameter_value().bool_value,
+            # REDI has its own switch so enabling its persistence never changes the
+            # legacy diart backend, which reads use_database.
+            use_database=self.get_parameter(
+                "redi_use_database" if backend == "redimnet2" else "use_database"
+            )
+            .get_parameter_value()
+            .bool_value,
             ros4hri_enabled=self.ros4hri_enabled,
             on_eut_speaker_changed=self._on_eut_speaker_changed,
             on_voice_update=self._on_voice_update,

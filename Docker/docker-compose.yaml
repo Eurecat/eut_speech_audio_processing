@@ -110,7 +110,8 @@ services:
     # ros2 launch speech_recognition speech_recognition.launch.py enable_vad:=false enable_diarization:=false enable_asr:=false enable_wake_word:=false
     command: >
       bash -c "source /workspace/install/setup.bash &&
-      exec ros2 launch speech_recognition speech_recognition.launch.py"
+      exec ros2 launch speech_recognition speech_recognition.launch.py
+      redi_use_database:=${REDI_USE_DATABASE:-true}"
 
     stop_signal: SIGINT
     stop_grace_period: 30s

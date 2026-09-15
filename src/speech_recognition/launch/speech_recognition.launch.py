@@ -35,6 +35,7 @@ def _setup(context, *args, **kwargs):
     enable_wake_word = LaunchConfiguration("enable_wake_word").perform(context)
     enable_diarization = LaunchConfiguration("enable_diarization").perform(context)
     diarization_backend = LaunchConfiguration("diarization_backend").perform(context).lower()
+    redi_use_database = LaunchConfiguration("redi_use_database").perform(context).strip().lower()
     enable_asr = LaunchConfiguration("enable_asr").perform(context)
     diarization_delay = float(LaunchConfiguration("diarization_delay").perform(context))
     asr_delay = float(LaunchConfiguration("asr_delay").perform(context))
@@ -200,6 +201,12 @@ def _setup(context, *args, **kwargs):
                                 "cleanup_inactive_topics": cleanup_inactive_topics,
                                 "inactive_topic_timeout": inactive_topic_timeout,
                                 "diarization_backend": diarization_backend,
+                                # Empty keeps the yaml value
+                                **(
+                                    {"redi_use_database": redi_use_database == "true"}
+                                    if redi_use_database
+                                    else {}
+                                ),
                             },
                         ],
                         condition=IfCondition(LaunchConfiguration("enable_diarization")),
@@ -311,6 +318,11 @@ def generate_launch_description():
                 "diarization_backend",
                 default_value="redimnet2",
                 description="Diarization backend: 'diart' or 'redimnet2'",
+            ),
+            DeclareLaunchArgument(
+                "redi_use_database",
+                default_value="",
+                description="Override redi_use_database (true/false); empty keeps the yaml value",
             ),
             DeclareLaunchArgument(
                 "diarization_delay",

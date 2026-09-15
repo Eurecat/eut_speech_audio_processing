@@ -130,34 +130,86 @@ Manages speaker embedding persistence in MongoDB:
 - `HF_TOKEN` environment variable or `huggingface-cli login` for gated pyannote models
 - MongoDB running and accessible (see root `README.md` for setup)
 
-#### Selectable ReDimNet2 backend
+#### Selecting the backend
 
-The legacy backend remains the default. Select the alternative at launch with
-`diarization_backend:=redimnet2`; use `diarization_backend:=diart` to select the
-original implementation explicitly.
+`diarization_backend` chooses the engine; the node logs
+`Selected diarization backend: <backend> (engine=<class>)` at startup, check it.
 
-The ReDimNet2 path intentionally keeps DIART's pyannote segmentation, overlap
-handling and streaming track production, but replaces its embedding model with
-the public ReDimNet2 checkpoint. It then maps transient DIART tracks to stable
-`EUT_speakerN` identities using an in-memory manager with:
+| `diarization_backend` | `diart_use_voice_identity_manager` | Engine |
+|---|---|---|
+| `redimnet2` (launch default) | n/a | `RediVoiceEngine` |
+| `diart` | `False` (default) | `DiarizationEngine` (legacy, unchanged) |
+| `diart` | `True` | `DiartManagedIdentityEngine` |
 
-- L2-normalized 192-dimensional embeddings;
-- centroid plus a bounded bank of acoustic-condition prototypes;
-- absolute score and top-1/top-2 margin checks;
-- track hysteresis with separate continue and switch thresholds;
-- provisional identities that require multiple clean windows before persistence;
-- overlap, duration, VAD-quality and confidence gates before centroid updates.
+`docker-compose_mp3.yaml` passes `diarization_backend:=${DIARIZATION_BACKEND:-diart}`
+explicitly, which overrides the launch default: set `DIARIZATION_BACKEND` in `Docker/.env`.
 
-MongoDB is not queried in the real-time loop. Confirmed identities are loaded
-at startup, compared by matrix/vector operations in memory, and checkpointed
-only after confirmation or several accepted updates. ReDimNet2 records use a
-model-specific collection schema and are never mixed with legacy pyannote
-embeddings.
+#### REDI backend (`redi_voice_engine.py` + `voice_identity_manager.py`)
 
-All REDI thresholds and model choices are documented in
-`config/diarization_params.yaml`. The upstream checkpoint is loaded from the
-pinned public `PalabraAI/redimnet2:v1.0.0` torch hub source. Internet access is
-required for the first load; later starts use the torch cache.
+Independent of diart: no pyannote, no online clustering. Modelled on
+`EutHRIFaces/face_recognition/identity_manager.py`, with a voice *turn* playing the role of a
+tracked face.
+
+```
+/vad -> speech turns (split on pauses)
+     -> ReDimNet2 embedding of the most recent 2 s of the turn, refreshed every 0.5 s
+     -> VoiceIdentityManager: match / create / learn / merge EUT_speakerN
+     -> /speech_activity_detection
+```
+
+- **Speaker change without a pause:** each refresh also embeds the last 1.0 s (the *probe*). If
+  it scores below `redi_change_threshold` (0.35) against the current speaker, the turn is split
+  there and the newcomer is labelled from the probe, about 1 s after they start.
+- **Matching:** cosine score plus a top-1/top-2 margin, exclusive assignment, stickiness.
+  Bars: 0.55 for a confirmed speaker, 0.40 for a young one or for windows under 1.5 s.
+- **Creating:** only from ≥1.5 s of speech, or from a probe after a detected change. A speaker
+  created from a short window is reseeded from its longer windows as it keeps talking.
+- **Learning:** only from stable stretches (consecutive windows on the same speaker), at most once
+  per 2 s of speech, never from a window that crosses a speaker change.
+- **Merging:** identities that turn out to be the same person are merged, keeping the lower number.
+
+Model: ReDimNet2 `b6` / `lm` / `vb2+vox2+cnc2_v0`, loaded through torch hub from a pinned commit
+of `PalabraAI/redimnet2` (the `v1.0.0` tag cannot load this checkpoint). Internet is needed on the
+first load. Every threshold is documented in `config/diarization_params.yaml`; measurements and
+history are in `plans/plan_REDI_fixes.md`.
+
+Known limit: a line shorter than ~1 s, by someone not heard yet, followed with no pause by another
+speaker, keeps the previous label.
+
+#### Speaker persistence in MongoDB (REDI)
+
+Like EutHRIFaces, REDI saves speakers and reloads them at startup, so after a restart the same
+voice keeps the same `EUT_speakerN` and new speakers continue the numbering.
+
+| | |
+|---|---|
+| On/off | `REDI_USE_DATABASE=true` / `false` in `Docker/.env` (passed as the `redi_use_database` launch argument by `docker-compose.yaml`, `android-docker-compose.yaml` and `docker-compose_mp3.yaml`). Without the launch argument the yaml value `redi_use_database: True` applies. |
+| Server | The same `mongodb` container and `coghri_speakers_mongodb_data` volume as diart |
+| Location | database `speaker_recognition`, collection `voice_identities`, one `model_key` per ReDimNet2 checkpoint (`redimnet2:b6:lm:vb2+vox2+cnc2_v0`). Legacy diart uses collection `speakers`, so the two backends never mix embeddings. |
+| Saved | Confirmed speakers, and unconfirmed ones with ≥2 embeddings from ≥3 s of speech. A single short burst is never saved. Up to the last 20 embeddings plus the mean. |
+| When | When a speaker first qualifies, at every turn end, and at shutdown. Saving never waits for a clean shutdown. |
+| Loaded | At startup, into memory. MongoDB is not queried per turn. Loaded speakers are never dropped by inactive cleanup. |
+| Errors | If MongoDB is unreachable the node logs a warning and runs with session-only speakers. |
+
+The legacy diart backend is unaffected: it keeps its own `use_database` parameter (default `False`).
+
+Startup log lines to check:
+
+```
+Voice identities persisted in MongoDB (model_key=redimnet2:b6:lm:vb2+vox2+cnc2_v0)
+Voice identity manager ready with 2 persistent identities: EUT_speaker2, EUT_speaker3
+Persisted voice identity EUT_speaker4 (2 embeddings, 4.0s)
+```
+
+Forget all REDI speakers (the MongoDB container must be running):
+
+```bash
+docker exec mongodb mongosh -u eurecat -p cerdanyola --authenticationDatabase admin --eval \
+  'db.getSiblingDB("speaker_recognition").voice_identities.deleteMany({model_key: "redimnet2:b6:lm:vb2+vox2+cnc2_v0"})'
+```
+
+For ground-truth mp3 tests set `REDI_USE_DATABASE=false`, otherwise speakers saved from the
+microphone or earlier runs are loaded and the ids differ from a fresh run.
 
 **Diagram**: [Open diarization workflow](diarization_workflow.mmd)
 

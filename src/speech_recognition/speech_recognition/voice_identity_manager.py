@@ -41,6 +41,7 @@ class VoiceIdentityCluster:
 
     custom_name: Optional[str] = None
     unsaved_updates: int = 0
+    persisted: bool = False
 
 
 def normalize_embedding(embedding: np.ndarray) -> np.ndarray:
@@ -103,7 +104,8 @@ class MongoVoiceIdentityStore:
                     mean_embedding=mean_vector,
                     total_detections=int(document.get("total_detections", 0)),
                     clean_speech_seconds=float(document.get("clean_speech_seconds", 0.0)),
-                    confirmed=True,
+                    # A speaker persisted before confirming keeps the young match bar.
+                    confirmed=bool(document.get("confirmed", True)),
                     quality_score=float(document.get("quality_score", 0.0)),
                     custom_name=document.get("custom_name"),
                 )
@@ -124,6 +126,7 @@ class MongoVoiceIdentityStore:
                     "last_seen_timestamp": float(identity.last_seen_timestamp),
                     "total_detections": int(identity.total_detections),
                     "clean_speech_seconds": float(identity.clean_speech_seconds),
+                    "confirmed": bool(identity.confirmed),
                     "quality_score": float(identity.quality_score),
                     "custom_name": identity.custom_name,
                     "embeddings": [e.astype(float).tolist() for e in recent],
@@ -182,7 +185,8 @@ class VoiceIdentityManager:
         ewma_alpha: float = 0.6,
         persist_every: int = 5,
         short_window_seconds: float = 0.0,
-        short_window_threshold: float = 0.45,
+        short_window_threshold: float = 0.40,
+        min_persist_seconds: float = 3.0,
     ) -> None:
         self._logger = logger
         self._store = store
@@ -205,6 +209,7 @@ class VoiceIdentityManager:
         self.persist_every = max(1, persist_every)
         self.short_window_seconds = short_window_seconds
         self.short_window_threshold = short_window_threshold
+        self.min_persist_seconds = min_persist_seconds
 
         self.identities: Dict[str, VoiceIdentityCluster] = {}
         self.track_to_identity: Dict[str, str] = {}
@@ -216,12 +221,15 @@ class VoiceIdentityManager:
 
         if self._store is not None:
             for identity in self._store.load():
+                identity.persisted = True
                 self.identities[identity.unique_id] = identity
                 self._next_speaker_number = max(
                     self._next_speaker_number, self._speaker_number(identity.unique_id) + 1
                 )
+        loaded = ", ".join(sorted(self.identities, key=self._speaker_number))
         self._logger.info(
             f"Voice identity manager ready with {len(self.identities)} persistent identities"
+            + (f": {loaded}" if loaded else "")
         )
 
     # ------------------------------------------------------------------
@@ -535,13 +543,12 @@ class VoiceIdentityManager:
         identity.unsaved_updates += 1
         identity.quality_score = self._quality_score(identity)
 
-        was_confirmed = identity.confirmed
         identity.confirmed = (
             len(identity.all_embeddings) >= self.min_confirm_embeddings
             and identity.clean_speech_seconds >= self.min_confirm_seconds
         )
-        if identity.confirmed and (
-            not was_confirmed or identity.unsaved_updates >= self.persist_every
+        if self._persistable(identity) and (
+            not identity.persisted or identity.unsaved_updates >= self.persist_every
         ):
             self._save(identity)
 
@@ -673,8 +680,11 @@ class VoiceIdentityManager:
                 self.track_to_identity[track_id] = keep_id
 
         del self.identities[drop_id]
-        if self._store is not None:
-            self._store.delete(drop_id)
+        if self._store is not None and drop.persisted:
+            try:
+                self._store.delete(drop_id)
+            except Exception as error:
+                self._logger.warning(f"Could not delete merged {drop_id} from the store: {error}")
         self._save(keep)
         self.total_merges += 1
         return True
@@ -692,12 +702,16 @@ class VoiceIdentityManager:
                 identity.current_track_id = None
 
     def cleanup_inactive_identities(self) -> None:
-        """Drop identities that never gathered enough evidence and went quiet."""
+        """Drop identities that never gathered enough evidence and went quiet.
+
+        A persisted identity is never dropped: it was judged real, and one loaded
+        from a previous session always looks stale.
+        """
         now = time.time()
         for unique_id, identity in list(self.identities.items()):
             stale = now - identity.last_seen_timestamp > self.identity_timeout
             thin = len(identity.all_embeddings) < self.min_embeddings_for_identity
-            if stale and thin and not identity.confirmed:
+            if stale and thin and not identity.confirmed and not identity.persisted:
                 del self.identities[unique_id]
                 for track_id, mapped in list(self.track_to_identity.items()):
                     if mapped == unique_id:
@@ -707,17 +721,42 @@ class VoiceIdentityManager:
     # Persistence and helpers
     # ------------------------------------------------------------------
 
+    def _persistable(self, identity: VoiceIdentityCluster) -> bool:
+        """Worth remembering across restarts.
+
+        Confirmed identities, and also ones that have not yet gathered enough
+        embeddings to confirm but were learned from ``min_persist_seconds`` of clean
+        speech: a person who spoke a few sentences in a short conversation is real,
+        while a single short seed is not.
+        """
+        return identity.confirmed or (
+            len(identity.all_embeddings) >= 2
+            and identity.clean_speech_seconds >= self.min_persist_seconds
+        )
+
     def _save(self, identity: VoiceIdentityCluster) -> None:
-        if self._store is None or not identity.confirmed:
+        if self._store is None or not self._persistable(identity):
             return
-        self._store.save(identity)
+        try:
+            self._store.save(identity)
+        except Exception as error:  # a database outage must never stop diarization
+            self._logger.warning(f"Could not persist {identity.unique_id}: {error}")
+            return
+        if not identity.persisted:
+            self._logger.info(
+                f"Persisted voice identity {identity.unique_id} "
+                f"({len(identity.all_embeddings)} embeddings, "
+                f"{identity.clean_speech_seconds:.1f}s)"
+            )
         identity.unsaved_updates = 0
+        identity.persisted = True
 
     def flush(self) -> None:
+        """Write every persistable identity that changed since its last save."""
         if self._store is None:
             return
-        for identity in self.identities.values():
-            if identity.confirmed:
+        for identity in list(self.identities.values()):
+            if identity.unsaved_updates > 0 or not identity.persisted:
                 self._save(identity)
 
     def close(self) -> None:

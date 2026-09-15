@@ -273,10 +273,13 @@ class RediVoiceEngine:
             model_key = f"redimnet2:{self._model_name}:{self._train_type}:{self._dataset}"
             try:
                 store = MongoVoiceIdentityStore(self._mongo_uri, model_key)
+                self._logger.info(f"Voice identities persisted in MongoDB (model_key={model_key})")
             except Exception as error:
                 self._logger.warn(
                     f"Voice identity MongoDB unavailable ({error}); using session-only identities"
                 )
+        else:
+            self._logger.info("Voice identity database disabled: session-only identities")
 
         self._sample_rate = sample_rate
         self._manager = VoiceIdentityManager(
@@ -489,6 +492,9 @@ class RediVoiceEngine:
             with self._lock:
                 current = self._segmenter.current_turn_id
             self._manager.cleanup_inactive_track_mappings({current} if current else set())
+            # Save at every turn end rather than only at shutdown: a container that
+            # is killed never runs the shutdown flush.
+            self._manager.flush()
 
     def _embed(self, audio: np.ndarray) -> np.ndarray:
         import torch

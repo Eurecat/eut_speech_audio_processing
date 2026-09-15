@@ -394,3 +394,92 @@ def test_reseed_replaces_only_a_single_seed():
     assert identity.clean_speech_seconds == 2.0
     identity.all_embeddings.append(identity.mean_embedding.copy())
     assert not manager.reseed_identity(uid, first, 2.0)
+
+
+def _count_saves(store):
+    calls = []
+    original = store.save
+
+    def save(identity):
+        calls.append(identity.unique_id)
+        original(identity)
+
+    store.save = save
+    return calls
+
+
+def test_unconfirmed_speaker_with_enough_speech_is_persisted_but_a_bare_seed_is_not():
+    rng = np.random.default_rng(21)
+    a, b = _speaker(rng), _speaker(rng)
+    store = _Store()
+    manager = _manager(store=store, min_confirm_embeddings=3, min_persist_seconds=3.0)
+    manager.process_new_embedding_batch({"a": _utterance(rng, a, 0.05)}, speech_seconds=2.0)
+    manager.process_new_embedding_batch({"b": _utterance(rng, b, 0.05)}, speech_seconds=2.0)
+    manager.process_new_embedding_batch({"a": _utterance(rng, a, 0.05)}, speech_seconds=2.0)
+    manager.flush()
+    (a_id,) = [uid for uid, i in manager.identities.items() if len(i.all_embeddings) == 2]
+    assert not manager.identities[a_id].confirmed
+    assert list(store.saved) == [a_id], "2 embeddings from 4 s persist; b's single seed must not"
+
+
+def test_flush_writes_only_identities_that_changed():
+    rng = np.random.default_rng(22)
+    a = _speaker(rng)
+    store = _Store()
+    manager = _manager(store=store, persist_every=100)
+    for _ in range(4):
+        manager.process_new_embedding_batch({"a": _utterance(rng, a, 0.05)}, speech_seconds=2.0)
+    calls = _count_saves(store)
+    manager.flush()
+    manager.flush()
+    assert len(calls) == 1
+    manager.process_new_embedding_batch({"a": _utterance(rng, a, 0.05)}, speech_seconds=2.0)
+    manager.flush()
+    assert len(calls) == 2
+
+
+def test_database_failure_never_breaks_matching():
+    rng = np.random.default_rng(23)
+    a = _speaker(rng)
+    store = _Store()
+
+    def broken(_identity):
+        raise ConnectionError("mongo down")
+
+    store.save = broken
+    manager = _manager(store=store)
+    for _ in range(5):
+        manager.process_new_embedding_batch({"a": _utterance(rng, a, 0.05)}, speech_seconds=2.0)
+    manager.flush()
+    assert len(manager.identities) == 1
+
+
+def test_speaker_persisted_before_confirming_reloads_young_and_is_kept():
+    rng = np.random.default_rng(24)
+    a = _speaker(rng)
+    VoiceIdentityCluster = _module.VoiceIdentityCluster
+
+    class _LoadedStore(_Store):
+        def load(self):
+            return [
+                VoiceIdentityCluster(
+                    unique_id="EUT_speaker3",
+                    creation_timestamp=0.0,
+                    last_seen_timestamp=0.0,  # previous session: stale
+                    all_embeddings=[a.copy(), a.copy()],
+                    embedding_confidences=[1.0, 1.0],
+                    mean_embedding=a.copy(),
+                    confirmed=False,
+                )
+            ]
+
+    manager = _manager(store=_LoadedStore(), identity_timeout=1.0)
+    # Scores ~0.42 against the loaded speaker: under the confirmed bar, over the young one.
+    other = rng.normal(size=DIM)
+    other -= (other @ a) * a
+    other /= np.linalg.norm(other)
+    probe = 0.42 * a + np.sqrt(1 - 0.42**2) * other
+    result = manager.process_new_embedding_batch({"t": probe}, speech_seconds=2.0, learn=False)
+    assert result["t"][0] == "EUT_speaker3"
+    manager.cleanup_inactive_identities()
+    assert "EUT_speaker3" in manager.identities
