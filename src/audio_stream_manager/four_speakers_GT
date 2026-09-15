@@ -1,0 +1,137 @@
+THe previous text shows the ground truth of the first 43 seconds of the mp3, being speaker C the first speakjer and then a conversation between A AND B.
+#########ground truth ############
+
+We have main engine start. Four, three, two, one. C
+
+
+"You're a jerk, Tom."	A
+"Look, Celia, we have to follow our passions."	B
+"You have your robotics and I just want to be awesome in space."	B
+"why don't you just admit that you're freaked out by my robot hand?"	A
+"I'm not freaked out, but it's…"	B
+"All right, fine."	B
+"I'm freaked out. I'm having nightmare that i am being chased by this giant robotics claws ..."	B 
+"Oh, whatever TOM" A (overlap end of previous sentence, normal to lose this change)
+
+############infreenrece with asr paramns.yaml with just english asr ############
+
+speech_recognition  | [asr_node-3] [INFO] [1789456537.796498299] [asr_node]: Published transcript: 'We have main engine start.' (lang: en, speaker: speaker2, proc=160ms, audio=1940ms, x0.08)
+ [1789456539.759221679] [diarization_node]: Active eut_speaker_id: EUT_speaker1
+speech_recognition  | [asr_node-3] [INFO] [1789456540.544591432] [asr_node]: Transcribing 2.05s of audio...
+ [1789456540.615044705] [diarization_node]: Speech ended: speaker=speaker1
+speech_recognition  | [asr_node-3] [INFO] [1789456541.404222995] [asr_node]: Transcribed 2.05s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789456541.405320198] [asr_node]: Transcript: '3, 2, 1...' (lang: en, speaker: speaker1, seg=0.00-1.96s, proc=471ms, model=858ms, audio=1960ms, x0.24)
+speech_recognition  | [asr_node-3] [INFO] [1789456541.406125512] [asr_node]: Published transcript: '3, 2, 1...' (lang: en, speaker: speaker1, proc=471ms, audio=1960ms, x0.24)
+ [1789456554.261076700] [diarization_node]: Active eut_speaker_id: EUT_speaker3
+ [1789456554.305726395] [diarization_node]: Speech ended: speaker=speaker3
+ [1789456555.762558791] [diarization_node]: Active eut_speaker_id: EUT_speaker4
+speech_recognition  | [asr_node-3] [INFO] [1789456555.780091438] [asr_node]: Transcribing 1.47s of audio...
+speech_recognition  | [asr_node-3] [INFO] [1789456556.910431789] [asr_node]: Transcribed 1.47s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789456556.911531288] [asr_node]: Transcript: 'You're a jerk, Tom.' (lang: en, speaker: speaker3, seg=0.00-1.02s, proc=2444ms, model=1129ms, audio=1020ms, x2.40)
+speech_recognition  | [asr_node-3] [INFO] [1789456556.912378418] [asr_node]: Published transcript: 'You're a jerk, Tom.' (lang: en, speaker: speaker3, proc=2444ms, audio=1020ms, x2.40)
+ [1789456561.271676176] [diarization_node]: Active eut_speaker_id: EUT_speaker3
+speech_recognition  | [asr_node-3] [INFO] [1789456561.279878207] [asr_node]: Transcribing 5.98s of audio...
+speech_recognition  | [asr_node-3] [INFO] [1789456561.915684633] [asr_node]: Transcribed 5.98s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789456561.917377456] [asr_node]: Speaker timeline: speaker3[-1.01,+0.50] speaker4[+0.50,+6.00] speaker3[+6.00,+6.61]
+speech_recognition  | [asr_node-3] [INFO] [1789456561.919033418] [asr_node]: Sentence speakers (end, speaker): [(2.64, 'speaker4'), (5.68, 'speaker4')]
+speech_recognition  | [asr_node-3] [INFO] [1789456561.920043676] [asr_node]: Transcript: 'Look Celia, we have to follow our passions. You have your robotics and I just want to be awesome in space.' (lang: en, speaker: speaker4, seg=0.00-5.68s, proc=1629ms, model=634ms, audio=5680ms, x0.29)
+speech_recognition  | [asr_node-3] [INFO] [1789456561.920834195] [asr_node]: Published transcript: 'Look Celia, we have to follow our passions. You have your robotics and I just want to be awesome in space.' (lang: en, speaker: speaker4, proc=1629ms, audio=5680ms, x0.29)
+speech_recognition  | [asr_node-3] [INFO] [1789456566.562531217] [asr_node]: Transcribing 6.34s of audio...
+ [1789456566.828229425] [diarization_node]: Speech ended: speaker=speaker3
+speech_recognition  | [asr_node-3] [INFO] [1789456567.591642085] [asr_node]: Transcribed 6.34s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789456567.592097862] [asr_node]: Speaker timeline: speaker4[-5.00,+0.50] speaker3[+0.50,+6.05]
+speech_recognition  | [asr_node-3] [INFO] [1789456567.592428334] [asr_node]: Sentence speakers (end, speaker): [(4.6, 'speaker3'), (6.64, 'speaker3')]
+speech_recognition  | [asr_node-3] [INFO] [1789456567.593269408] [asr_node]: Transcript: 'Why don't you just admit that you're freaked out by my robot hand? I'm not freaked out, but it's...' (lang: en, speaker: speaker3, seg=0.64-6.64s, proc=1479ms, model=1028ms, audio=6000ms, x0.25)
+speech_recognition  | [asr_node-3] [INFO] [1789456567.594135102] [asr_node]: Published transcript: 'Why don't you just admit that you're freaked out by my robot hand? I'm not freaked out, but it's...' (lang: en, speaker: speaker3, proc=1479ms, audio=6000ms, x0.25)
+ [1789456569.267014462] [diarization_node]: Active eut_speaker_id: EUT_speaker4
+ [1789456573.278379527] [diarization_node]: Active eut_speaker_id: EUT_speaker3
+speech_recognition  | [asr_node-3] [INFO] [1789456573.290317454] [asr_node]: Transcribing 4.99s of audio...
+speech_recognition  | [asr_node-3] [INFO] [1789456573.991659112] [asr_node]: Transcribing 1.76s of audio...
+ [1789456574.179011757] [diarization_node]: Speech ended: speaker=speaker3
+speech_recognition  | [asr_node-3] [INFO] [1789456574.255731948] [asr_node]: Transcribed 4.99s -> 2 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789456574.256785882] [asr_node]: Speaker timeline: speaker3[-7.03,+0.97] speaker4[+0.97,+4.98] speaker3[+4.98,+5.87]
+speech_recognition  | [asr_node-3] [INFO] [1789456574.257659234] [asr_node]: Sentence speakers (end, speaker): [(1.04, 'speaker3'), (2.16, 'speaker4'), (4.98, 'speaker4')]
+speech_recognition  | [asr_node-3] [INFO] [1789456574.258659621] [asr_node]: Transcript: 'All right, fine.' (lang: en, speaker: speaker3, seg=0.00-1.04s, proc=713ms, model=963ms, audio=1040ms, x0.69)
+speech_recognition  | [asr_node-3] [INFO] [1789456574.259053316] [asr_node]: Published transcript: 'All right, fine.' (lang: en, speaker: speaker3, proc=713ms, audio=1040ms, x0.69)
+speech_recognition  | [asr_node-3] [INFO] [1789456574.259412186] [asr_node]: Transcript: 'I'm freaked out. I'm having nightmares that I'm being chased by this giant robotic...' (lang: en, speaker: speaker4, seg=1.30-4.98s, proc=713ms, model=963ms, audio=3680ms, x0.19)
+speech_recognition  | [asr_node-3] [INFO] [1789456574.259678722] [asr_node]: Published transcript: 'I'm freaked out. I'm having nightmares that I'm being chased by this giant robotic...' (lang: en, speaker: speaker4, proc=713ms, audio=3680ms, x0.19)
+ [1789456574.820436800] [diarization_node]: Speech ended: speaker=speaker3
+speech_recognition  | [asr_node-3] [INFO] [1789456574.925992532] [asr_node]: Transcribed 1.76s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789456574.927083438] [asr_node]: Transcript: 'Oh, whatever, don't...' (lang: en, speaker: speaker3, seg=0.00-1.78s, proc=426ms, model=933ms, audio=1780ms, x0.24)
+speech_recognition  | [asr_node-3] [INFO] [1789456574.927887854] [asr_node]: Published transcript: 'Oh, whatever, don't...' (lang: en, speaker: speaker3, proc=426ms, audio=1780ms, x0.24)
+speech_recognition  | [asr_node-3] [INFO] [1789456577.701229728] [asr_node]: Transcribing 0.54s of audio...
+speech_recognition  | [asr_node-3] [INFO] [1789456578.735955119] [asr_node]: Transcribed 0.54s -> 1 speaker group(s)
+
+
+######## asr params with multiple language ########
+4.197745916] [diarization_node]: VAD information received.
+speech_recognition  | [asr_node-3] [INFO] [1789456886.804159116] [asr_node]: Transcribing 1.41s of audio...
+speech_recognition  | [asr_node-3] [INFO] [1789456887.579294233] [asr_node]: Detected languages (filtered): [('en', '0.8296'), ('es', '0.0117'), ('ca', '0.0002')]
+speech_recognition  | [diarization_node-2] [INFO] [1789456887.853541096] [diarization_node]: Active eut_speaker_id: EUT_speaker2
+speech_recognition  | [asr_node-3] [INFO] [1789456888.348768652] [asr_node]: Transcribed 1.41s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789456888.349836826] [asr_node]: Transcript: 'Roger, Roger.' (lang: en, speaker: speaker2, seg=0.00-0.92s, proc=1994ms, model=1543ms, audio=920ms, x2.17)
+speech_recognition  | [asr_node-3] [INFO] [1789456888.351018050] [asr_node]: Published transcript: 'Roger, Roger.' (lang: en, speaker: speaker2, proc=1994ms, audio=920ms, x2.17)
+speech_recognition  | [diarization_node-2] [INFO] [1789456892.356294346] [diarization_node]: Active eut_speaker_id: EUT_speaker1
+speech_recognition  | [asr_node-3] [INFO] [1789456892.372899524] [asr_node]: Transcribing 2.08s of audio...
+speech_recognition  | [asr_node-3] [INFO] [1789456893.197765434] [asr_node]: Detected languages (filtered): [('en', '0.9897'), ('es', '0.0018'), ('ca', '0.0000')]
+speech_recognition  | [asr_node-3] [INFO] [1789456893.339576497] [asr_node]: Transcribing 2.02s of audio...
+speech_recognition  | [diarization_node-2] [INFO] [1789456893.395480714] [diarization_node]: Speech ended: speaker=speaker1
+speech_recognition  | [asr_node-3] [INFO] [1789456894.182919816] [asr_node]: Detected languages (filtered): [('en', '0.8975'), ('es', '0.0215'), ('ca', '0.0004')]
+speech_recognition  | [asr_node-3] [INFO] [1789456894.193464854] [asr_node]: Transcribed 2.08s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789456894.194815743] [asr_node]: Transcript: 'four three two' (lang: en, speaker: speaker2, seg=0.00-2.06s, proc=479ms, model=1818ms, audio=2060ms, x0.23)
+speech_recognition  | [asr_node-3] [INFO] [1789456894.195739151] [asr_node]: Published transcript: 'four three two' (lang: en, speaker: speaker2, proc=479ms, audio=2060ms, x0.23)
+speech_recognition  | [asr_node-3] [INFO] [1789456894.930718483] [asr_node]: Transcribed 2.02s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789456894.931789370] [asr_node]: Transcript: '3, 2, 1...' (lang: en, speaker: speaker1, seg=0.00-1.94s, proc=1215ms, model=1588ms, audio=1940ms, x0.63)
+speech_recognition  | [asr_node-3] [INFO] [1789456894.932565753] [asr_node]: Published transcript: '3, 2, 1...' (lang: en, speaker: speaker1, proc=1215ms, audio=1940ms, x0.63)
+speech_recognition  | [diarization_node-2] [INFO] [1789456908.353743155] [diarization_node]: Active eut_speaker_id: EUT_speaker3
+speech_recognition  | [asr_node-3] [INFO] [1789456908.367864954] [asr_node]: Transcribing 1.25s of audio...
+speech_recognition  | [asr_node-3] [INFO] [1789456909.004500240] [asr_node]: Detected languages (filtered): [('en', '0.9634'), ('es', '0.0024'), ('ca', '0.0001')]
+speech_recognition  | [asr_node-3] [INFO] [1789456909.804016680] [asr_node]: Transcribed 1.25s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789456909.805174808] [asr_node]: Transcript: 'You're a jerk, Tom.' (lang: en, speaker: speaker1, seg=0.00-1.02s, proc=2554ms, model=1433ms, audio=1020ms, x2.50)
+speech_recognition  | [asr_node-3] [INFO] [1789456909.806083335] [asr_node]: Published transcript: 'You're a jerk, Tom.' (lang: en, speaker: speaker1, proc=2554ms, audio=1020ms, x2.50)
+speech_recognition  | [diarization_node-2] [INFO] [1789456913.862782763] [diarization_node]: Active eut_speaker_id: EUT_speaker1
+speech_recognition  | [asr_node-3] [INFO] [1789456913.877001535] [asr_node]: Transcribing 5.98s of audio...
+speech_recognition  | [diarization_node-2] [INFO] [1789456914.385272410] [diarization_node]: Active eut_speaker_id: EUT_speaker4
+speech_recognition  | [asr_node-3] [INFO] [1789456914.396988055] [asr_node]: Transcribing 1.02s of audio...
+speech_recognition  | [asr_node-3] [INFO] [1789456915.118212666] [asr_node]: Detected languages (filtered): [('en', '0.9521'), ('es', '0.0076'), ('ca', '0.0002')]
+speech_recognition  | [asr_node-3] [INFO] [1789456915.124277347] [asr_node]: Detected languages (filtered): [('en', '0.9492'), ('es', '0.0062'), ('ca', '0.0001')]
+speech_recognition  | [asr_node-3] [INFO] [1789456916.041470619] [asr_node]: Transcribed 5.98s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789456916.042560300] [asr_node]: Speaker timeline: speaker1[-15.50,+0.50] speaker3[+0.50,+6.01] speaker1[+6.01,+6.53]
+speech_recognition  | [asr_node-3] [INFO] [1789456916.043460771] [asr_node]: Sentence speakers (end, speaker): [(2.82, 'speaker3'), (5.86, 'speaker3')]
+speech_recognition  | [asr_node-3] [INFO] [1789456916.047927473] [asr_node]: Transcript: 'Look Celia, we have to follow our passions. You have your robotics and I just want to be awesome in space.' (lang: en, speaker: speaker3, seg=0.00-5.86s, proc=792ms, model=2162ms, audio=5860ms, x0.14)
+speech_recognition  | [asr_node-3] [INFO] [1789456916.048795637] [asr_node]: Published transcript: 'Look Celia, we have to follow our passions. You have your robotics and I just want to be awesome in space.' (lang: en, speaker: speaker3, proc=792ms, audio=5860ms, x0.14)
+speech_recognition  | [asr_node-3] [INFO] [1789456916.646279356] [asr_node]: Transcribed 1.02s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789456916.647324906] [asr_node]: Transcript: 'space' (lang: en, speaker: speaker3, seg=0.00-0.38s, proc=1397ms, model=2248ms, audio=380ms, x3.68)
+speech_recognition  | [asr_node-3] [INFO] [1789456916.648124798] [asr_node]: Published transcript: 'space' (lang: en, speaker: speaker3, proc=1397ms, audio=380ms, x3.68)
+speech_recognition  | [diarization_node-2] [INFO] [1789456918.378864757] [diarization_node]: Active eut_speaker_id: EUT_speaker3
+speech_recognition  | [asr_node-3] [INFO] [1789456918.391817391] [asr_node]: Transcribing 4.51s of audio...
+speech_recognition  | [asr_node-3] [INFO] [1789456919.184615815] [asr_node]: Detected languages (filtered): [('en', '0.9585'), ('es', '0.0017'), ('ca', '0.0000')]
+speech_recognition  | [asr_node-3] [INFO] [1789456919.353164780] [asr_node]: Transcribing 2.02s of audio...
+speech_recognition  | [diarization_node-2] [INFO] [1789456919.604856853] [diarization_node]: Speech ended: speaker=speaker3
+speech_recognition  | [asr_node-3] [INFO] [1789456920.512165200] [asr_node]: Detected languages (filtered): [('en', '0.9883'), ('es', '0.0016'), ('ca', '0.0000')]
+speech_recognition  | [asr_node-3] [INFO] [1789456920.544152700] [asr_node]: Transcribed 4.51s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789456920.545219371] [asr_node]: Speaker timeline: speaker1[-0.02,+0.50] speaker4[+0.50,+4.49] speaker3[+4.49,+5.71]
+speech_recognition  | [asr_node-3] [INFO] [1789456920.546132231] [asr_node]: Sentence speakers (end, speaker): [(4.28, 'speaker4')]
+speech_recognition  | [asr_node-3] [INFO] [1789456920.547067832] [asr_node]: Transcript: 'Why don't you just admit that you're freaked out by my robot hand?' (lang: en, speaker: speaker4, seg=0.00-4.28s, proc=1640ms, model=2150ms, audio=4280ms, x0.38)
+speech_recognition  | [asr_node-3] [INFO] [1789456920.549197433] [asr_node]: Published transcript: 'Why don't you just admit that you're freaked out by my robot hand?' (lang: en, speaker: speaker4, proc=1640ms, audio=4280ms, x0.38)
+speech_recognition  | [asr_node-3] [INFO] [1789456921.243548620] [asr_node]: Transcribed 2.02s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789456921.244633134] [asr_node]: Transcript: 'I'm not freaked out, but it's...' (lang: en, speaker: speaker3, seg=0.54-2.02s, proc=2340ms, model=1889ms, audio=1480ms, x1.58)
+speech_recognition  | [asr_node-3] [INFO] [1789456921.245465204] [asr_node]: Published transcript: 'I'm not freaked out, but it's...' (lang: en, speaker: speaker3, proc=2340ms, audio=1480ms, x1.58)
+mongodb             | {"t":{"$date":"2026-09-15T07:22:04.786+00:00"},"s":"I",  "c":"WTCHKPT",  "id":22430,   "ctx":"Checkpointer","msg":"WiredTiger message","attr":{"message":{"ts_sec":1789456924,"ts_usec":786794,"thread":"1:0xffff770ceb80","session_name":"WT_SESSION.checkpoint","category":"WT_VERB_CHECKPOINT_PROGRESS","category_id":6,"verbose_level":"DEBUG_1","verbose_level_id":1,"msg":"saving checkpoint snapshot min: 9, snapshot max: 9 snapshot count: 0, oldest timestamp: (0, 0) , meta checkpoint timestamp: (0, 0) base write gen: 1035"}}}
+speech_recognition  | [diarization_node-2] [INFO] [1789456925.850914510] [diarization_node]: Active eut_speaker_id: EUT_speaker4
+speech_recognition  | [asr_node-3] [INFO] [1789456925.872185993] [asr_node]: Transcribing 3.78s of audio...
+speech_recognition  | [asr_node-3] [INFO] [1789456926.407877574] [asr_node]: Detected languages (filtered): [('en', '0.9795'), ('es', '0.0038'), ('ca', '0.0001')]
+speech_recognition  | [asr_node-3] [INFO] [1789456926.774152104] [asr_node]: Transcribing 1.95s of audio...
+speech_recognition  | [diarization_node-2] [INFO] [1789456926.993141700] [diarization_node]: Speech ended: speaker=speaker4
+speech_recognition  | [asr_node-3] [INFO] [1789456927.617694763] [asr_node]: Detected languages (filtered): [('en', '0.9819'), ('es', '0.0025'), ('ca', '0.0001')]
+speech_recognition  | [asr_node-3] [INFO] [1789456927.634707174] [asr_node]: Transcribed 3.78s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789456927.635948749] [asr_node]: Speaker timeline: speaker3[-3.69,+3.79] speaker4[+3.79,+4.91]
+speech_recognition  | [asr_node-3] [INFO] [1789456927.636887146] [asr_node]: Sentence speakers (end, speaker): [(1.18, 'speaker3'), (3.46, 'speaker3')]
+speech_recognition  | [asr_node-3] [INFO] [1789456927.638046413] [asr_node]: Transcript: 'I'm freaked out. I'm having nightmares that I'm being chased by this giant robot.' (lang: en, speaker: speaker3, seg=0.00-3.46s, proc=348ms, model=1760ms, audio=3460ms, x0.10)
+speech_recognition  | [asr_node-3] [INFO] [1789456927.638679428] [asr_node]: Published transcript: 'I'm freaked out. I'm having nightmares that I'm being chased by this giant robot.' (lang: en, speaker: speaker3, proc=348ms, audio=3460ms, x0.10)
+speech_recognition  | [asr_node-3] [INFO] [1789456928.216605108] [asr_node]: Transcribed 1.95s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789456928.217678409] [asr_node]: Transcript: 'Oh, whatever, don't...' (lang: en, speaker: speaker3, seg=0.00-1.98s, proc=166ms, model=1441ms, audio=1980ms, x0.08)
+speech_recognition  | [asr_node-3] [INFO] [1789456928.218492875] [asr_node]: Published transcript: 'Oh, whatever, don't...' (lang: en, speaker: speaker3, proc=166ms, audio=1980ms, x0.08)
+speech_recognition  | [asr_node-3] [INFO] [1789456930.484568341] [asr_node]: Transcribing 0.54s of audio...
+speech_recognition  | [asr_node-3] [INFO] [1789456931.065817260] [asr_node]: Detected languages (filtered): [('en', '0.3394'), ('es', '0.0790'), ('ca', '0.0008')]
+speech_recognition  | [asr_node-3] [INFO] [1789456931.813892403] [asr_node]: Transcribed 0.54s -> 1 speaker group(s)

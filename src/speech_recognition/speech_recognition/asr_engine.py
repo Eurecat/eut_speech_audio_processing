@@ -125,6 +125,11 @@ class ASREngine:
         self.speech_interrupted: bool = False
         self._speech_cancelled = threading.Event()
         self._processing_thread: Optional[threading.Thread] = None
+        # Set once a silence timer commits its segment to transcription, so a
+        # resumed utterance after that point starts a fresh segment instead of
+        # being merged into the one already dispatched to Whisper.
+        self._segment_dispatched: bool = False
+        self._segment_lock = threading.Lock()
         self.should_stop: bool = False
         # Whisper calls are serialised: a speaker-change split and the silence
         # timer can both want to transcribe at the same moment.
@@ -248,7 +253,10 @@ class ASREngine:
             self._logger.debug(f"VAD state changed: {self.vad_state} -> {new_state}")
             if new_state:
                 self._speech_cancelled.set()
-                if self.speech_start_time == 0:
+                with self._segment_lock:
+                    dispatched = self._segment_dispatched
+                    self._segment_dispatched = False
+                if self.speech_start_time == 0 or dispatched:
                     self.speech_start_time = current_time
                     self._logger.debug("Speech started.")
                 else:
@@ -258,11 +266,15 @@ class ASREngine:
                 self.last_silence_time = current_time
                 self._logger.debug("Speech ended, starting silence timer.")
                 self._speech_cancelled.clear()
-                if self._processing_thread is None or not self._processing_thread.is_alive():
-                    self._processing_thread = threading.Thread(
-                        target=self._process_speech_end, daemon=True
-                    )
-                    self._processing_thread.start()
+                # Always spawn a fresh timer thread. Whisper calls are already
+                # serialised by _transcribe_lock; gating this on the previous
+                # thread's aliveness blocked a new segment's silence timer
+                # from ever starting while the previous segment was still
+                # inside its (slow) Whisper call, silently dropping it.
+                self._processing_thread = threading.Thread(
+                    target=self._process_speech_end, daemon=True
+                )
+                self._processing_thread.start()
 
         self.vad_state = new_state
         self.last_vad_change_time = current_time
@@ -466,7 +478,10 @@ class ASREngine:
             return
         if not self.vad_state and self.last_silence_time > 0:
             self._logger.debug("Silence timeout reached — transcribing.")
-            self._transcribe_speech_chunk()
+            expected_start_time = self.speech_start_time
+            with self._segment_lock:
+                self._segment_dispatched = True
+            self._transcribe_speech_chunk(expected_start_time=expected_start_time)
             self.speech_interrupted = False
         else:
             self._logger.debug("VAD state changed before processing — skipping.")
@@ -507,14 +522,18 @@ class ASREngine:
             self._transcribe_with_data(audio_data, start_time, stop_time)
             self.speech_start_time = split_time
 
-    def _transcribe_speech_chunk(self, end_time: Optional[float] = None) -> None:
+    def _transcribe_speech_chunk(
+        self, end_time: Optional[float] = None, expected_start_time: Optional[float] = None
+    ) -> None:
         """Extract audio from the buffer then transcribe."""
         if end_time is None:
             end_time = self.last_silence_time if self.last_silence_time > 0 else time.time()
         with self._buffer_lock:
             audio_data, start_time, stop_time = self._extract_audio_data(end_time)
         if audio_data is not None:
-            self._transcribe_with_data(audio_data, start_time, stop_time)
+            self._transcribe_with_data(
+                audio_data, start_time, stop_time, expected_start_time=expected_start_time
+            )
 
     def _extract_audio_data(
         self, end_time: float
@@ -695,6 +714,7 @@ class ASREngine:
         start_time: Optional[float] = None,
         end_time: Optional[float] = None,
         reset_timing: bool = True,
+        expected_start_time: Optional[float] = None,
     ) -> None:
         """Run Whisper on pre-extracted audio and fire on_transcript_ready."""
         if audio_data is None or len(audio_data) == 0:
@@ -798,7 +818,13 @@ class ASREngine:
             self._logger.error(f"Transcription failed: {e}")
 
         # Reset speech timing only when this chunk really ended. A speaker-change
-        # flush keeps accumulating, so its start time must survive.
-        if reset_timing:
+        # flush keeps accumulating, so its start time must survive. Also skip the
+        # reset if a newer segment has already started since this call began
+        # (its own silence-timer thread committed late, e.g. Whisper was still
+        # running when the next utterance started) — resetting now would zero
+        # out the *new* segment's start time and silently drop it.
+        if reset_timing and (
+            expected_start_time is None or self.speech_start_time == expected_start_time
+        ):
             self.speech_start_time = 0.0
             self.last_silence_time = 0.0

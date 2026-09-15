@@ -236,7 +236,20 @@ class SpeakerIdentityManager:
                 chosen_score = previous_score
 
         if chosen_id is None and best_id is not None:
-            if best_score >= self.match_threshold and margin >= self.match_margin:
+            candidate = self.identities[best_id]
+            # A provisional identity is backed by as little as one noisy
+            # embedding. Holding it to the same strict bar as a confirmed,
+            # multi-sample centroid means a physical speaker who alternates
+            # quickly with someone else (so their identity never accumulates
+            # enough samples to confirm) keeps failing the match and spawns a
+            # new sibling identity every time diart hands out a new local
+            # track for them. Confirmed identities keep the strict threshold
+            # since merging two different real speakers is the costlier
+            # mistake there.
+            required_threshold = (
+                self.match_threshold if candidate.confirmed else self.continue_threshold
+            )
+            if best_score >= required_threshold and margin >= self.match_margin:
                 chosen_id = best_id
                 chosen_score = best_score
 
