@@ -21,7 +21,15 @@ diarization_node:
     diarization_backend: "redimnet2"                       # diart (legacy) or redimnet2
 
     # ReDimNet2 backend (used only when diarization_backend=redimnet2)
-    redi_repository: "PalabraAI/redimnet2:v1.0.0"      # Pin source for reproducible torch.hub loading
+    redi_repository: "PalabraAI/redimnet2:c5bbe0b76e37df698c403f8844e41304ceab6307"  # Pin source for
+                                                        # reproducible torch.hub loading. NOT the "v1.0.0"
+                                                        # tag: that tag predates the b6/vb2+vox2+cnc2_v0
+                                                        # checkpoint (added upstream commit e8bfa167,
+                                                        # 2026-04-23, "agg_gnorm" support) and was uploaded
+                                                        # to the same v1.0.0 release without a new tag, so
+                                                        # the tag's code cannot load this checkpoint's config
+                                                        # (TypeError: unexpected keyword argument 'agg_gnorm').
+                                                        # Pinned instead to upstream main HEAD as of 2026-09-15.
     redi_model_name: "b6"
     redi_train_type: "lm"                              # Large-margin checkpoint (recommended upstream)
     redi_dataset: "vb2+vox2+cnc2_v0"
