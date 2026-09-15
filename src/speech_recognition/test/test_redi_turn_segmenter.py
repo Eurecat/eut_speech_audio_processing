@@ -206,3 +206,137 @@ def test_engine_reports_speaker_change_to_the_node():
     engine._handle(_obs("turn1", 0, final=True, at=2.0))
     engine._handle(_obs("turn2", 1, final=True, at=2.0))
     assert changes[0] != changes[-1]
+
+
+# ---------------------------------------------------------------------------
+# Speaker change inside one turn: segments and the probe
+# ---------------------------------------------------------------------------
+
+
+def _voice_chunks(segmenter, voice, seconds):
+    """Push `seconds` of speech whose samples all hold `voice`; return the observations."""
+    out = []
+    for _ in range(int(round(seconds * SR / CHUNK))):
+        out.extend(segmenter.push(np.full(CHUNK, float(voice), dtype=np.float32), 0.9))
+    return out
+
+
+def test_split_starts_a_new_segment_holding_only_later_speech():
+    segmenter = _segmenter(max_embed_seconds=2.0, embed_interval_seconds=0.5, probe_seconds=1.0)
+    first = _voice_chunks(segmenter, 1, 2.0)[-1]
+    assert first.turn_id == "turn1"
+    new_id = segmenter.split("turn1", segmenter._speech_samples)
+    assert new_id == "turn1.2"
+    later = _voice_chunks(segmenter, 2, 1.0)
+    assert later and all(o.turn_id == "turn1.2" for o in later)
+    assert all(np.all(o.audio == np.float32(2.0)) for o in later), "old speaker leaked into segment"
+
+
+def test_split_of_a_segment_that_moved_on_is_refused():
+    segmenter = _segmenter(probe_seconds=1.0)
+    _voice_chunks(segmenter, 1, 2.0)
+    assert segmenter.split("turn1", 8000) == "turn1.2"
+    assert segmenter.split("turn1", 16000) is None  # already split
+    _run(segmenter, [(0.6, False)])
+    assert segmenter.split("turn1.2", 16000) is None  # turn ended
+
+
+def test_probe_is_the_most_recent_speech_and_only_once_longer_than_it():
+    segmenter = _segmenter(max_embed_seconds=2.0, embed_interval_seconds=0.5, probe_seconds=1.0)
+    obs = _voice_chunks(segmenter, 1, 3.0)
+    assert obs[0].probe is None  # 0.8 s segment: the probe would be the whole window
+    probed = [o for o in obs if o.probe is not None]
+    assert probed
+    assert all(abs(len(o.probe) / SR - 1.0) < CHUNK / SR + 1e-9 for o in probed)
+
+
+def _mixing_engine(voices, probe_seconds=1.0):
+    """Engine fed by a real segmenter; an embedding blends the voices its samples hold."""
+    engine, changes = _engine(voices)
+    engine._segmenter = _segmenter(
+        max_embed_seconds=2.0, embed_interval_seconds=0.5, probe_seconds=probe_seconds
+    )
+    engine._change_threshold = 0.35
+    rng = np.random.default_rng(0)
+
+    def fake_embed(audio):
+        values, counts = np.unique(audio.astype(int), return_counts=True)
+        mix = sum(c * voices[v] for v, c in zip(values, counts))
+        noisy = mix / np.linalg.norm(mix) + rng.normal(scale=0.05, size=DIM)
+        return noisy / np.linalg.norm(noisy)
+
+    engine._embed = fake_embed
+    return engine, changes
+
+
+def _speak(engine, voice, seconds):
+    """Feed speech and return (seconds of speech fed so far in this call, label) per decision."""
+    decisions = []
+    for i in range(int(round(seconds * SR / CHUNK))):
+        chunk = np.full(CHUNK, float(voice), dtype=np.float32)
+        for observation in engine._segmenter.push(chunk, 0.9):
+            engine._handle(observation)
+            decisions.append(((i + 1) * CHUNK / SR, engine._last_speaker))
+    return decisions
+
+
+def test_label_switches_about_one_probe_after_an_unknown_speaker_takes_over():
+    engine, _ = _mixing_engine({1: _voice(1), 2: _voice(2)})
+    _speak(engine, 1, 4.0)
+    a_id = engine._last_speaker
+    decisions = _speak(engine, 2, 3.0)  # B takes over, no pause
+    switched = next(t for t, speaker in decisions if speaker != a_id)
+    assert switched <= 1.0, f"label switched {switched:.2f}s after the change"  # 1.41 s without the probe
+    b_id = decisions[-1][1]
+    assert b_id != a_id and len(engine._manager.identities) == 2
+
+
+def test_known_speaker_taking_over_is_recognised_from_the_probe_without_a_new_id():
+    engine, _ = _mixing_engine({1: _voice(1), 2: _voice(2)})
+    _speak(engine, 2, 4.0)
+    b_id = engine._last_speaker
+    _run(engine._segmenter, [(0.6, False)])
+    _speak(engine, 1, 4.0)
+    a_id = engine._last_speaker
+    decisions = _speak(engine, 2, 3.0)
+    switched = next(t for t, speaker in decisions if speaker != a_id)
+    assert switched <= 1.0
+    assert decisions[-1][1] == b_id
+    assert len(engine._manager.identities) == 2
+
+
+def test_one_speaker_talking_on_never_triggers_a_change():
+    engine, _ = _mixing_engine({1: _voice(1)})
+    _speak(engine, 1, 12.0)
+    assert len(engine._manager.identities) == 1
+    assert engine._segmenter.current_turn_id == "turn1"
+
+
+def test_speaker_created_from_a_probe_is_reseeded_from_its_longer_windows():
+    engine, _ = _mixing_engine({1: _voice(1), 2: _voice(2)})
+    _speak(engine, 1, 4.0)
+    a_id = engine._last_speaker
+    _speak(engine, 2, 3.0)
+    (b_id,) = [uid for uid in engine._manager.identities if uid != a_id]
+    b = engine._manager.identities[b_id]
+    assert b.clean_speech_seconds >= 2.0, "seed still the 1.0 s probe"
+
+
+def test_observation_queued_before_its_segment_was_split_is_ignored():
+    engine, changes = _mixing_engine({1: _voice(1), 2: _voice(2)})
+    _speak(engine, 1, 4.0)
+    stale = engine._segmenter._observe(final=False)  # still "turn1", queued late
+    _speak(engine, 2, 2.0)  # the change splits turn1
+    before = (len(changes), _sizes(engine))
+    engine._handle(stale)
+    assert (len(changes), _sizes(engine)) == before
+
+
+def test_probe_disabled_keeps_the_previous_behaviour():
+    engine, _ = _mixing_engine({1: _voice(1), 2: _voice(2)}, probe_seconds=0.0)
+    _speak(engine, 1, 4.0)
+    a_id = engine._last_speaker
+    _speak(engine, 2, 3.0)
+    assert engine._segmenter._observe(final=False).probe is None
+    assert engine._segmenter.current_turn_id == "turn1", "split without a probe"
+    assert engine._last_speaker != a_id  # the full window still switches, only later

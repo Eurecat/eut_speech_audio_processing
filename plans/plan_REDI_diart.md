@@ -109,14 +109,15 @@ No segmentation model, no clustering. The turn is the unit:
 A turn is the voice analogue of a tracked face: a bounded observation of one person that we embed
 once and hand to the identity manager.
 
-**Known limitation, accepted for v1:** if two people speak inside one VAD turn with no pause
-between them, that turn yields one embedding and therefore one identity. Resolving *who spoke
-when inside a turn* is what a segmentation model is for, and it is explicitly out of scope for
-v1. It can be added later as a mid-turn split (§4) without changing the identity layer.
+**Speaker change inside a turn** (no pause between two people): each refresh also embeds a short
+*probe* of the latest speech (`redi_probe_seconds`, 1.0s). When the probe no longer sounds like the
+turn's current speaker, the turn is split there into a new segment with its own track id, labelled
+from the probe. This uses the same embedding model, not a segmentation model, and needs no change to
+the identity layer; `plan_REDI_fixes.md` Step 4 has the measurements.
 
-This limitation is acceptable because it fails **safe**: it under-segments (merges) rather than
-inventing speakers, and the merge is visible and explainable rather than the current situation
-where diart silently assigns everything to one cluster for reasons we cannot control.
+What remains out of reach: a line shorter than the probe, spoken by someone not yet heard, followed
+without a pause by another speaker. It fails **safe**: it keeps the previous label rather than
+inventing a speaker from under a second of audio.
 
 ---
 
@@ -144,7 +145,7 @@ never blend into one image region, but two voices do sum in one waveform.
 
 ## 4. Out of scope for v1, listed so nobody re-derives them
 
-- Mid-turn speaker splitting (segmentation model to cut a turn where the speaker changes).
+- A segmentation model for sub-second speaker turns (the probe covers changes ≥ ~1s apart).
 - Overlap-aware separation of simultaneous speakers.
 - PLDA/PSDA scoring instead of cosine (the original brief's "v2" — worth revisiting once the
   simple manager is proven).

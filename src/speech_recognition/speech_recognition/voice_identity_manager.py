@@ -181,6 +181,8 @@ class VoiceIdentityManager:
         use_ewma_for_mean: bool = False,
         ewma_alpha: float = 0.6,
         persist_every: int = 5,
+        short_window_seconds: float = 0.0,
+        short_window_threshold: float = 0.45,
     ) -> None:
         self._logger = logger
         self._store = store
@@ -201,6 +203,8 @@ class VoiceIdentityManager:
         self.use_ewma_for_mean = use_ewma_for_mean
         self.ewma_alpha = min(0.99, max(0.01, ewma_alpha))
         self.persist_every = max(1, persist_every)
+        self.short_window_seconds = short_window_seconds
+        self.short_window_threshold = short_window_threshold
 
         self.identities: Dict[str, VoiceIdentityCluster] = {}
         self.track_to_identity: Dict[str, str] = {}
@@ -267,7 +271,11 @@ class VoiceIdentityManager:
 
         track_ids = list(vectors)
         self._last_rejection.clear()
-        assignments = self._assign_batch(track_ids, vectors)
+        assignments = self._assign_batch(
+            track_ids,
+            vectors,
+            {track_id: self._per_track(speech_seconds, track_id) for track_id in track_ids},
+        )
 
         now = time.time()
         results: Dict[str, Tuple[str, float]] = {}
@@ -306,7 +314,10 @@ class VoiceIdentityManager:
     # ------------------------------------------------------------------
 
     def _assign_batch(
-        self, track_ids: Sequence[str], vectors: Dict[str, np.ndarray]
+        self,
+        track_ids: Sequence[str],
+        vectors: Dict[str, np.ndarray],
+        seconds: Optional[Dict[str, float]] = None,
     ) -> Dict[str, Tuple[Optional[str], float]]:
         """Exclusive assignment of tracks to identities, best matches first."""
         result: Dict[str, Tuple[Optional[str], float]] = {
@@ -363,7 +374,9 @@ class VoiceIdentityManager:
                     ):
                         chosen, best_score = previous_index, previous_score
 
-            required = self._required_score(self.identities[identity_ids[best]])
+            required = self._required_score(
+                self.identities[identity_ids[best]], (seconds or {}).get(track_id)
+            )
             if chosen is None and best_score >= required:
                 # A near-tie means we cannot tell the speakers apart; treating
                 # that as a match is how two people end up sharing an identity.
@@ -379,7 +392,9 @@ class VoiceIdentityManager:
                 self._last_rejection[track_id] = (identity_ids[best], best_score, margin, required)
         return result
 
-    def _required_score(self, identity: VoiceIdentityCluster) -> float:
+    def _required_score(
+        self, identity: VoiceIdentityCluster, speech_seconds: Optional[float] = None
+    ) -> float:
         """Minimum similarity to join an identity, relaxed while it is young.
 
         A new identity's mean is a single noisy utterance, so a second utterance
@@ -388,10 +403,47 @@ class VoiceIdentityManager:
         identities to the full threshold means the same speaker keeps spawning
         fresh identities that each stay too thin to ever be merged. The top1-top2
         margin still applies, which is what stops two different people merging.
+
+        A short window scores lower against its own speaker too, so it is held to
+        ``short_window_threshold`` instead (when ``short_window_seconds`` is set).
         """
-        if identity.confirmed:
-            return self.similarity_threshold
-        return self.young_identity_threshold
+        required = (
+            self.similarity_threshold if identity.confirmed else self.young_identity_threshold
+        )
+        if speech_seconds is not None and 0.0 < speech_seconds < self.short_window_seconds:
+            required = min(required, self.short_window_threshold)
+        return required
+
+    def score(self, unique_id: str, embedding: np.ndarray) -> Optional[float]:
+        """Similarity of an embedding to one identity, without assigning or learning."""
+        identity = self.identities.get(unique_id)
+        if identity is None or identity.mean_embedding is None:
+            return None
+        try:
+            vector = normalize_embedding(embedding)
+        except ValueError:
+            return None
+        return float(vector @ self._representation(identity))
+
+    def reseed_identity(self, unique_id: str, embedding: np.ndarray, speech_seconds: float) -> bool:
+        """Replace the single seed of a just-created identity with a longer window.
+
+        An identity created from a short stretch is a poor reference: the same
+        speaker later scores far lower against it. While the speech that created
+        it continues, its seed is swapped for the growing window instead of being
+        averaged with it. Refused once the identity holds more than its seed.
+        """
+        identity = self.identities.get(unique_id)
+        if identity is None or len(identity.all_embeddings) != 1:
+            return False
+        try:
+            vector = normalize_embedding(embedding)
+        except ValueError:
+            return False
+        identity.all_embeddings[0] = vector.copy()
+        identity.mean_embedding = vector.copy()
+        identity.clean_speech_seconds = speech_seconds
+        return True
 
     def _representation(self, identity: VoiceIdentityCluster) -> np.ndarray:
         """Blend the mean with recent history so one drifting vector cannot define a speaker."""

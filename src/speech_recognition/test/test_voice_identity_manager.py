@@ -354,3 +354,43 @@ def test_live_labels_on_noisy_audio_leak_only_transient_strays():
     """
     _, truth, live = _run_conversation(noise=0.08)
     assert _purity(truth, live) >= 0.80
+
+
+def test_short_window_matches_a_confirmed_speaker_at_the_short_window_bar():
+    manager = VoiceIdentityManager(
+        logger=logging.getLogger("test"), short_window_seconds=1.5, short_window_threshold=0.45
+    )
+    rng = np.random.default_rng(3)
+    voice = rng.normal(size=192)
+    voice /= np.linalg.norm(voice)
+    for i in range(4):
+        manager.process_new_embedding_batch({f"t{i}": voice}, speech_seconds=2.0)
+    (uid,) = manager.identities
+    assert manager.identities[uid].confirmed
+
+    # A vector scoring 0.50 against the speaker: below the confirmed bar, above the short one.
+    other = rng.normal(size=192)
+    other -= (other @ voice) * voice
+    other /= np.linalg.norm(other)
+    probe = 0.5 * voice + np.sqrt(1 - 0.25) * other
+    long_result = manager.process_new_embedding_batch(
+        {"long": probe}, speech_seconds=2.0, learn=False, allow_create=False
+    )
+    short_result = manager.process_new_embedding_batch(
+        {"short": probe}, speech_seconds=1.0, learn=False, allow_create=False
+    )
+    assert "long" not in long_result
+    assert short_result["short"][0] == uid
+
+
+def test_reseed_replaces_only_a_single_seed():
+    manager = VoiceIdentityManager(logger=logging.getLogger("test"))
+    rng = np.random.default_rng(4)
+    first, second = (rng.normal(size=192) for _ in range(2))
+    (uid, _), = manager.process_new_embedding_batch({"t": first}, speech_seconds=1.0).values()
+    assert manager.reseed_identity(uid, second, 2.0)
+    identity = manager.identities[uid]
+    assert np.allclose(identity.mean_embedding, second / np.linalg.norm(second))
+    assert identity.clean_speech_seconds == 2.0
+    identity.all_embeddings.append(identity.mean_embedding.copy())
+    assert not manager.reseed_identity(uid, first, 2.0)

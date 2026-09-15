@@ -59,6 +59,10 @@ class DiarizationNode(Node):
         self.declare_parameter("redi_embed_interval_seconds", 0.5)
         self.declare_parameter("redi_max_embed_seconds", 2.0)
         self.declare_parameter("redi_min_create_seconds", 1.5)
+        self.declare_parameter("redi_probe_seconds", 1.0)
+        self.declare_parameter("redi_change_threshold", 0.35)
+        self.declare_parameter("redi_identity_short_window_seconds", 1.5)
+        self.declare_parameter("redi_identity_short_window_threshold", 0.45)
         self.declare_parameter("redi_identity_similarity_threshold", 0.55)
         self.declare_parameter("redi_identity_young_threshold", 0.40)
         self.declare_parameter("redi_identity_match_margin", 0.06)
@@ -131,11 +135,13 @@ class DiarizationNode(Node):
                 "redi_dataset": value("redi_dataset"),
                 "redi_mongo_uri": value("redi_mongo_uri"),
                 "min_create_seconds": value("redi_min_create_seconds"),
+                "change_threshold": value("redi_change_threshold"),
                 "turn_options": {
                     "turn_silence_seconds": value("redi_turn_silence_seconds"),
                     "min_embed_seconds": value("redi_min_embed_seconds"),
                     "embed_interval_seconds": value("redi_embed_interval_seconds"),
                     "max_embed_seconds": value("redi_max_embed_seconds"),
+                    "probe_seconds": value("redi_probe_seconds"),
                 },
                 "identity_options": {
                     "similarity_threshold": value("redi_identity_similarity_threshold"),
@@ -143,6 +149,8 @@ class DiarizationNode(Node):
                     "match_margin": value("redi_identity_match_margin"),
                     "stickiness_margin": value("redi_identity_stickiness_margin"),
                     "merge_threshold": value("redi_identity_merge_threshold"),
+                    "short_window_seconds": value("redi_identity_short_window_seconds"),
+                    "short_window_threshold": value("redi_identity_short_window_threshold"),
                 },
             }
 

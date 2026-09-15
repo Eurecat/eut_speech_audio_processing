@@ -65,6 +65,18 @@ diarization_node:
                                                         # takes over without a pause the label switches and ASR
                                                         # splits the utterance. At 6.0 a whole A/B exchange blended
                                                         # into one embedding and poisoned the identity it learned.
+    redi_probe_seconds: 1.0                            # Speaker-change probe: each refresh also embeds only the
+                                                        # last 1.0s of speech. When it no longer sounds like the
+                                                        # current speaker the turn is split there and the newcomer
+                                                        # is labelled from the probe, ~1s after they start (which
+                                                        # the ASR's diarization_offset -1.0 lines up), instead of
+                                                        # waiting until they dominate the 2s window (~2-4s).
+                                                        # 0 disables. 0.8 switched even earlier but split one
+                                                        # speaker into extra ids.
+    redi_change_threshold: 0.35                        # Probe score against the current speaker below which the
+                                                        # speaker changed. Measured on the test mp3: a 1.0s probe
+                                                        # scores 0.42-0.82 against its own speaker and at most 0.36
+                                                        # against a different one.
 
     # Identity matching (VoiceIdentityManager)
     redi_identity_similarity_threshold: 0.55           # Match bar for a confirmed identity
@@ -78,6 +90,10 @@ diarization_node:
     redi_identity_match_margin: 0.06                   # Required lead over the second-best speaker
     redi_identity_stickiness_margin: 0.25              # A turn stays on its speaker unless another beats it by this
     redi_identity_merge_threshold: 0.80                # Merge two identities that turn out to be one person
+    redi_identity_short_window_seconds: 1.5            # Windows shorter than this (turn starts, change probes)...
+    redi_identity_short_window_threshold: 0.45         # ...match a known speaker at this bar instead: a 0.8-1.0s
+                                                        # window scores 0.40-0.82 against its own speaker, so the
+                                                        # confirmed bar (0.55) kept stale labels ~0.7s longer.
 
     # VAD Integration
     vad_threshold: 0.5                        # VAD threshold for publishing speech activity (kept aligned with the ASR gate)

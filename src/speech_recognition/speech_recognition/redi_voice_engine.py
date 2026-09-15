@@ -19,8 +19,9 @@ from __future__ import annotations
 import os
 import queue
 import threading
+from collections import deque
 from dataclasses import dataclass
-from typing import Callable, List, Optional, Set
+from typing import Callable, Deque, List, Optional, Set
 
 import numpy as np
 
@@ -32,13 +33,15 @@ from speech_recognition.voice_identity_manager import (
 
 @dataclass
 class TurnObservation:
-    """A request to embed a turn's speech so far."""
+    """A request to embed a turn segment's speech so far."""
 
-    turn_id: str
+    turn_id: str  # track id of the segment: "turn7", then "turn7.2" after a split
     audio: np.ndarray
     mean_vad: float
     final: bool
-    turn_speech_seconds: float = 0.0  # speech accumulated in the turn when observed
+    turn_speech_seconds: float = 0.0  # speech accumulated in the segment when observed
+    probe: Optional[np.ndarray] = None  # most recent speech only, to detect a speaker change
+    end_sample: int = 0  # speech samples in the whole turn when observed
 
 
 class TurnSegmenter:
@@ -50,6 +53,13 @@ class TurnSegmenter:
     every ``embed_interval_seconds`` after that, and a final one when a pause of
     ``turn_silence_seconds`` closes it. Provisional observations give a speaker
     label while the person is still talking instead of only after they stop.
+
+    When someone takes over without pausing, the engine calls :meth:`split` and
+    the turn continues as a new *segment* with its own track id, whose windows
+    only contain speech from the split point on. Once a segment is longer than
+    its probe, each observation also carries ``probe``: the last
+    ``probe_seconds`` of speech, short enough to reveal a change long before the
+    newcomer dominates the full window.
     """
 
     def __init__(
@@ -61,6 +71,7 @@ class TurnSegmenter:
         min_embed_seconds: float = 0.8,
         embed_interval_seconds: float = 0.5,
         max_embed_seconds: float = 2.0,
+        probe_seconds: float = 0.0,
     ) -> None:
         self.sample_rate = sample_rate
         self.vad_threshold = vad_threshold
@@ -68,8 +79,11 @@ class TurnSegmenter:
         self.min_embed_samples = int(min_embed_seconds * sample_rate)
         self.embed_interval_samples = int(embed_interval_seconds * sample_rate)
         self.max_embed_samples = int(max_embed_seconds * sample_rate)
+        self.probe_samples = int(probe_seconds * sample_rate)
 
         self._turn_number = 0
+        self._segment_number = 1
+        self._segment_start = 0
         self._chunks: List[np.ndarray] = []
         self._vad_values: List[float] = []
         self._speech_samples = 0
@@ -79,7 +93,23 @@ class TurnSegmenter:
 
     @property
     def current_turn_id(self) -> Optional[str]:
-        return f"turn{self._turn_number}" if self._in_turn else None
+        if not self._in_turn:
+            return None
+        if self._segment_number == 1:
+            return f"turn{self._turn_number}"
+        return f"turn{self._turn_number}.{self._segment_number}"
+
+    def split(self, track_id: str, at_sample: int) -> Optional[str]:
+        """Start a new segment of the open turn at ``at_sample`` (turn speech samples).
+
+        Returns the new segment's track id, or ``None`` when ``track_id`` is no
+        longer the open segment (the turn ended or was split meanwhile).
+        """
+        if track_id != self.current_turn_id or at_sample <= self._segment_start:
+            return None
+        self._segment_start = min(at_sample, self._speech_samples)
+        self._segment_number += 1
+        return self.current_turn_id
 
     def push(self, chunk: np.ndarray, vad_probability: float) -> List[TurnObservation]:
         seconds = len(chunk) / float(self.sample_rate)
@@ -107,7 +137,7 @@ class TurnSegmenter:
         if not self._in_turn:
             return []
         final = []
-        if self._speech_samples >= self.min_embed_samples:
+        if self._speech_samples - self._segment_start >= self.min_embed_samples:
             final.append(self._observe(final=True))
         self._in_turn = False
         self._chunks = []
@@ -117,6 +147,8 @@ class TurnSegmenter:
 
     def _start_turn(self) -> None:
         self._turn_number += 1
+        self._segment_number = 1
+        self._segment_start = 0
         self._in_turn = True
         self._chunks = []
         self._vad_values = []
@@ -124,16 +156,21 @@ class TurnSegmenter:
         self._next_emit_at = self.min_embed_samples
 
     def _observe(self, *, final: bool) -> TurnObservation:
-        audio = np.concatenate(self._chunks)
+        segment = np.concatenate(self._chunks)[self._segment_start :]
         # The most recent speech only: bounds compute on long turns, and lets a
         # different speaker who takes over without pausing eventually dominate.
-        audio = audio[-self.max_embed_samples :]
+        audio = segment[-self.max_embed_samples :]
+        probe = None
+        if self.probe_samples and len(segment) >= self.probe_samples + self.embed_interval_samples:
+            probe = segment[-self.probe_samples :]
         return TurnObservation(
-            turn_id=f"turn{self._turn_number}",
+            turn_id=self.current_turn_id,
             audio=audio,
             mean_vad=float(np.mean(self._vad_values)) if self._vad_values else 0.0,
             final=final,
-            turn_speech_seconds=self._speech_samples / float(self.sample_rate),
+            turn_speech_seconds=len(segment) / float(self.sample_rate),
+            probe=probe,
+            end_sample=self._speech_samples,
         )
 
 
@@ -153,6 +190,7 @@ class RediVoiceEngine:
         redi_dataset: str,
         redi_mongo_uri: str = "",
         min_create_seconds: float = 1.5,
+        change_threshold: float = 0.35,
         turn_options: Optional[dict] = None,
         identity_options: Optional[dict] = None,
         **_diart_options,  # the node passes DIART-only settings to every engine
@@ -173,6 +211,7 @@ class RediVoiceEngine:
         )
         self._turn_options = turn_options or {}
         self._min_create_seconds = min_create_seconds
+        self._change_threshold = change_threshold
         self._identity_options = identity_options or {}
 
         self._vad_probability = 0.0
@@ -188,6 +227,7 @@ class RediVoiceEngine:
         self._last_confidence = 0.0
         self._sample_rate = 16000
         self._turns: dict = {}
+        self._retired_tracks: Deque[str] = deque(maxlen=64)
 
     # ------------------------------------------------------------------
     # Node contract
@@ -296,24 +336,40 @@ class RediVoiceEngine:
             except Exception as error:
                 self._logger.error(f"REDI voice engine error on {observation.turn_id}: {error}")
 
+    @staticmethod
+    def _new_state() -> dict:
+        return {"label": None, "learned_at": float("-inf"), "seeded": None, "seed_seconds": 0.0}
+
     def _handle(self, observation: TurnObservation) -> None:
+        if observation.turn_id in self._retired_tracks:
+            # Queued before its segment was split: it mixes the old speaker's audio
+            # with the newcomer's, and the new segment already covers what follows.
+            return
+        state = self._turns.setdefault(observation.turn_id, self._new_state())
+        if observation.probe is not None and state["label"] is not None:
+            probe_embedding = self._embed(observation.probe)
+            probe_score = self._manager.score(state["label"], probe_embedding)
+            if probe_score is not None and probe_score < self._change_threshold:
+                self._handle_change(observation, state, probe_embedding, probe_score)
+                return
+
         embedding = self._embed(observation.audio)
         window_seconds = len(observation.audio) / float(self._sample_rate)
-        state = self._turns.setdefault(
-            observation.turn_id, {"label": None, "learned_at": float("-inf")}
-        )
 
         # Learn only inside a stable stretch of one speaker: the previous window of
-        # this turn landed on the same speaker, and enough new speech has passed
-        # that this window is not a near-copy of the last one learned. A window
-        # straddling a speaker change lands on a different speaker than its
-        # predecessor and is not learned. Learning only from whole unmixed turns
-        # starved identities, because conversational turns are almost always mixed.
+        # this segment landed on the same speaker, and enough new speech has passed
+        # that this window is not a near-copy of the last one learned. Learning only
+        # from whole unmixed turns starved identities, because conversational turns
+        # are almost always mixed.
         learn_interval = self._segmenter.max_embed_samples / float(self._sample_rate)
         expected = state["label"]
         spaced = observation.turn_speech_seconds - state["learned_at"] >= learn_interval
         learn_as = expected if expected is not None and spaced else None
+        # A speaker this segment created is still defined by its short seed: grow
+        # the seed with the segment instead of averaging a longer window into it.
+        reseed = state["seeded"] is not None and learn_as is None
 
+        known = set(self._manager.identities)
         results = self._manager.process_new_embedding_batch(
             {observation.turn_id: embedding},
             speech_seconds=window_seconds,
@@ -324,11 +380,10 @@ class RediVoiceEngine:
             # recognise one that already exists.
             allow_create=window_seconds >= self._min_create_seconds,
         )
-        if observation.final:
-            self._turns.pop(observation.turn_id, None)
-
-        kind = "final" if observation.final else "provisional"
         if observation.turn_id not in results:
+            if observation.final:
+                self._turns.pop(observation.turn_id, None)
+            kind = "final" if observation.final else "provisional"
             self._logger.info(
                 f"REDI turn {observation.turn_id} ({kind}, {window_seconds:.2f}s) -> "
                 f"no known speaker, too short to create one"
@@ -336,16 +391,89 @@ class RediVoiceEngine:
             return
 
         speaker, confidence = results[observation.turn_id]
-        created = state["label"] is None and confidence >= 1.0
+        created = speaker not in known
         learned = learn_as is not None and speaker == learn_as
+        note = " learned" if learned else ""
+        if reseed and speaker == state["seeded"] and window_seconds > state["seed_seconds"]:
+            if self._manager.reseed_identity(speaker, embedding, window_seconds):
+                state["seed_seconds"] = window_seconds
+                note = " reseeded"
+        if created:
+            state["seeded"], state["seed_seconds"] = speaker, window_seconds
         if learned or created:
             state["learned_at"] = observation.turn_speech_seconds
+        if learned or speaker != state["seeded"]:
+            state["seeded"] = None
+        self._publish(observation, state, speaker, confidence, window_seconds, note)
+
+    def _handle_change(
+        self,
+        observation: TurnObservation,
+        state: dict,
+        probe_embedding: np.ndarray,
+        probe_score: float,
+    ) -> None:
+        """The latest speech no longer sounds like the segment's speaker: split there.
+
+        Only the probe is labelled now. It is too short to learn from, but it may
+        create a speaker, because a change was detected: waiting for a full window
+        of the newcomer is exactly the lag this avoids. Such a speaker is reseeded
+        from the longer windows of its own segment as they arrive.
+        """
+        at_sample = observation.end_sample - len(observation.probe)
+        with self._lock:
+            track_id = self._segmenter.split(observation.turn_id, at_sample)
+        # The turn already moved on (ended or split): still label the probe, under
+        # a track id no later observation will reuse.
+        track_id = track_id or f"{observation.turn_id}@{at_sample}"
+        self._turns.pop(observation.turn_id, None)
+        self._retired_tracks.append(observation.turn_id)
+
+        probe_seconds = len(observation.probe) / float(self._sample_rate)
+        known = set(self._manager.identities)
+        results = self._manager.process_new_embedding_batch(
+            {track_id: probe_embedding},
+            speech_seconds=probe_seconds,
+            quality=observation.mean_vad,
+            learn=False,
+        )
+        self._logger.info(
+            f"REDI change in {observation.turn_id}: last {probe_seconds:.2f}s scored "
+            f"{probe_score:.3f} against {state['label']}, new segment {track_id}"
+        )
+        if track_id not in results:
+            return
+        speaker, confidence = results[track_id]
+        new_state = self._new_state()
+        # Learning resumes only after a full window beyond the probe, like after creation.
+        new_state["learned_at"] = probe_seconds
+        if speaker not in known:
+            new_state["seeded"], new_state["seed_seconds"] = speaker, probe_seconds
+        if observation.final or "@" in track_id:
+            observation = TurnObservation(**{**observation.__dict__, "final": True})
+        else:
+            self._turns[track_id] = new_state
+        observation = TurnObservation(**{**observation.__dict__, "turn_id": track_id})
+        self._publish(observation, new_state, speaker, confidence, probe_seconds, " probe")
+
+    def _publish(
+        self,
+        observation: TurnObservation,
+        state: dict,
+        speaker: str,
+        confidence: float,
+        window_seconds: float,
+        note: str,
+    ) -> None:
         state["label"] = speaker
         self._last_confidence = confidence
+        if observation.final:
+            self._turns.pop(observation.turn_id, None)
 
+        kind = "final" if observation.final else "provisional"
         self._logger.info(
             f"REDI turn {observation.turn_id} ({kind}, {window_seconds:.2f}s) -> {speaker} "
-            f"score={confidence:.3f}{' learned' if learned else ''}"
+            f"score={confidence:.3f}{note}"
         )
         if speaker != self._last_speaker:
             self._logger.info(f"Active eut_speaker_id: {speaker}")

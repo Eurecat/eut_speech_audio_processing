@@ -16,7 +16,7 @@ defaults to off, and `diarization_engine.py` is byte-identical to `HEAD`.
 | Piece | File | State |
 |---|---|---|
 | Shared identity layer | `speech_recognition/voice_identity_manager.py` | **Done, unit tested** |
-| REDI backend (independent, no diart) | `speech_recognition/redi_voice_engine.py` | **Done, unit tested, 3 mp3 runs — see §5 Step 2** |
+| REDI backend (independent, no diart) | `speech_recognition/redi_voice_engine.py` | **Done, unit tested, 5 mp3 runs — see §5 Steps 2-4** |
 | diart backend + shared identity layer | `speech_recognition/diart_identity_engine.py` | **Done, A/B'd, behind `diart_use_voice_identity_manager: False`** |
 | Legacy diart backend | `speech_recognition/diarization_engine.py` | **Unchanged — identical to HEAD** |
 | Old diart-coupled REDI | `redi_diarization_engine.py`, `redi_speaker_identity.py`, `test/test_diarization.py` | **Deleted** (recoverable from git history) |
@@ -46,7 +46,7 @@ python3 -m pytest test/test_voice_identity_manager.py test/test_redi_turn_segmen
     -q -p no:cacheprovider --noconftest
 ```
 
-No ROS, no GPU, no model; under a second. Current result: **34 passed, 1 xfailed** (plus `test_asr_chunk_boundaries.py`).
+No ROS, no GPU, no model; under a second. Current result: **45 passed, 1 xfailed** (plus `test_asr_chunk_boundaries.py`).
 
 This step exists because almost every regression in §4 would have been caught for free by a unit
 test, and instead each cost a 2-3 minute docker run to discover.
@@ -241,16 +241,67 @@ Still wrong in run 4:
 - A's line 1 (~1s) shares the intro speaker's id: too short to create a speaker, so it inherits
   the previous label — the accepted cost of fix 1.
 
-### Step 4 — speaker-change lag at boundaries — NEXT
+### Step 4 — speaker-change lag at boundaries — DONE (run 5)
 
-The label flips only once a 2s window is dominated by the new speaker. `diarization_offset: -1.0`
-in `asr_params.yaml` was tuned for diart's lag and is shared by both backends, so it must not be
-retuned for REDI. Fix inside REDI instead: alongside each 2s window, embed a short ~1s probe of the
-most recent speech; if the probe clearly scores against the current label (below the young
-threshold, with margin) switch immediately rather than waiting for the full window. Guard against
-false switches from noisy 1s probes by requiring the probe's result to be confirmed by the next
-full window before it is learned. Unit test first with a synthetic A→B turn, asserting the switch
-happens within one refresh of the change.
+The label flipped only once a 2s window was dominated by the new speaker: 1.5s late at B→A, and
+A→B inside one turn was never detected (the window straddling it even got learned into A).
+`diarization_offset: -1.0` in `asr_params.yaml` is shared with diart and was not touched.
+
+**Measured first, offline.** The mp3 was replayed through `RediVoiceEngine` with the real
+ReDimNet2 model, cached Silero VAD and Whisper word timings (deterministic, ~1s per config instead
+of a 2-3 minute docker run; it reproduced run 4's scores exactly). On real embeddings:
+
+| window | same speaker vs matured identity | different speaker |
+|---|---|---|
+| 0.8s | 0.40-0.75 | ≤0.39 |
+| 1.0s | 0.42-0.82 | ≤0.36 |
+| 2.0s | 0.59-0.94 | ≤0.36 |
+
+A 1.0s probe vs its speaker's identity dropped to 0.14-0.24 about 1s after each real change.
+
+Fixes, each with unit tests:
+
+1. **Change probe** (`redi_probe_seconds: 1.0`, `redi_change_threshold: 0.35`) — each refresh also
+   embeds the last 1.0s of speech. Below 0.35 against the current label, the turn is **split** at
+   the probe start (`TurnSegmenter.split`): the rest of the turn is a new segment (`turn7.2`) with
+   its own track id, so stickiness cannot pin it and its windows never contain the old speaker.
+   The probe labels the new segment immediately; ~1s after the change, which the ASR offset of
+   -1.0 lines up. Observations queued before the split are dropped.
+2. **Probe may create a speaker, then reseed it** — the change itself is the evidence of a new
+   voice. The seed is replaced by the segment's longer windows (`reseed_identity`) until it is a
+   full 2s window, so a 1s seed never becomes a permanent weak reference (the Step 3 failure).
+3. **Short-window match bar** (`redi_identity_short_window_seconds: 1.5`,
+   `..._threshold: 0.45`) — windows under 1.5s match a known speaker at 0.45 instead of 0.55, per the
+   table above. Diart's managed identity path leaves it disabled (default `0.0`).
+
+Offline, whole 12-minute mp3: one extra identity compared with no probe (a change scoring 0.078 at
+392s); no false splits in single-speaker speech. `probe_seconds: 0.8` switched earlier but split
+speakers into extra ids.
+
+Run 5 (live docker) vs ground truth:
+
+| # | Speaker | Run 4 | Run 5 |
+|---|---|---|---|
+| 0 | C | s1 | s1 |
+| 1 | A | s1 ✗ | s1 ✗ |
+| 2-3 | B | s2 | s2 |
+| 4 | A | cut mid-sentence, first half B ✗ | **whole line s3** |
+| 5 | B | s3 ✗ | **s2** |
+| 6 | B | s3 ✗ | **s2** |
+| 7 | B | s2 | s2 |
+| 8 | A (overlap) | s2 | **s3** |
+
+3 identities for 3 speakers, no repeated text.
+
+**Line 1 cannot be fixed in a streaming label.** Silero marks only 0.32s of "You're a jerk, Tom."
+as speech (probabilities 0.0-0.3 through most of it), B follows 0.13s later with no pause, and A
+has not been heard yet. Even the full 0.85s of raw audio, which does score 0.515 against A's final
+identity, arrives before A's identity exists. Labelling it A needs hindsight: re-attributing an
+already published transcript once A is known, which the ASR output contract does not support.
+
+Also still visible: "Look, Celia," is missing from the transcript in runs 4 and 5. B's first label
+arrives ~0.6s into B's speech (B is new, so it waits for `redi_min_create_seconds`), and the ASR
+flush at that label cuts through those words. An ASR chunk-edge issue, not a wrong label.
 
 ### Step 3b — old diart-coupled REDI code — DONE
 
@@ -261,7 +312,8 @@ deleted engine are backed up in the scratchpad as `redi_diarization_engine_sessi
 
 ### Step 5 — later, only if needed
 
-- Mid-turn speaker change detection, for two people speaking with no pause between them.
+- Retroactive re-attribution of short lines once their speaker is known (line 1 above). Needs an
+  ASR-side contract change.
 - Delayed label publication, if transient stray labels (§2) prove unacceptable.
 - PLDA/PSDA scoring instead of cosine.
 
@@ -297,6 +349,6 @@ in the bind-mounted `weights_pyannote` directory. The REDI engine does not use p
 Line 4 is the discriminating case. Score by consistency, not absolute ids: A's lines (1, 4) share
 one id, B's lines share a different one, and C differs from both.
 
-REDI splits on **pauses**. If there is no pause between two lines by different speakers, REDI v1
-is expected to merge them (`plan_REDI_diart.md` §2.1). Check the audio before counting that as a
-regression.
+REDI splits turns on **pauses** and, inside a turn, on the change probe (Step 4). A line under ~1s
+by a speaker not yet heard, followed with no pause by someone else (line 1), keeps the previous
+label. Check the audio before counting that as a regression.
