@@ -12,7 +12,7 @@ from launch.actions import (
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
-VENV_PATH = os.environ.get("AI_VENV", "/opt/ros_python_env")  # set AI_VENV or uses default
+VENV_PATH = os.environ.get("ASR_VENV", os.environ.get("AI_VENV", "/opt/ros_python_env"))
 
 
 def _venv_site_packages(venv_path: str) -> str:
@@ -43,6 +43,10 @@ def _setup(context, *args, **kwargs):
     additional_params = {}
     if compute_type and compute_type != "compute_type":  # check if actually provided
         additional_params["compute_type"] = compute_type
+    for name in ("asr_backend", "parakeet_model_name", "language"):
+        value = LaunchConfiguration(name).perform(context)
+        if value:
+            additional_params[name] = value
 
     return [
         LogInfo(msg=f"[speech_recognition] Using AI venv: {VENV_PATH}"),
@@ -55,6 +59,7 @@ def _setup(context, *args, **kwargs):
         Node(
             package="speech_recognition",
             executable="asr_node",
+            prefix=[os.path.join(VENV_PATH, "bin", "python")],
             name="asr_node",
             output="screen",
             parameters=[
@@ -93,6 +98,9 @@ def generate_launch_description():
                 default_value="",
                 description="Override compute type (float32, float16, int8_float32, int8, int16)",
             ),
+            DeclareLaunchArgument("asr_backend", default_value=""),
+            DeclareLaunchArgument("parakeet_model_name", default_value=""),
+            DeclareLaunchArgument("language", default_value=""),
             OpaqueFunction(function=_setup),
         ]
     )

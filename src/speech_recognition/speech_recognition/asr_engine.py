@@ -5,10 +5,8 @@ import time
 from collections import deque
 from typing import Callable, List, Optional
 
-import ctranslate2
 import numpy as np
 import torch
-from faster_whisper import BatchedInferencePipeline, WhisperModel
 
 # ---------------------------------------------------------------------------
 # Model registry
@@ -152,7 +150,41 @@ class ASREngine:
             )
         return WHISPER_MODELS[model_size]
 
+    def _run_transcription(
+        self, audio_data: np.ndarray, language: str
+    ) -> tuple[List[dict], str]:
+        """Factory hook used by selectable ASR backends.
+
+        Runs the model on one chunk and returns (segments, detected_language),
+        where segments has the structure _collect_segments() produces. Word
+        timings are required: _group_segments_by_speaker() uses them to split a
+        chunk across speakers.
+        """
+        if self.use_batched_inference and self.batched_model:
+            segments, info = self.batched_model.transcribe(
+                audio_data,
+                batch_size=self.batch_size,
+                vad_filter=False,  # external VAD already gates audio; skip redundant internal pass
+                word_timestamps=True,  # needed to split a chunk across speakers
+                language=language,
+            )
+        else:
+            segments, info = self.model.transcribe(
+                audio_data,
+                vad_filter=False,  # external VAD already gates audio; skip redundant internal pass
+                word_timestamps=True,  # needed to split a chunk across speakers
+                language=language,
+            )
+
+        collected = self._collect_segments(segments)
+        detected = info.language if hasattr(info, "language") else language
+        return collected, detected
+
     def _load_model(self, model_size: str, compute_type: str, weights_dir: str):
+        # Optional backend dependencies must not enter the Parakeet process.
+        import ctranslate2
+        from faster_whisper import BatchedInferencePipeline, WhisperModel
+
         device = "cuda" if ctranslate2.get_cuda_device_count() > 0 else "cpu"
         self._logger.info(f"Using device on ASR: {device}")
 
@@ -738,28 +770,11 @@ class ASREngine:
 
         try:
             with self._transcribe_lock:
-                if self.use_batched_inference and self.batched_model:
-                    segments, info = self.batched_model.transcribe(
-                        audio_data,
-                        batch_size=self.batch_size,
-                        vad_filter=False,  # external VAD already gates audio; skip redundant internal pass
-                        word_timestamps=True,  # needed to split a chunk across speakers
-                        language=transcription_language,
-                    )
-                else:
-                    segments, info = self.model.transcribe(
-                        audio_data,
-                        vad_filter=False,  # external VAD already gates audio; skip redundant internal pass
-                        word_timestamps=True,  # needed to split a chunk across speakers
-                        language=transcription_language,
-                    )
-
-                collected = self._collect_segments(segments)
+                collected, detected_language = self._run_transcription(
+                    audio_data, transcription_language
+                )
 
             transcript = " ".join(seg["text"] for seg in collected).strip()
-            detected_language = (
-                info.language if hasattr(info, "language") else transcription_language
-            )
 
             if transcript:
                 model_processing_ms = int((time.time() - transcribe_start) * 1000)

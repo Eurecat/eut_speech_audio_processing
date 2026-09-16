@@ -268,6 +268,15 @@ else
     echo "BUILT_IMAGE=$IMAGE_NAME" >> "$ENV_FILE"
 fi
 
+# Keep the default Compose image aligned with this shared Jazzy GPU build.
+if ! $USE_ARM && [ "$CPU_ONLY" = "false" ] && [ "$TARGET_DISTRO" = "jazzy" ]; then
+    if grep -q '^UNIFIED_IMAGE=' "$ENV_FILE"; then
+        sed -i "s|^UNIFIED_IMAGE=.*|UNIFIED_IMAGE=$IMAGE_NAME|" "$ENV_FILE"
+    else
+        echo "UNIFIED_IMAGE=$IMAGE_NAME" >> "$ENV_FILE"
+    fi
+fi
+
 # Set or Update DOCKER_RUNTIME based on CPU_ONLY flag (ARM always uses nvidia runtime)
 if [ "$CPU_ONLY" = "true" ]; then
     DOCKER_RUNTIME="runc"

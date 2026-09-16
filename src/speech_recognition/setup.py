@@ -20,10 +20,16 @@ setup(
         "setuptools",
         "numpy",
         "torch",
-        "diart",
-        "openwakeword",
-        "faster-whisper",
     ],
+    # Each image installs the extras it actually runs. Unconditional diart /
+    # openwakeword requirements made ASR startup validate the diarization and
+    # ONNX Runtime dependency graphs even in a separate Parakeet environment.
+    extras_require={
+        "whisper": ["faster-whisper"],
+        "diarization": ["diart"],
+        "wake_word": ["openwakeword"],
+        "parakeet": ["nemo_toolkit[asr]==2.4.0"],
+    },
     zip_safe=True,
     maintainer="root",
     maintainer_email="joan.omedes@eurecat.org",

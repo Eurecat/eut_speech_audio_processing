@@ -3,10 +3,24 @@
 
 asr_node:
   ros__parameters:
+    # Backend Configuration
+    # Backend support in this deployment:
+    #   whisper: GPU, CPU, ARM and ARM Thor (use the matching platform image).
+    #   parakeet: x86_64 + ROS Jazzy + CUDA only; NeMo is installed in that GPU build.
+    #   Parakeet is unavailable on CPU, ARM/ARM Thor and Humble; select whisper.
+    asr_backend: "parakeet"                   # whisper (faster-whisper, default) or parakeet (NVIDIA NeMo TDT)
+
+    # Parakeet backend (used only when asr_backend=parakeet)
+    # Use the isolated image: Docker/docker-compose.parakeet.yaml.
+    # WARNING: parakeet-tdt-0.6b-v3 covers 25 European languages and Catalan is
+    # NOT among them (Spanish is). Keep asr_backend=whisper where 'ca' matters.
+    parakeet_model_name: "nvidia/parakeet-tdt-0.6b-v3"
+
     # Model Configuration
     model_size: "turbo"                      # Whisper model size (tiny, base, small, medium, large, turbo)
+                                             # Ignored when asr_backend=parakeet
     compute_type: "float16"                  # Compute type: float32, float16, int8, int8_float32, int8_float16, int16
-                        # CUDA device: float16 is ~2x faster than float32. The engine auto-falls back to float32 on CPU.
+                        # CUDA device: float16 is ~2x faster than float32. Whisper falls back to float32 on CPU; Parakeet requires CUDA.
     
     # Language Configuration
     language: "en, es, ca"                           # Language options:

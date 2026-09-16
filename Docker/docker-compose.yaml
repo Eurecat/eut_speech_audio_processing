@@ -7,7 +7,7 @@ services:
     ipc: host
     shm_size: 1gb
     runtime: ${DOCKER_RUNTIME:-runc}
-    image: ${BUILT_IMAGE}
+    image: ${UNIFIED_IMAGE:-eut_audio_unified:jazzy}
     privileged: true
     depends_on:
       - mongodb_service
@@ -63,7 +63,12 @@ services:
     ipc: host
     shm_size: 1gb
     runtime: ${DOCKER_RUNTIME:-runc}
-    image: ${BUILT_IMAGE}
+    image: ${UNIFIED_IMAGE:-eut_audio_unified:jazzy}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: ${AUDIO_BASE_IMAGE:-eut_ros_torch:jazzy}
     privileged: true
     depends_on:
       - mongodb_service

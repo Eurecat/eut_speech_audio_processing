@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Avoid inherited Python paths leaking into the shared environment.
+unset PYTHONHOME PYTHONPATH
+
 echo "=== ENTRYPOINT START $(date) PID=$$ ==="
 
 # Create timestamped runtime log directory for ROS2 node logs
@@ -57,6 +60,7 @@ cd /workspace
 for _stale in custom_ops warp_perspective dispatcher infer; do
     rm -rf "/workspace/build/${_stale}" "/workspace/install/${_stale}" 2>/dev/null || true
 done
+if [ "${SPEECH_SKIP_BUILD:-0}" != "1" ]; then
 colcon build \
     --base-paths /workspace/src \
     --build-base  /workspace/build \
@@ -64,6 +68,7 @@ colcon build \
     --packages-ignore custom_ops warp_perspective dispatcher infer \
     --event-handlers console_direct+ \
     --symlink-install
+fi
 
 # Cleanup: Keep only the last N build/runtime logs
 # BUILD_LOGS_TO_KEEP:   number of build log sessions to retain.   -1 = never delete.

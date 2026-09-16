@@ -12,6 +12,7 @@ from hri_msgs.msg import (
     Vad,
 )
 from rclpy.node import Node
+from rclpy.executors import ExternalShutdownException
 
 from speech_recognition.asr_engine import ASREngine
 
@@ -49,15 +50,33 @@ class ASRNode(Node):
         self.declare_parameter("snap_splits_to_sentences", True)
         self.declare_parameter("speaker_interval_tolerance", 3.0)
         self.declare_parameter("min_speaker_chunk_duration", 0.3)
+        self.declare_parameter("asr_backend", "whisper")
+        self.declare_parameter("parakeet_model_name", "nvidia/parakeet-tdt-0.6b-v3")
         self.declare_parameter("ros4hri_with_id", True)
         self.declare_parameter("cleanup_inactive_topics", False)
         self.declare_parameter("inactive_topic_timeout", 10.0)
 
         model_size = self.get_parameter("model_size").get_parameter_value().string_value
 
+        backend = self.get_parameter("asr_backend").value.lower()
+        if backend not in {"whisper", "parakeet"}:
+            raise ValueError(
+                f"Unsupported asr_backend '{backend}'. Use 'whisper' or 'parakeet'."
+            )
+
+        engine_class = ASREngine
+        backend_options = {}
+        if backend == "parakeet":
+            from speech_recognition.parakeet_asr_engine import ParakeetASREngine
+
+            engine_class = ParakeetASREngine
+            backend_options = {
+                "parakeet_model_name": self.get_parameter("parakeet_model_name").value,
+            }
+
         # Validate model size early so the node fails fast with a clear message
         try:
-            ASREngine.validate_model_size(model_size)
+            engine_class.validate_model_size(model_size)
         except ValueError as e:
             self.get_logger().error(str(e))
             raise
@@ -77,7 +96,7 @@ class ASRNode(Node):
         # ------------------------------------------------------------------
         # Engine
         # ------------------------------------------------------------------
-        self.engine = ASREngine(
+        self.engine = engine_class(
             model_size=model_size,
             compute_type=self.get_parameter("compute_type").get_parameter_value().string_value,
             language=self.get_parameter("language").get_parameter_value().string_value,
@@ -119,7 +138,9 @@ class ASRNode(Node):
             weights_dir=weights_dir,
             on_transcript_ready=self._publish_transcript,
             logger=self.get_logger(),
+            **backend_options,
         )
+        self.get_logger().info(f"Selected ASR backend: {backend}")
 
         # ------------------------------------------------------------------
         # ROS4HRI voice publisher registry
@@ -267,11 +288,12 @@ def main(args=None):
     node = ASRNode()
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
         node.get_logger().info("Shutting down ASR node.")
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == "__main__":
