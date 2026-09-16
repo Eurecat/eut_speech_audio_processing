@@ -48,6 +48,13 @@ class ASREngine:
     Owns the audio buffer, VAD state machine, silence timer thread,
     and chunk-split logic. Has zero ROS2 dependencies.
 
+    This class is the faster-whisper backend (asr_backend: "whisper") and also
+    the shared pipeline for every other backend. A backend subclass only
+    overrides the model hooks: validate_model_size(), _load_model(),
+    _resolve_language() and _run_transcription(). Buffering, speaker
+    attribution and publishing stay identical for all backends
+    (see parakeet_asr_engine.ParakeetASREngine).
+
     Communicates outward via one callback:
       - on_transcript_ready(transcript, speaker_id, language_code):
           Called after a successful transcription. The node stamps and
@@ -573,6 +580,36 @@ class ASREngine:
     # Transcription
     # ------------------------------------------------------------------
 
+    def _run_transcription(
+        self, audio_data: np.ndarray, language: str
+    ) -> tuple[List[dict], str]:
+        """Run the model on one chunk. Called with _transcribe_lock held.
+
+        Returns ``(segments, detected_language)``. ``segments`` has the
+        structure _collect_segments() produces; word timings are required
+        because _group_segments_by_speaker() uses them to split a chunk across
+        speakers. Backend subclasses override this.
+        """
+        if self.use_batched_inference and self.batched_model:
+            segments, info = self.batched_model.transcribe(
+                audio_data,
+                batch_size=self.batch_size,
+                vad_filter=False,  # external VAD already gates audio; skip redundant internal pass
+                word_timestamps=True,  # needed to split a chunk across speakers
+                language=language,
+            )
+        else:
+            segments, info = self.model.transcribe(
+                audio_data,
+                vad_filter=False,  # external VAD already gates audio; skip redundant internal pass
+                word_timestamps=True,  # needed to split a chunk across speakers
+                language=language,
+            )
+
+        collected = self._collect_segments(segments)
+        detected_language = info.language if hasattr(info, "language") else language
+        return collected, detected_language
+
     @staticmethod
     def _collect_segments(segments) -> List[dict]:
         """Materialise Whisper segments (a generator) with their word timings."""
@@ -731,7 +768,7 @@ class ASREngine:
         reset_timing: bool = True,
         expected_start_time: Optional[float] = None,
     ) -> None:
-        """Run Whisper on pre-extracted audio and fire on_transcript_ready."""
+        """Run the ASR backend on pre-extracted audio and fire on_transcript_ready."""
         if audio_data is None or len(audio_data) == 0:
             self._logger.warn("Empty audio data — skipping transcription.")
             return
@@ -753,28 +790,11 @@ class ASREngine:
 
         try:
             with self._transcribe_lock:
-                if self.use_batched_inference and self.batched_model:
-                    segments, info = self.batched_model.transcribe(
-                        audio_data,
-                        batch_size=self.batch_size,
-                        vad_filter=False,  # external VAD already gates audio; skip redundant internal pass
-                        word_timestamps=True,  # needed to split a chunk across speakers
-                        language=transcription_language,
-                    )
-                else:
-                    segments, info = self.model.transcribe(
-                        audio_data,
-                        vad_filter=False,  # external VAD already gates audio; skip redundant internal pass
-                        word_timestamps=True,  # needed to split a chunk across speakers
-                        language=transcription_language,
-                    )
-
-                collected = self._collect_segments(segments)
+                collected, detected_language = self._run_transcription(
+                    audio_data, transcription_language
+                )
 
             transcript = " ".join(seg["text"] for seg in collected).strip()
-            detected_language = (
-                info.language if hasattr(info, "language") else transcription_language
-            )
 
             if transcript:
                 model_processing_ms = int((time.time() - transcribe_start) * 1000)

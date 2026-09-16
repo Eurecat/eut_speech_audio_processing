@@ -19,6 +19,7 @@ speech_recognition/
 ├── voice_identity_manager.py # Shared speaker identities: matching, merging, persistence
 ├── asr.py                  # ROS2 node (thin wrapper)
 ├── asr_engine.py           # All ASR logic: Whisper model, VAD state machine, buffering
+├── parakeet_asr_engine.py  # asr_backend=parakeet: NeMo Parakeet TDT model on the same ASREngine pipeline
 ├── ros_audio_source.py     # AudioSource adapter: bridges ROS audio chunks to diart
 └── utils/
     └── database_utils.py   # DataBaseManager: MongoDB speaker embedding persistence
@@ -217,13 +218,34 @@ microphone or earlier runs are loaded and the ids differ from a fresh run.
 
 ### 4. ASR — Automatic Speech Recognition (`asr.py` + `asr_engine.py`)
 
-**Purpose**: Buffers incoming audio, uses VAD probabilities to detect speech segments, and transcribes them with a Whisper model. Publishes `SpeechResult` and `LiveSpeech` messages, with optional ROS4HRI-compatible per-speaker publication.
+**Purpose**: Buffers incoming audio, uses VAD probabilities to detect speech segments, and transcribes them with a Whisper or Parakeet model. Publishes `SpeechResult` and `LiveSpeech` messages, with optional ROS4HRI-compatible per-speaker publication.
+
+#### Selecting the backend
+
+`asr_backend` in `asr_params.yaml` chooses the model; the node logs
+`Selected ASR backend: <backend>` at startup. Both backends use the same
+`ASREngine` pipeline (VAD segmentation, speaker-change flushes, per-speaker
+sentence grouping) and publish the same `/speech_result`, so diarization and
+downstream consumers do not change.
+
+| `asr_backend` | Engine | Languages | Notes |
+|---|---|---|---|
+| `whisper` (default) | `ASREngine` (faster-whisper) | all Whisper languages, **including Catalan** | `model_size`, `compute_type`, batched inference apply |
+| `parakeet` | `ParakeetASREngine` (NVIDIA NeMo, `parakeet_model_name`) | 25 European languages, Spanish yes, **Catalan no** | always float32 on GPU; model has no language output, so the first code of `language` is published |
+
+Override without editing the yaml: `ASR_BACKEND=parakeet` in `Docker/.env` (passed as the
+`asr_backend` launch argument by `docker-compose.yaml`, `android-docker-compose.yaml` and
+`docker-compose_mp3.yaml`). Empty keeps the yaml value.
+
+The Parakeet checkpoint (`nvidia/parakeet-tdt-0.6b-v3`, ~2.5 GB) downloads once to
+`speech_recognition/weights/`, next to the Whisper weights. NeMo (`nemo_toolkit[asr]==2.4.0`)
+is installed in the ARM / Jetson Thor image (`requirements_arm.txt`).
 
 #### `ASRNode` (ROS2 node)
 Thin node whose only responsibilities are:
 - Declare and read ROS2 parameters from `asr_params.yaml`
-- Validate the model size early (fail fast with a clear message) via `ASREngine.validate_model_size`
-- Instantiate `ASREngine` and provide publishing callbacks
+- Select the backend (`asr_backend`) and validate the model size early (fail fast with a clear message) via `validate_model_size`
+- Instantiate `ASREngine` or `ParakeetASREngine` and provide publishing callbacks
 - Feed audio chunks, VAD probabilities, and speaker IDs into the engine
 - Manage ROS4HRI voice publisher lifecycle (create, cleanup)
 
@@ -231,6 +253,7 @@ Thin node whose only responsibilities are:
 Owns all ASR logic with zero ROS2 dependencies:
 - **Model registry**: maps short names (`turbo`, `large-v3`, `distil-large-v3`, …) to HuggingFace model IDs
 - **Model loading**: downloads and caches a `faster_whisper.WhisperModel`; supports optional `BatchedInferencePipeline`
+- **Backend hooks**: `_load_model()`, `_resolve_language()` and `_run_transcription()` are the only methods a backend overrides (`ParakeetASREngine`)
 - **VAD state machine**: tracks `speech` / `silence` states, manages pre-buffer for leading audio capture
 - **Silence timer thread**: triggers transcription after `min_silence_duration` of silence
 - **Chunk splitting**: splits long utterances at `max_chunk_duration` to avoid latency spikes

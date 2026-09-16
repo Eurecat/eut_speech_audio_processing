@@ -111,7 +111,8 @@ services:
     command: >
       bash -c "source /workspace/install/setup.bash &&
       exec ros2 launch speech_recognition speech_recognition.launch.py
-      redi_use_database:=${REDI_USE_DATABASE:-true}"
+      redi_use_database:=${REDI_USE_DATABASE:-true}
+      asr_backend:=${ASR_BACKEND:-}"
 
     stop_signal: SIGINT
     stop_grace_period: 30s

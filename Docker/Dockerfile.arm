@@ -69,8 +69,15 @@ COPY Docker/requirements_arm.txt /workspace/requirements_arm.txt
 # here. empy 4.x changes the interpreter.string() API used by rosidl_generator_rs
 # for .em template expansion, which causes TransientParseError during colcon build.
 # empy 3.3.4 is sufficient for all colcon/ament builds on ARM.
-RUN pip install --no-cache-dir --ignore-installed blinker && \
-    pip install --no-cache-dir -r /workspace/requirements_arm.txt
+#
+# base_constraints.txt pins the NVIDIA torch / torchvision / numpy already in the
+# base image, so no requirement (e.g. nemo_toolkit, diart) can silently replace
+# them with PyPI builds that lack Jetson CUDA support. An incompatible
+# requirement fails the build instead.
+RUN { pip list --format=freeze | grep -iE '^(torch|torchvision|numpy)==' > /workspace/base_constraints.txt || true; } && \
+    cat /workspace/base_constraints.txt && \
+    pip install --no-cache-dir --ignore-installed blinker && \
+    pip install --no-cache-dir -r /workspace/requirements_arm.txt -c /workspace/base_constraints.txt
 
 # ------------------------------------------------------------
 # torchaudio — build from source against installed NVIDIA torch

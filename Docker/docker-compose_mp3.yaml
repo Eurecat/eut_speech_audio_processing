@@ -67,7 +67,8 @@ services:
       enable_asr:=true
       enable_wake_word:=false
       diarization_backend:=${DIARIZATION_BACKEND:-redimnet2}
-      redi_use_database:=${REDI_USE_DATABASE:-false}"
+      redi_use_database:=${REDI_USE_DATABASE:-false}
+      asr_backend:=${ASR_BACKEND:-}"
 
     stop_signal: SIGINT
     stop_grace_period: 30s
@@ -101,7 +102,7 @@ services:
       source /workspace/install/setup.bash &&
       exec python3 /tmp/audio_file_publisher.py
       --ros-args
-      -p input_file:=${AUDIO_FILE:-/workspace/src/audio_stream_manager/four_speakers.mp3}
+      -p input_file:=${AUDIO_FILE:-/workspace/src/audio_stream_manager/recordings/four_speakers.mp3}
       -p sample_rate:=16000
       -p chunk_size:=512
       -p tail_silence:=2.0

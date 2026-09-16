@@ -17,7 +17,7 @@
 - 🎤 **Hardware-Isolated Audio Capture**: Robust audio stream management with automatic device detection and error recovery
 - 🗣️ **Voice Activity Detection (VAD)**: Real-time speech segment detection with configurable sensitivity
 - 👥 **Speaker Diarization with Persistence**: Multi-speaker identification using deep learning embeddings stored in MongoDB—**speaker identities persist across Docker restarts and robot sessions**
-- 📝 **State-of-the-Art ASR**: High-accuracy speech transcription powered by OpenAI Whisper models
+- 📝 **State-of-the-Art ASR**: High-accuracy speech transcription powered by OpenAI Whisper models, or NVIDIA Parakeet TDT (`asr_backend: parakeet`, faster, 25 European languages, no Catalan), selectable in `asr_params.yaml` or with `ASR_BACKEND` in `Docker/.env`
 - 🔊 **Wake Word Detection**: Configurable keyword spotting for hands-free voice activation
 - 🗄️ **MongoDB Database**: Automatic speaker embedding storage and re-identification with persistent identity management
 - 🐳 **Decoupled Architecture**: Hardware management and speech processing run in separate containers for maximum reliability
@@ -92,6 +92,7 @@ cd Docker && ./build_container.sh
 Configure your Hugging Face token in the `.env` file (see `.env.example` for template) to access state-of-the-art models:
 
 - `openai/whisper` - Advanced speech recognition
+- `nvidia/parakeet-tdt-0.6b-v3` - Speech recognition with `asr_backend: parakeet` (public, no token needed)
 - `pyannote/embedding` - Speaker voice embeddings
 - `pyannote/segmentation` - Speaker diarization
 

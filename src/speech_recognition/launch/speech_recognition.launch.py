@@ -37,6 +37,7 @@ def _setup(context, *args, **kwargs):
     diarization_backend = LaunchConfiguration("diarization_backend").perform(context).lower()
     redi_use_database = LaunchConfiguration("redi_use_database").perform(context).strip().lower()
     enable_asr = LaunchConfiguration("enable_asr").perform(context)
+    asr_backend = LaunchConfiguration("asr_backend").perform(context).strip().lower()
     diarization_delay = float(LaunchConfiguration("diarization_delay").perform(context))
     asr_delay = float(LaunchConfiguration("asr_delay").perform(context))
     enable_android_transcript_bridge = (
@@ -231,6 +232,9 @@ def _setup(context, *args, **kwargs):
                 LogInfo(msg=f"[speech_recognition] ASR: Loading config from: {asr_config_file}"),
                 LogInfo(msg=f"[speech_recognition] ASR: Will start with {asr_delay} second delay"),
                 LogInfo(
+                    msg=f"[speech_recognition] ASR backend: {asr_backend or 'from asr_params.yaml'}"
+                ),
+                LogInfo(
                     msg=f"[speech_recognition] ASR: ROS4HRI with ID: {'enabled' if ros4hri_with_id else 'disabled'}"
                 ),
             ]
@@ -253,6 +257,8 @@ def _setup(context, *args, **kwargs):
                                 "ros4hri_with_id": ros4hri_with_id,
                                 "cleanup_inactive_topics": cleanup_inactive_topics,
                                 "inactive_topic_timeout": inactive_topic_timeout,
+                                # Empty keeps the yaml value
+                                **({"asr_backend": asr_backend} if asr_backend else {}),
                             },
                         ],
                         condition=IfCondition(LaunchConfiguration("enable_asr")),
@@ -333,6 +339,11 @@ def generate_launch_description():
                 "enable_asr",
                 default_value="true",
                 description="Enable ASR (Automatic Speech Recognition) node",
+            ),
+            DeclareLaunchArgument(
+                "asr_backend",
+                default_value="",
+                description="Override asr_backend ('whisper' or 'parakeet'); empty keeps the yaml value",
             ),
             DeclareLaunchArgument(
                 "asr_delay",

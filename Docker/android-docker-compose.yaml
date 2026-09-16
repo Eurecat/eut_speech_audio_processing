@@ -110,7 +110,8 @@ services:
       enable_android_transcript_bridge:=true
       android_transcript_bind_host:=0.0.0.0
       android_transcript_bind_port:=${ANDROID_TRANSCRIPT_PORT:-17001}
-      redi_use_database:=${REDI_USE_DATABASE:-true}"
+      redi_use_database:=${REDI_USE_DATABASE:-true}
+      asr_backend:=${ASR_BACKEND:-}"
 
     stop_signal: SIGINT
     stop_grace_period: 30s
