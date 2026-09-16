@@ -218,6 +218,9 @@ logs/
 
 weights/
 src/audio_stream_manager/recording.mp3
+src/audio_stream_manager/recording_temp.wav
+src/audio_stream_manager/recordings/*.mp3
+src/audio_stream_manager/recordings/*.wav
 weights_pyannote/
 .secrets
 bin/act
