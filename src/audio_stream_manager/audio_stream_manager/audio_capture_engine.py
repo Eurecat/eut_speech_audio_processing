@@ -158,6 +158,14 @@ class AudioCaptureEngine:
         self._callback_lock = threading.Lock()
         self.last_callback_time = time.time()
 
+        # Serializes device switches. The disconnection watchdog and the
+        # primary-device recovery watchdog run on separate threads and can
+        # otherwise both call _stop_stream()/create_audio_stream() at the
+        # same time, clobbering self.stream/self.active_device mid-switch
+        # and leaving the old stream alive — causing two devices to publish
+        # to the same topic simultaneously.
+        self._device_switch_lock = threading.Lock()
+
         self.devices = None
         self.available_devices: list = []
 
@@ -312,6 +320,20 @@ class AudioCaptureEngine:
                 else:
                     self.watchdog.is_using_fallback = False
                     if self._connect_primary_device(device_name_param):
+                        # _connect_primary_device falls back to ANY device when
+                        # no name match is found. If what we actually connected
+                        # to isn't the requested device, treat it as a fallback
+                        # so the primary-recovery watchdog keeps looking for the
+                        # real one instead of settling permanently on the wrong
+                        # microphone.
+                        connected_name = self.active_device.name if self.active_device else ""
+                        matched_primary = device_name_param.upper() in connected_name.upper()
+                        if not matched_primary:
+                            self._logger.warn(
+                                f"Connected to '{connected_name}' instead of requested "
+                                f"'{device_name_param}'. Will keep searching for primary device."
+                            )
+                        self.watchdog.is_using_fallback = not matched_primary
                         return
                 time.sleep(2)
             except KeyboardInterrupt:
@@ -407,8 +429,9 @@ class AudioCaptureEngine:
             # can occasionally raise; never let that abort the recovery below.
             self._logger.error("Exception notifying node of device change:", exc_info=True)
         self._logger.error("Device disconnected. Stopping stream and searching for replacement.")
-        self._stop_stream()
-        self._handle_device_disconnection()
+        with self._device_switch_lock:
+            self._stop_stream()
+            self._handle_device_disconnection()
 
     def _handle_device_disconnection(self) -> None:
         try:
@@ -445,14 +468,15 @@ class AudioCaptureEngine:
                     self._logger.debug(
                         f"Primary device '{active_device.name}' is available again! Switching back..."
                     )
-                    self._stop_stream()
-                    self.devices = current_devices
-                    self.available_devices = current_available
-                    self._apply_device_info(active_device)
-                    self._on_device_changed(self.watchdog.primary_device_name)
-                    self.create_audio_stream()
-                    self.audio_buffer = np.array([], dtype=np.float32)
-                    self.watchdog.is_using_fallback = False
+                    with self._device_switch_lock:
+                        self._stop_stream()
+                        self.devices = current_devices
+                        self.available_devices = current_available
+                        self._apply_device_info(active_device)
+                        self._on_device_changed(self.watchdog.primary_device_name)
+                        self.create_audio_stream()
+                        self.audio_buffer = np.array([], dtype=np.float32)
+                        self.watchdog.is_using_fallback = False
                     with self._callback_lock:
                         self.last_callback_time = time.time()
                     self._logger.debug(
