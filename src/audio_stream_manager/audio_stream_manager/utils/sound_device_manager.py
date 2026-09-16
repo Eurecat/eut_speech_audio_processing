@@ -1,3 +1,5 @@
+import threading
+
 import sounddevice as sd
 
 from .audio_models import ActiveDevice
@@ -62,13 +64,27 @@ class SoundDeviceManager:
         return device_index, device, samplerate, actual_channels
 
     def _test_device_stream(
-        self, device_index: int, devices, channels: int, dtype: str, chunk: int
+        self, device_index: int, devices, channels: int, dtype: str, chunk: int, timeout: float
     ) -> tuple:
         """Open a short test stream and check whether the device is receiving audio.
 
+        Uses a callback stream plus a bounded wait instead of ``InputStream.read()``:
+        some ALSA capture devices (e.g. the Jetson APE virtual channels) accept the
+        open and then never deliver a frame, so a blocking read never returns and
+        wedges the whole device scan. Aborting a callback stream is immediate.
+
         Returns:
-            `(True, info_dict)` if RMS > 0, `(False, None)` otherwise.
+            `(True, info_dict)` if the first block has RMS > 0, `(False, None)` on
+            failure, silence, or no audio within *timeout* seconds.
         """
+        first_block: dict = {}
+        received = threading.Event()
+
+        def _capture_first_block(indata, frames, time_info, status):
+            if not received.is_set():
+                first_block["data"] = indata.copy()
+                received.set()
+
         try:
             device_index, device, samplerate, actual_channels = self._get_device_parameters(
                 device_index, devices, channels
@@ -81,32 +97,39 @@ class SoundDeviceManager:
                     dtype=dtype,
                     blocksize=chunk,
                     latency="low",
+                    callback=_capture_first_block,
                 )
-                test_stream.start()
-                audio_data, _ = test_stream.read(chunk)
-                test_stream.stop()
-                test_stream.close()
-
-            if compute_rms(audio_data) > 0:
-                return True, {
-                    "device": device,
-                    "device_index": device_index,
-                    "device_samplerate": samplerate,
-                    "device_channels": actual_channels,
-                }
-            return False, None
+            try:
+                with SuppressStderr():
+                    test_stream.start()
+                received.wait(timeout)
+            finally:
+                with SuppressStderr():
+                    test_stream.abort()
+                    test_stream.close()
         except Exception:
             return False, None
 
+        if not received.is_set() or compute_rms(first_block["data"]) <= 0:
+            return False, None
+        return True, {
+            "device": device,
+            "device_index": device_index,
+            "device_samplerate": samplerate,
+            "device_channels": actual_channels,
+        }
+
     def test_device(
-        self, device_index: int, devices, channels: int, dtype: str, chunk: int
+        self, device_index: int, devices, channels: int, dtype: str, chunk: int, timeout: float
     ) -> tuple:
         """Test a device and return an :class:`ActiveDevice` on success.
 
         Returns:
             `(True, ActiveDevice)` if receiving audio, `(False, None)` otherwise.
         """
-        success, info = self._test_device_stream(device_index, devices, channels, dtype, chunk)
+        success, info = self._test_device_stream(
+            device_index, devices, channels, dtype, chunk, timeout
+        )
         if success:
             device = info["device"]
             return True, ActiveDevice(

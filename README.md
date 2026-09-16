@@ -288,6 +288,71 @@ docker stop $(docker ps -q) #or kill or rm to avoid losing data if you have any 
 then run `docker compose up` again. This cleanly removes all existing containers and allows the new composition to start fresh.
 
 
+### Microphone Stops Streaming After Minutes or Hours (USB Reset)
+
+**Symptom.** Audio stops arriving, although the microphone is still connected and still appears in the device list. The `audio_capturing` log shows:
+
+```
+[ERROR] [audio_capturing]: No callback for 10.00 seconds. Device may be disconnected.
+```
+
+The `audio_to_mp3` log keeps the same `(N chunks)` count on every line.
+
+**Cause.** The cause is outside this code. The Linux kernel resets the USB port of the microphone, and the kernel does not log a warning before the reset. The reset closes the ALSA capture stream inside the kernel. PortAudio does not report the closed stream, so the audio callback stops without an error. This can happen on any Linux PC or Jetson and with any USB microphone. It is more frequent when a full-speed (12 Mbit/s) audio device is connected through a USB 2.0 hub.
+
+**What the node does.** The node detects the stopped callback after `disconnection_timeout` (10 s). It then reconnects to the device named by `DEVICE_NAME` in `Docker/.env`, and normally needs less than 100 ms. On success it logs:
+
+```
+[INFO] [audio_capturing]: Reconnected to audio device: Jabra SPEAK 510 USB: Audio (hw:2,0).
+```
+
+If the named device is not found, the node tries all other input devices. A device that gives no audio within `test_stream_timeout` (2 s) is skipped in later scans. For example, the 32 `NVIDIA Jetson Thor AGX APE` channels never give audio. Set `DEVICE_NAME` correctly, because otherwise the first full scan on a Jetson takes about 64 s.
+
+> Before this fix, a reset stopped the microphone until a manual container restart. The recovery scan waited forever on the first APE channel, and the timeout was 300 s.
+
+Automatic recovery still causes an audio gap of about 10 s for each reset. If the log shows `Reconnected to audio device` often, reduce the USB resets on the host as follows.
+
+**1. Confirm that the kernel resets the microphone.** Run these commands on the host. `journalctl` does not need `sudo`.
+
+```bash
+# Find the USB path of the microphone, for example "usb-a80aa10000.usb-4.2" = port 1-4.2
+cat /proc/asound/cards
+
+# Show USB resets. A line with the same port confirms the problem.
+journalctl -k | grep -E "reset (full|high|low)-speed USB device"
+#   usb 1-4.2: reset full-speed USB device number 4 using tegra-xusb
+
+# During a failure, the capture stream shows "closed" (replace 2 with your card number)
+cat /proc/asound/card2/pcm0c/sub0/status
+```
+
+**2. Connect the microphone without a hub.** Run `lsusb -t`. If the audio device (`Driver=snd-usb-audio, 12M`) is below a `Class=Hub` line, move the microphone to a USB port on the PC or Jetson itself. On the Jetson AGX Thor used for development, the Jabra was behind a 4-port USB 2.0 hub, and a different device on the same hub was also reset 9 times in one day.
+
+**3. Improve power and cable.** Use a powered USB hub or a short, good cable if you must use a hub or extension. Some speakerphones use up to 500 mA (`cat /sys/bus/usb/devices/<port>/bMaxPower`).
+
+**4. Disable USB autosuspend for the microphone.** Check the value first:
+
+```bash
+cat /sys/bus/usb/devices/1-4.2/power/control   # "on" = autosuspend is disabled, skip this step
+```
+
+If the value is `auto`, add a udev rule. Get the vendor and product IDs from `lsusb`, for example `0b0e:0422` for the Jabra SPEAK 510:
+
+```bash
+echo 'ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="0b0e", ATTR{idProduct}=="0422", TEST=="power/control", ATTR{power/control}="on"' \
+  | sudo tee /etc/udev/rules.d/90-usb-mic-no-autosuspend.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+```
+
+**5. Test recovery on a new machine.** This command sends the same USB reset to the microphone. Use the bus and device numbers from `lsusb`, for example `Bus 001 Device 004`:
+
+```bash
+docker exec audio_device_manager python3 -c "import fcntl,os; fd=os.open('/dev/bus/usb/001/004', os.O_WRONLY); fcntl.ioctl(fd, ord('U')<<8|20, 0)"
+```
+
+Within about 10 s the log must show `Reconnected to audio device`.
+
+
 ### Setup for Local Testing
 
 1. **Configure secrets** (if needed for your workflow):

@@ -12,9 +12,13 @@ audio_capturing:
     target_samplerate: 16000                # Target sample rate for audio output (Hz)
     
     # Disconnection Detection
-    disconnection_timeout: 300.0              # Time (seconds) before considering device disconnected
+    disconnection_timeout: 10.0             # Seconds without any audio callback before the stream is treated as dead.
+                                            # Callbacks fire every chunk (~32ms) even when silent/muted, so a gap
+                                            # this long only happens when the capture stream really died.
     disconnection_check_interval: 1.0       # Interval (seconds) between disconnection checks
-    test_stream_duration: 0.1               # Duration (seconds) for testing device connectivity
+    test_stream_timeout: 2.0                # Max seconds to wait for a device probe to deliver audio. Devices that
+                                            # accept the open but never send frames (e.g. Jetson APE channels) are
+                                            # given up on after this and skipped in later recovery scans.
     
     # Primary Device Recovery
     primary_device_check_interval: 5.0      # Interval (seconds) to check for primary device recovery
