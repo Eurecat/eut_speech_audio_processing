@@ -54,6 +54,8 @@ class ASRNode(Node):
         self.declare_parameter("min_speaker_chunk_duration", 0.3)
         self.declare_parameter("asr_backend", "whisper")
         self.declare_parameter("parakeet_model_name", "nvidia/parakeet-tdt-0.6b-v3")
+        self.declare_parameter("parakeet_language_id_model", "langid_ambernet")
+        self.declare_parameter("parakeet_language_id_min_confidence", 0.9)
         self.declare_parameter("ros4hri_with_id", True)
         self.declare_parameter("cleanup_inactive_topics", False)
         self.declare_parameter("inactive_topic_timeout", 10.0)
@@ -76,6 +78,14 @@ class ASRNode(Node):
             engine_class = ParakeetASREngine
             backend_options["parakeet_model_name"] = (
                 self.get_parameter("parakeet_model_name").get_parameter_value().string_value
+            )
+            backend_options["language_id_model"] = (
+                self.get_parameter("parakeet_language_id_model").get_parameter_value().string_value
+            )
+            backend_options["language_id_min_confidence"] = (
+                self.get_parameter("parakeet_language_id_min_confidence")
+                .get_parameter_value()
+                .double_value
             )
         self.get_logger().info(f"Selected ASR backend: {backend}")
 

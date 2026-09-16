@@ -36,6 +36,9 @@ WHISPER_MODELS = {
     "turbo": "mobiuslabsgmbh/faster-whisper-large-v3-turbo",
 }
 
+# Languages the detector chooses from when `language` is "auto".
+DEFAULT_DETECTION_LANGUAGES = ["en", "es", "ca"]
+
 
 # ---------------------------------------------------------------------------
 # ASREngine
@@ -449,7 +452,7 @@ class ASREngine:
         self, audio_data: np.ndarray, allowed_languages: Optional[List[str]] = None
     ) -> str:
         if allowed_languages is None:
-            allowed_languages = ["en", "es", "ca"]
+            allowed_languages = DEFAULT_DETECTION_LANGUAGES
         try:
             language, _, all_probs = self.model.detect_language(audio_data)
             filtered = [(lang, prob) for lang, prob in all_probs if lang in allowed_languages]

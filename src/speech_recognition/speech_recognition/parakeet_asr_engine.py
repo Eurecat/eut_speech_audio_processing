@@ -8,6 +8,9 @@ and the per-chunk transcription call are replaced here.
 
 Language note: parakeet-tdt-0.6b-v3 covers 25 European languages. Spanish is
 included, Catalan is not. Keep asr_backend: "whisper" where 'ca' matters.
+The model never reports the language it heard, so a separate LangID model
+(language_id.SpokenLanguageIdentifier, AmberNet) picks the published language
+code from the same allow-list the Whisper backend uses.
 """
 
 from __future__ import annotations
@@ -15,11 +18,16 @@ from __future__ import annotations
 import logging
 import os
 from math import gcd
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 
-from speech_recognition.asr_engine import ASREngine
+from speech_recognition.asr_engine import DEFAULT_DETECTION_LANGUAGES, ASREngine
+from speech_recognition.language_id import (
+    DEFAULT_LANGUAGE_ID_MODEL,
+    LANGUAGE_ID_SAMPLE_RATE,
+    SpokenLanguageIdentifier,
+)
 
 DEFAULT_PARAKEET_MODEL = "nvidia/parakeet-tdt-0.6b-v3"
 
@@ -38,10 +46,24 @@ class ParakeetASREngine(ASREngine):
 
     # Audio used to warm up the model once at load time (seconds).
     _WARMUP_DURATION = 1.0
+    # Shorter chunks keep the previous language: LangID is unreliable there and
+    # AmberNet cannot process less than ~50 ms (seconds).
+    _MIN_LANGUAGE_ID_DURATION = 0.25
 
-    def __init__(self, *, parakeet_model_name: str, **kwargs) -> None:
+    def __init__(
+        self,
+        *,
+        parakeet_model_name: str,
+        language_id_model: str = DEFAULT_LANGUAGE_ID_MODEL,
+        language_id_min_confidence: float = 0.9,
+        **kwargs,
+    ) -> None:
         self.parakeet_model_name = parakeet_model_name or DEFAULT_PARAKEET_MODEL
+        self.language_id_model = language_id_model
+        self.language_id_min_confidence = language_id_min_confidence
         self._device = "cpu"
+        self._language_id: Optional[SpokenLanguageIdentifier] = None
+        self._last_language: Optional[str] = None
         super().__init__(**kwargs)
         self._warn_unsupported_languages()
 
@@ -103,7 +125,52 @@ class ParakeetASREngine(ASREngine):
             f"Parakeet model '{self.parakeet_model_name}' loaded on "
             f"{'GPU' if self._device == 'cuda' else 'CPU'} with compute_type 'float32'."
         )
+        self._language_id = self._load_language_id(weights_dir)
         return model, None
+
+    def _load_language_id(self, weights_dir: str) -> Optional[SpokenLanguageIdentifier]:
+        """Load the LangID model when there is more than one language to choose from.
+
+        A failure (e.g. no network on first start) is not fatal: the node keeps
+        transcribing and publishes the first candidate language instead.
+        """
+        candidates = self._candidate_languages()
+        if len(candidates) < 2:
+            self._logger.info(
+                f"Single language {candidates}: language identification not needed."
+            )
+            return None
+        if not self.language_id_model:
+            self._logger.warn(
+                "parakeet_language_id_model is empty: publishing the first configured "
+                f"language '{candidates[0]}' for every transcript."
+            )
+            return None
+        try:
+            identifier = SpokenLanguageIdentifier(
+                model_name=self.language_id_model,
+                weights_dir=weights_dir,
+                device=self._device,
+                logger=self._logger,
+            )
+            unknown = [code for code in candidates if code not in identifier.labels]
+            if unknown:
+                self._logger.warn(f"Language identification model does not know {unknown}.")
+            identifier.probabilities(
+                np.zeros(int(LANGUAGE_ID_SAMPLE_RATE * self._WARMUP_DURATION), dtype=np.float32),
+                candidates,
+            )
+        except Exception as e:
+            self._logger.error(
+                f"Language identification model '{self.language_id_model}' failed to load: {e}. "
+                f"Publishing the first configured language '{candidates[0]}'."
+            )
+            return None
+        self._logger.info(
+            f"Language identification '{self.language_id_model}' loaded; choosing from "
+            f"{candidates} with min confidence {self.language_id_min_confidence}."
+        )
+        return identifier
 
     def _resolve_checkpoint(self, weights_dir: str) -> str:
         """Return a local .nemo path, downloading it into weights_dir if needed.
@@ -162,8 +229,8 @@ class ParakeetASREngine(ASREngine):
     # ------------------------------------------------------------------
 
     def _resolve_language(self, audio_data: np.ndarray) -> str:
-        """Parakeet identifies the language itself and has no language-forcing
-        argument, so there is nothing to detect up front."""
+        """Parakeet has no language-forcing argument, so nothing is resolved up
+        front; _identify_language() picks the published code per chunk."""
         return self.language
 
     def _configured_languages(self) -> List[str]:
@@ -171,24 +238,61 @@ class ParakeetASREngine(ASREngine):
             return []
         return [code.strip() for code in self.language.split(",") if code.strip()]
 
+    def _candidate_languages(self) -> List[str]:
+        """Languages to choose from, with the same meaning as for Whisper:
+        "auto" -> DEFAULT_DETECTION_LANGUAGES, "es" -> only es, "en, es" -> that list."""
+        return self._configured_languages() or list(DEFAULT_DETECTION_LANGUAGES)
+
     def _warn_unsupported_languages(self) -> None:
         unsupported = [c for c in self._configured_languages() if c not in PARAKEET_LANGUAGES]
         if unsupported:
             self._logger.warn(
                 f"asr_backend=parakeet does not support {unsupported} "
-                f"(model: {self.parakeet_model_name}). Speech in those languages will be "
-                "transcribed as one of the 25 supported languages. Use asr_backend: whisper "
-                "if that matters."
+                f"(model: {self.parakeet_model_name}). Speech in those languages is detected "
+                "(language code published) but transcribed as one of the 25 supported "
+                "languages. Use asr_backend: whisper if that matters."
             )
 
-    def _reported_language(self) -> str:
-        """Language code for the published message.
+    def _identify_language(self, audio: np.ndarray) -> str:
+        """Language code for the published message of one 16 kHz chunk.
 
-        The model does not expose the language it identified, so report the
-        first configured language ("en, es, ca" -> "en").
+        LangID picks the most likely candidate language. When its confidence is
+        below language_id_min_confidence, or the chunk is too short, the last
+        confidently detected language is kept: short replies ("Yeah.") and noisy
+        chunks otherwise flip language (offline test: 78% -> 98% correct on the
+        English mp3). In the ROS pipeline: 46/46 correct on a Spanish/Catalan/
+        English sequence, ~97% on the English mp3.
+        Called with _transcribe_lock held, so _last_language updates in order.
         """
-        languages = self._configured_languages()
-        return languages[0] if languages else "unknown"
+        candidates = self._candidate_languages()
+        fallback = self._last_language or candidates[0]
+        if self._language_id is None or len(candidates) < 2:
+            return fallback
+        if len(audio) < int(LANGUAGE_ID_SAMPLE_RATE * self._MIN_LANGUAGE_ID_DURATION):
+            return fallback
+
+        try:
+            probabilities = self._language_id.probabilities(audio, candidates)
+        except Exception as e:
+            self._logger.warn(f"Language identification failed: {e}. Keeping '{fallback}'.")
+            return fallback
+        if not probabilities:
+            return fallback
+
+        best = max(probabilities, key=probabilities.get)
+        self._logger.info(
+            "Detected languages (filtered): "
+            f"{[(code, f'{p:.4f}') for code, p in probabilities.items()]}"
+        )
+        if probabilities[best] < self.language_id_min_confidence:
+            self._logger.info(
+                f"Language '{best}' below min confidence "
+                f"({probabilities[best]:.2f} < {self.language_id_min_confidence}); "
+                f"keeping '{fallback}'."
+            )
+            return fallback
+        self._last_language = best
+        return best
 
     # ------------------------------------------------------------------
     # Transcription
@@ -197,10 +301,13 @@ class ParakeetASREngine(ASREngine):
     def _run_transcription(
         self, audio_data: np.ndarray, language: str
     ) -> tuple[List[dict], str]:
-        hypotheses = self._transcribe_hypotheses(self._to_model_rate(audio_data))
-        if not hypotheses:
-            return [], self._reported_language()
-        return self._to_segments(hypotheses[0]), self._reported_language()
+        audio = self._to_model_rate(audio_data)
+        hypotheses = self._transcribe_hypotheses(audio)
+        segments = self._to_segments(hypotheses[0]) if hypotheses else []
+        if not segments:
+            # Nothing is published, so a noise chunk must not change the language.
+            return [], self._last_language or self._candidate_languages()[0]
+        return segments, self._identify_language(audio)
 
     def _to_model_rate(self, audio: np.ndarray) -> np.ndarray:
         audio = np.asarray(audio, dtype=np.float32)

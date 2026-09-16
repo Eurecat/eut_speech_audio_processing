@@ -109,6 +109,7 @@ the other EutPerceptionStack repos. `.dockerignore` keeps it out of the image bu
 | Silero VAD (`snakers4_silero-vad_master`) | root |
 | pyannote segmentation / embedding (`PYANNOTE_CACHE`) | `pyannote/` |
 | ReDimNet2 torch hub (`TORCH_HOME`) | `torch/hub/` |
+| Parakeet language identification (`langid_ambernet`) | `nemo/` |
 | Other Hugging Face downloads (`HF_HOME`) | `huggingface/` |
 
 Upgrading from the old layout: pyannote models lived in `speech_recognition/weights_pyannote/`.

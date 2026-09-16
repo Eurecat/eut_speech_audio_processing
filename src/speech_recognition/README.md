@@ -231,11 +231,25 @@ downstream consumers do not change.
 | `asr_backend` | Engine | Languages | Notes |
 |---|---|---|---|
 | `whisper` (default) | `ASREngine` (faster-whisper) | all Whisper languages, **including Catalan** | `model_size`, `compute_type`, batched inference apply |
-| `parakeet` | `ParakeetASREngine` (NVIDIA NeMo, `parakeet_model_name`) | 25 European languages, Spanish yes, **Catalan no** | always float32 on GPU; model has no language output, so the first code of `language` is published |
+| `parakeet` | `ParakeetASREngine` (NVIDIA NeMo, `parakeet_model_name`) | 25 European languages, Spanish yes, **Catalan no** | always float32 on GPU; `language_code` from a separate LangID model (see below) |
 
 Override without editing the yaml: `ASR_BACKEND=parakeet` in `Docker/.env` (passed as the
 `asr_backend` launch argument by `docker-compose.yaml`, `android-docker-compose.yaml` and
 `docker-compose_mp3.yaml`). Empty keeps the yaml value.
+
+**Parakeet language code.** `parakeet-tdt-0.6b-v3` neither outputs nor accepts a language id
+(confirmed by NVIDIA in NeMo issues #14799 and #15097). `language_id.py` runs NVIDIA's
+`langid_ambernet` (`parakeet_language_id_model`, 107 languages including Catalan, ~6 ms per chunk)
+on every published chunk and picks the most likely language from `language`, with the same meaning
+as for Whisper (`"auto"` = en/es/ca, one code = no detection, a list = choose from it). Below
+`parakeet_language_id_min_confidence` (0.9) or for chunks under 0.25 s the last detected language is
+kept, so short replies do not flip it. Measured on Jetson Thor, choosing from en/es/ca:
+
+| Test | Whisper turbo detection (Whisper backend) | AmberNet + confidence gate (Parakeet backend) |
+|---|---|---|
+| FLEURS, 1 s / 2 s / 3 s of speech | 82% / 91% / 98% (Catalan at 1 s: 48%) | 88% / 96% / 99% without gate |
+| Spanish/Catalan/English sequence, real chunk lengths | 82% (Catalan 58%) | 97% (ROS pipeline: 46/46) |
+| English movie mp3 (music, short chunks) | 98% | 98% (ROS pipeline: ~97%) |
 
 The Parakeet checkpoint (`nvidia/parakeet-tdt-0.6b-v3`, ~2.5 GB) downloads once to
 `speech_recognition/weights/`, next to the Whisper weights. NeMo (`nemo_toolkit[asr]==2.4.0`)

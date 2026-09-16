@@ -1,7 +1,8 @@
 """Parakeet output must reach the shared speaker grouping in Whisper's format.
 
 Heavy dependencies (torch, ctranslate2, faster_whisper, nemo) are stubbed when
-missing: only the NeMo hypothesis -> segment adapter is under test, not the model.
+missing: only the NeMo hypothesis -> segment adapter and the published language
+choice are under test, not the models.
 """
 
 import importlib.util
@@ -10,6 +11,8 @@ import threading
 import types
 from collections import deque
 from pathlib import Path
+
+import numpy as np
 
 for _name in ("torch", "ctranslate2", "faster_whisper"):
     if _name not in sys.modules:
@@ -31,6 +34,8 @@ def _load(name, filename):
 
 if "speech_recognition.asr_engine" not in sys.modules:
     _load("speech_recognition.asr_engine", "asr_engine.py")
+if "speech_recognition.language_id" not in sys.modules:
+    _load("speech_recognition.language_id", "language_id.py")
 ParakeetASREngine = _load("parakeet_asr_engine_under_test", "parakeet_asr_engine.py").ParakeetASREngine
 
 
@@ -76,7 +81,25 @@ def _engine(language="en, es, ca"):
     engine.snap_splits_to_sentences = True
     engine.min_speaker_run_tokens = 2
     engine.min_speaker_run_duration = 0.4
+    engine._language_id = None
+    engine._last_language = None
+    engine.language_id_min_confidence = 0.9
     return engine
+
+
+class _ScriptedLanguageId:
+    """Stands in for AmberNet: returns the next scripted probability dict."""
+
+    def __init__(self, *results):
+        self.results = list(results)
+        self.calls = []
+
+    def probabilities(self, audio, languages):
+        self.calls.append(list(languages))
+        return self.results.pop(0)
+
+
+_SPEECH = np.zeros(16000, dtype=np.float32)  # 1 s: long enough for language identification
 
 
 def test_segments_keep_whisper_word_format():
@@ -114,7 +137,48 @@ def test_text_without_timestamps_is_one_segment():
     assert segments == [{"start": 0.0, "end": 0.0, "text": "Hello.", "words": []}]
 
 
-def test_reported_language_is_first_configured_code():
-    assert _engine("en, es, ca")._reported_language() == "en"
-    assert _engine("es")._reported_language() == "es"
-    assert _engine("auto")._reported_language() == "unknown"
+def test_confident_detection_is_published_and_remembered():
+    engine = _engine("en, es, ca")
+    engine._language_id = _ScriptedLanguageId(
+        {"en": 0.02, "es": 0.95, "ca": 0.03},
+        {"en": 0.40, "es": 0.35, "ca": 0.25},
+    )
+
+    assert engine._identify_language(_SPEECH) == "es"
+    # Low confidence ("Yeah.") keeps the last confident language instead of flipping.
+    assert engine._identify_language(_SPEECH) == "es"
+    assert engine._language_id.calls[0] == ["en", "es", "ca"]
+
+
+def test_low_confidence_before_any_detection_uses_first_configured_language():
+    engine = _engine("ca, es")
+    engine._language_id = _ScriptedLanguageId({"ca": 0.6, "es": 0.4})
+    assert engine._identify_language(_SPEECH) == "ca"
+    assert engine._last_language is None
+
+
+def test_short_chunk_skips_language_identification():
+    engine = _engine("en, es, ca")
+    engine._last_language = "ca"
+    engine._language_id = _ScriptedLanguageId()
+    assert engine._identify_language(_SPEECH[:1600]) == "ca"
+    assert engine._language_id.calls == []
+
+
+def test_single_language_and_auto_match_whisper_semantics():
+    assert _engine("es")._candidate_languages() == ["es"]
+    assert _engine("es")._identify_language(_SPEECH) == "es"
+    assert _engine("auto")._candidate_languages() == ["en", "es", "ca"]
+    # No LangID model loaded: first candidate.
+    assert _engine("en, es, ca")._identify_language(_SPEECH) == "en"
+
+
+def test_noise_chunk_does_not_change_language():
+    engine = _engine("en, es, ca")
+    engine._last_language = "es"
+    engine._language_id = _ScriptedLanguageId({"en": 0.99, "es": 0.005, "ca": 0.005})
+    engine.sample_rate = 16000
+    engine._transcribe_hypotheses = lambda audio: [types.SimpleNamespace(text="", timestamp={})]
+
+    assert engine._run_transcription(_SPEECH, "en, es, ca") == ([], "es")
+    assert engine._language_id.calls == []

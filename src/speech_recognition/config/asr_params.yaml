@@ -13,10 +13,18 @@ asr_node:
     # Parakeet backend (used only when asr_backend=parakeet)
     parakeet_model_name: "nvidia/parakeet-tdt-0.6b-v3"  # Hugging Face repo id or path to a .nemo file.
                                              # Downloaded once to speech_recognition/weights.
-                                             # WARNING: Catalan ('ca') is NOT supported (Spanish is).
-                                             # Keep asr_backend=whisper where Catalan matters.
-                                             # Parakeet does not report the language it heard:
-                                             # the first code of `language` is published.
+                                             # Transcribes ONLY these 25 languages:
+                                             #   bg hr cs da nl en et fi fr de el hu it lv lt mt
+                                             #   pl pt ro sk sl es sv ru uk
+                                             # Catalan ('ca') is NOT one of them.
+    parakeet_language_id_model: "langid_ambernet"  # Parakeet never reports the language it heard, so this
+                                             # NVIDIA LangID model (107 languages, ~6 ms per chunk) picks the
+                                             # published language_code from `language`, like Whisper does.
+                                             # NeMo pretrained name or .nemo path, downloaded once to
+                                             # weights/nemo/. Empty: publish the first code of `language`.
+    parakeet_language_id_min_confidence: 0.9 # Below this probability (or for chunks < 0.25 s) the last
+                                             # detected language is kept, so short or noisy replies
+                                             # ("Yeah.") do not flip the language.
 
     # Whisper Model Configuration (model_size, compute_type and batched inference are ignored by parakeet)
     model_size: "turbo"                      # Whisper model size (tiny, base, small, medium, large, turbo)
@@ -25,13 +33,24 @@ asr_node:
                         # Parakeet always runs float32.
     
     # Language Configuration
-    language: "en, es, ca"                           # Language options:
+    language: "en, es"                           # Language options:
                                             #   - "auto": Auto-detect language
                                             #   - "en": English only
                                             #   - "es,fr,de": Comma-separated allow-list, best of the listed languages is picked
                                             # NOTE: forcing a language makes Whisper transcribe *into* that
                                             # language. For the English test mp3 keep "en" to avoid spurious
                                             # Spanish/Catalan output.
+                                            #
+                                            # PARAKEET: `language` is NOT an input like for Whisper. Parakeet
+                                            # cannot be forced to a language: it always transcribes whatever
+                                            # it hears as one of its 25 languages (see parakeet_model_name).
+                                            # Here `language` only restricts the language_code published in
+                                            # /speech_result (picked by parakeet_language_id_model).
+                                            # Use only Parakeet languages, e.g. "en, es".
+                                            # Catalan and Spanish are very hard for the machine to tell apart
+                                            # (Spanish with a Catalan accent is detected as 'ca'), and Parakeet
+                                            # cannot write Catalan anyway. For Catalan, ALWAYS use
+                                            # asr_backend: whisper.
                                             
     # Batched Inference Configuration
     use_batched_inference: true             # Enable batched inference for better throughput
