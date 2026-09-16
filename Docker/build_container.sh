@@ -219,17 +219,6 @@ if $USE_ARM; then
         -f "${DOCKERFILE}"
     )
 
-    # Pass HF_TOKEN as a BuildKit secret so pyannote models are pre-downloaded
-    # into the image without baking the token into any layer.
-    # If HF_TOKEN is not set, the download is skipped gracefully at build time
-    # and models will be fetched on first container run (requires internet).
-    if [ -n "${HF_TOKEN:-}" ]; then
-        echo "HF_TOKEN found — pyannote models will be pre-downloaded into the image."
-        BUILD_ARGS+=(--secret id=hf_token,env=HF_TOKEN)
-    else
-        echo "HF_TOKEN not set — pyannote models will download on first container run (requires internet)."
-    fi
-
     # Forward an SSH key/agent so `git clone` of build-time deps with
     # submodules (e.g. ctranslate2) authenticate to GitHub instead of
     # hitting the anonymous-download rate limit. Override the key path

@@ -33,6 +33,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set working directory
 WORKDIR /workspace
 
+# Model weights are never baked into the image. Compose bind-mounts the host
+# folder src/speech_recognition/speech_recognition/weights at /workspace/weights;
+# every model cache points inside it.
+ENV WEIGHTS_DIR=/workspace/weights \
+    PYANNOTE_CACHE=/workspace/weights/pyannote \
+    HF_HOME=/workspace/weights/huggingface \
+    TORCH_HOME=/workspace/weights/torch
+
 # Copy all requirements files
 COPY requirements_general.txt /workspace/requirements_general.txt
 COPY requirements_general_cpu.txt /workspace/requirements_general_cpu.txt

@@ -44,7 +44,7 @@ asr_node:
     silence_detection_threshold: 0.00001     # RMS threshold for silence detection
     
     # Timing Parameters
-    min_silence_duration: 0.45               # Minimum silence duration (seconds) before processing speech
+    min_silence_duration: 0.15               # Minimum silence duration (seconds) before processing speech
     max_chunk_duration: 30.0                 # Maximum duration (seconds) of a single speech chunk
     pre_buffer_duration: 0.5                 # Duration (seconds) of audio to prepend to speech chunks
     diarization_offset: -1.0                  # Signed correction (seconds) applied to diarization speaker

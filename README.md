@@ -98,6 +98,23 @@ Configure your Hugging Face token in the `.env` file (see `.env.example` for tem
 
 Ensure your token has appropriate permissions for these model repositories.
 
+**Model weights (shared folder, never in the image):**
+All models download once to the host folder `src/speech_recognition/speech_recognition/weights/`,
+which every compose file bind-mounts at `/workspace/weights` (`WEIGHTS_DIR`), the same pattern as
+the other EutPerceptionStack repos. `.dockerignore` keeps it out of the image build.
+
+| Model | Location inside `weights/` |
+|---|---|
+| Whisper (`models--*faster-whisper*`), Parakeet (`models--nvidia--parakeet-*`) | root |
+| Silero VAD (`snakers4_silero-vad_master`) | root |
+| pyannote segmentation / embedding (`PYANNOTE_CACHE`) | `pyannote/` |
+| ReDimNet2 torch hub (`TORCH_HOME`) | `torch/hub/` |
+| Other Hugging Face downloads (`HF_HOME`) | `huggingface/` |
+
+Upgrading from the old layout: pyannote models lived in `speech_recognition/weights_pyannote/`.
+Move them once so the gated models do not need `HF_TOKEN` again:
+`sudo mv src/speech_recognition/speech_recognition/weights_pyannote src/speech_recognition/speech_recognition/weights/pyannote`
+
 
 
 

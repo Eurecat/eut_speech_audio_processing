@@ -1,4 +1,3 @@
-import os
 import time
 from typing import Dict
 
@@ -15,6 +14,7 @@ from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 
 from speech_recognition.asr_engine import ASREngine
+from speech_recognition.model_weights import weights_dir
 
 ASR_BACKENDS = ("whisper", "parakeet")
 
@@ -96,8 +96,6 @@ class ASRNode(Node):
             self.get_parameter("inactive_topic_timeout").get_parameter_value().double_value
         )
 
-        weights_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "weights"))
-
         # ------------------------------------------------------------------
         # Engine
         # ------------------------------------------------------------------
@@ -140,7 +138,7 @@ class ASRNode(Node):
             min_speaker_chunk_duration=self.get_parameter("min_speaker_chunk_duration")
             .get_parameter_value()
             .double_value,
-            weights_dir=weights_dir,
+            weights_dir=weights_dir(),
             on_transcript_ready=self._publish_transcript,
             logger=self.get_logger(),
             **backend_options,
