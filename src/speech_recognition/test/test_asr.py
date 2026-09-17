@@ -27,6 +27,8 @@ class TestASRNode:
                 mock_param.get_parameter_value.return_value.string_value = "float32"
             elif param_name == "language":
                 mock_param.get_parameter_value.return_value.string_value = "auto"
+            elif param_name == "asr_backend":
+                mock_param.get_parameter_value.return_value.string_value = "whisper"
             elif param_name in [
                 "use_batched_inference",
                 "ros4hri_with_id",
@@ -67,6 +69,8 @@ class TestASRNode:
                 mock_param.get_parameter_value.return_value.string_value = "float32"
             elif param_name == "language":
                 mock_param.get_parameter_value.return_value.string_value = "auto"
+            elif param_name == "asr_backend":
+                mock_param.get_parameter_value.return_value.string_value = "whisper"
             elif param_name in [
                 "use_batched_inference",
                 "ros4hri_with_id",

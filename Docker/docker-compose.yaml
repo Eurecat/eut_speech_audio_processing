@@ -18,7 +18,8 @@ services:
       - ./logs:/workspace/log
       - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
       - ../src/speech_recognition:/workspace/src/speech_recognition
-      - ../src/speech_recognition/speech_recognition/weights_pyannote:/root/.cache/torch/pyannote:rw
+      # Shared model weights (Whisper, Parakeet, VAD, ReDimNet2, pyannote), never baked in the image
+      - ../src/speech_recognition/speech_recognition/weights:/workspace/weights:rw
       - /dev:/dev
             # Cyclone DDS configuration for TiagoPro WiFi
       - ./cyclone_xmls/${CYCLONE_CONFIG_FILE:-eth_tiago_cyclone.xml}:/etc/cyclonedds.xml:ro
@@ -38,8 +39,10 @@ services:
       - QT_X11_NO_MITSHM=1
       - XAUTHORITY=/tmp/xauth/.docker.xauth     
       - HF_TOKEN=${HF_TOKEN}
-      - HF_HOME=/root/.cache/torch/pyannote
-      - TORCH_HOME=/root/.cache/torch
+      - WEIGHTS_DIR=/workspace/weights
+      - PYANNOTE_CACHE=/workspace/weights/pyannote
+      - HF_HOME=/workspace/weights/huggingface
+      - TORCH_HOME=/workspace/weights/torch
       - AI_VENV=/opt/ros_python_env
       - DEVICE_NAME=${DEVICE_NAME:-jabra}
 
@@ -74,7 +77,8 @@ services:
       - ./logs:/workspace/log
       - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
       - ../src/speech_recognition:/workspace/src/speech_recognition
-      - ../src/speech_recognition/speech_recognition/weights_pyannote:/root/.cache/torch/pyannote:rw
+      # Shared model weights (Whisper, Parakeet, VAD, ReDimNet2, pyannote), never baked in the image
+      - ../src/speech_recognition/speech_recognition/weights:/workspace/weights:rw
       - /dev:/dev
             # Cyclone DDS configuration for TiagoPro WiFi
       - ./cyclone_xmls/${CYCLONE_CONFIG_FILE:-eth_tiago_cyclone.xml}:/etc/cyclonedds.xml:ro
@@ -94,8 +98,10 @@ services:
       - QT_X11_NO_MITSHM=1
       - XAUTHORITY=/tmp/xauth/.docker.xauth     
       - HF_TOKEN=${HF_TOKEN}
-      - HF_HOME=/root/.cache/torch/pyannote
-      - TORCH_HOME=/root/.cache/torch
+      - WEIGHTS_DIR=/workspace/weights
+      - PYANNOTE_CACHE=/workspace/weights/pyannote
+      - HF_HOME=/workspace/weights/huggingface
+      - TORCH_HOME=/workspace/weights/torch
       - AI_VENV=/opt/ros_python_env
 
     devices:
@@ -110,7 +116,9 @@ services:
     # ros2 launch speech_recognition speech_recognition.launch.py enable_vad:=false enable_diarization:=false enable_asr:=false enable_wake_word:=false
     command: >
       bash -c "source /workspace/install/setup.bash &&
-      exec ros2 launch speech_recognition speech_recognition.launch.py"
+      exec ros2 launch speech_recognition speech_recognition.launch.py
+      redi_use_database:=${REDI_USE_DATABASE:-true}
+      asr_backend:=${ASR_BACKEND:-}"
 
     stop_signal: SIGINT
     stop_grace_period: 30s

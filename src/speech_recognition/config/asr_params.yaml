@@ -3,29 +3,84 @@
 
 asr_node:
   ros__parameters:
-    # Model Configuration
+    # Backend Configuration
+    asr_backend: "whisper"                   # whisper: faster-whisper (all languages, including Catalan)
+                                             # parakeet: NVIDIA NeMo Parakeet TDT (faster, 25 European languages)
+                                             # Both publish the same /speech_result with the same speaker attribution.
+                                             # Override without editing this file: ASR_BACKEND in Docker/.env
+                                             # (launch argument asr_backend).
+
+    # Parakeet backend (used only when asr_backend=parakeet)
+    parakeet_model_name: "nvidia/parakeet-tdt-0.6b-v3"  # Hugging Face repo id or path to a .nemo file.
+                                             # Downloaded once to speech_recognition/weights.
+                                             # Transcribes ONLY these 25 languages:
+                                             #   bg hr cs da nl en et fi fr de el hu it lv lt mt
+                                             #   pl pt ro sk sl es sv ru uk
+                                             # Catalan ('ca') is NOT one of them.
+    parakeet_language_id_model: "langid_ambernet"  # Parakeet never reports the language it heard, so this
+                                             # NVIDIA LangID model (107 languages, ~6 ms per chunk) picks the
+                                             # published language_code from `language`, like Whisper does.
+                                             # NeMo pretrained name or .nemo path, downloaded once to
+                                             # weights/nemo/. Empty: publish the first code of `language`.
+    parakeet_language_id_min_confidence: 0.9 # Below this probability (or for chunks < 0.25 s) the last
+                                             # detected language is kept, so short or noisy replies
+                                             # ("Yeah.") do not flip the language.
+
+    # Whisper Model Configuration (model_size, compute_type and batched inference are ignored by parakeet)
     model_size: "turbo"                      # Whisper model size (tiny, base, small, medium, large, turbo)
-    compute_type: "float16"               # Compute type: float32, float16, int8, int8_float32, int8_float16, int16
-                                            # int8_float16: int8 weights + float16 accumulation — fastest on Jetson Thor SM_110 tensor cores - or float16, but not anythign else for jetson thor
+    compute_type: "float16"                  # Compute type: float32, float16, int8, int8_float32, int8_float16, int16
+                        # CUDA device: float16 is ~2x faster than float32. The engine auto-falls back to float32 on CPU.
+                        # Parakeet always runs float32.
     
     # Language Configuration
-    language: "es,ca"                        # Language options:
+    language: "en, es"                           # Language options:
                                             #   - "auto": Auto-detect language
                                             #   - "en": English only
-                                            #   - "es,fr,de": Comma-separated list of allowed languages # now limited to en, ca, es only in code
+                                            #   - "es,fr,de": Comma-separated allow-list, best of the listed languages is picked
+                                            # NOTE: forcing a language makes Whisper transcribe *into* that
+                                            # language. For the English test mp3 keep "en" to avoid spurious
+                                            # Spanish/Catalan output.
+                                            #
+                                            # PARAKEET: `language` is NOT an input like for Whisper. Parakeet
+                                            # cannot be forced to a language: it always transcribes whatever
+                                            # it hears as one of its 25 languages (see parakeet_model_name).
+                                            # Here `language` only restricts the language_code published in
+                                            # /speech_result (picked by parakeet_language_id_model).
+                                            # Use only Parakeet languages, e.g. "en, es".
+                                            # Catalan and Spanish are very hard for the machine to tell apart
+                                            # (Spanish with a Catalan accent is detected as 'ca'), and Parakeet
+                                            # cannot write Catalan anyway. For Catalan, ALWAYS use
+                                            # asr_backend: whisper.
                                             
     # Batched Inference Configuration
     use_batched_inference: true             # Enable batched inference for better throughput
     batch_size: 16                           # Batch size for batched inference
     
     # VAD and Speech Detection
-    vad_threshold: 0.95                      # VAD probability threshold for speech detection
+    vad_threshold: 0.5                       # VAD probability threshold for speech detection
+                                             # (Silero speech is ~0.9-1.0, silence ~0.0-0.05. 0.95 clipped
+                                             #  word onsets and dropped short utterances.)
     silence_detection_threshold: 0.00001     # RMS threshold for silence detection
     
     # Timing Parameters
-    min_silence_duration: 0.5                # Minimum silence duration (seconds) before processing speech
+    min_silence_duration: 0.15               # Minimum silence duration (seconds) before processing speech
     max_chunk_duration: 30.0                 # Maximum duration (seconds) of a single speech chunk
-    pre_buffer_duration: 0.3                 # Duration (seconds) of audio to prepend to speech chunks
+    pre_buffer_duration: 0.5                 # Duration (seconds) of audio to prepend to speech chunks
+    diarization_offset: -1.0                  # Signed correction (seconds) applied to diarization speaker
+                                             # change events so they line up with the audio they describe.
+                                             # Positive shifts events later. Tune by watching where a
+                                             # multi-speaker chunk gets split.
+    min_speaker_run_tokens: 2                # A speaker run shorter than this many words is treated as
+                                             # word-timestamp flicker and merged into the previous run
+                                             # (only used when snap_splits_to_sentences is false)
+    min_speaker_run_duration: 0.4            # Same, expressed as a minimum duration (seconds)
+    snap_splits_to_sentences: true           # Label whole sentences with their majority speaker so a
+                                             # noisy speaker boundary can never split a sentence in half.
+                                             # Set false for raw per-word attribution.
+    speaker_interval_tolerance: 3.0          # How far (seconds) outside a chunk a speaker report may be
+                                             # and still be used as the fallback
+    min_speaker_chunk_duration: 1.0          # Minimum audio (seconds) before a speaker change is allowed to
+                                             # flush and publish the utterance built so far
     
     # ROS4HRI Configuration
     ros4hri_with_id: false                    # Enable ROS4HRI LiveSpeech messages

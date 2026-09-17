@@ -1,0 +1,264 @@
+THe previous text shows the ground truth of the first 43 seconds of the mp3, being speaker C the first speakjer and then a conversation between A AND B.
+
+MP3 FROM YOUTUBE: USAGE FRIS 30s aprox
+
+https://youtu.be/41hv2tW5Lc4?si=5OLZZ1--a2wJEZI8
+
+#########ground truth ############
+
+We have main engine start. Four, three, two, one. C
+
+
+"You're a jerk, Tom."	A
+"Look, Celia, we have to follow our passions."	B
+"You have your robotics and I just want to be awesome in space."	B
+"why don't you just admit that you're freaked out by my robot hand?"	A
+"I'm not freaked out, but it's…"	B
+"All right, fine."	B
+"I'm freaked out. I'm having nightmare that i am being chased by this giant robotics claws ..."	B 
+"Oh, whatever TOM" A (overlap end of previous sentence, normal to lose this change)
+
+############infreenrece  redi now
+
+ g for audio...
+mp3_audio_source    | [INFO] [1789465673.391872774] [audio_file_publisher]: Speech pipeline topics detected. Waiting 2.0s before sending audio...
+mp3_audio_source    | [INFO] [1789465675.891823684] [audio_file_publisher]: STARTING MP3 -> /audio_and_device_info (512 samples every 32.0 ms)
+speech_recognition  | [vad_node-1] [INFO] [1789465675.925989573] [vad_node]: VAD initialized with device: file:four_speakers.mp3 (Sample rate: 16000.0 Hz)
+speech_recognition  | [asr_node-3] [INFO] [1789465675.926139362] [asr_node]: ASR initialized with device: file:four_speakers.mp3 (Sample rate: 16000.0 Hz)
+speech_recognition  | [diarization_node-2] [INFO] [1789465675.926548145] [diarization_node]: Listening audio from device: file:four_speakers.mp3 (Sample rate: 16000.0 Hz) [attempt 1]
+speech_recognition  | [diarization_node-2] [ERROR] [1789465675.927204208] [diarization_node]: HF_TOKEN not set — pyannote models require a Hugging Face token. Set HF_TOKEN in Docker/.env, accept conditions at https://hf.co/pyannote/segmentation and https://hf.co/pyannote/embedding, then restart the container.
+speech_recognition  | [diarization_node-2] [INFO] [1789465675.927827429] [diarization_node]: Loading segmentation model: pyannote/segmentation
+speech_recognition  | [diarization_node-2] Lightning automatically upgraded your loaded checkpoint from v1.5.4 to v2.6.5. To apply the upgrade to your files permanently, run `python -m pytorch_lightning.utilities.upgrade_checkpoint ../root/.cache/torch/pyannote/models--pyannote--segmentation/snapshots/660b9e20307a2b0cdb400d0f80aadc04a701fc54/pytorch_model.bin`
+speech_recognition  | [diarization_node-2] /usr/local/lib/python3.12/dist-packages/pyannote/audio/core/io.py:212: UserWarning: torchaudio._backend.list_audio_backends has been deprecated. This deprecation is part of a large refactoring effort to transition TorchAudio into a maintenance phase. The decoding and encoding capabilities of PyTorch for both audio and video are being consolidated into TorchCodec. Please see https://github.com/pytorch/audio/issues/3902 for more information. It will be removed from the 2.9 release. 
+speech_recognition  | [diarization_node-2]   torchaudio.list_audio_backends()
+speech_recognition  | [diarization_node-2] [INFO] [1789465676.370905935] [diarization_node]: Segmentation model loaded: PyanNet
+speech_recognition  | [diarization_node-2] [INFO] [1789465676.371321570] [diarization_node]: Loading embedding model: pyannote/embedding
+speech_recognition  | [diarization_node-2] [INFO] [1789465676.371559110] [diarization_node]: Loading ReDimNet2 embedding model: b6/lm/vb2+vox2+cnc2_v0
+speech_recognition  | [diarization_node-2] Downloading: "https://github.com/PalabraAI/redimnet2/zipball/c5bbe0b76e37df698c403f8844e41304ceab6307" to /root/.cache/torch/hub/c5bbe0b76e37df698c403f8844e41304ceab6307.zip
+speech_recognition  | [diarization_node-2] Downloading: "https://github.com/PalabraAI/redimnet2/releases/download/v1.0.0/b6-vb2+vox2+cnc2_v0-lm.pt" to /root/.cache/torch/hub/checkpoints/b6-vb2+vox2+cnc2_v0-lm.pt
+100%|██████████| 48.8M/48.8M [00:00<00:00, 79.2MB/s]
+speech_recognition  | [diarization_node-2] [INFO] [1789465679.011136504] [diarization_node]: Embedding model loaded: ReDimNet2EmbeddingAdapter
+speech_recognition  | [diarization_node-2] [INFO] [1789465679.011610750] [diarization_node]: Diarization config: duration=1.0s step=0.5s tau_active=0.5 delta_new=0.9 max_speakers=10
+speech_recognition  | [diarization_node-2] [INFO] [1789465679.252128364] [diarization_node]: Pipeline instantiated: SpeakerDiarization
+speech_recognition  | [diarization_node-2] [INFO] [1789465679.253191441] [diarization_node]: ReDimNet2 identity manager loaded 0 persistent identities
+speech_recognition  | [diarization_node-2] [INFO] [1789465679.253599595] [diarization_node]: Database disabled — using session-only speaker tracking
+speech_recognition  | [diarization_node-2] [INFO] [1789465679.256139857] [diarization_node]: Diarization engine initialized and running.
+speech_recognition  | [diarization_node-2] [INFO] [1789465679.257487141] [diarization_node]: VAD information received.
+speech_recognition  | [asr_node-3] [INFO] [1789465679.834230420] [asr_node]: Transcribing 1.41s of audio...
+speech_recognition  | [asr_node-3] [INFO] [1789465680.383234919] [asr_node]: Detected languages (filtered): [('en', '0.8296'), ('es', '0.0117'), ('ca', '0.0002')]
+speech_recognition  | [asr_node-3] [INFO] [1789465680.808350763] [asr_node]: Transcribed 1.41s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789465680.809437397] [asr_node]: Transcript: 'Roger, Roger.' (lang: en, speaker: unknown, seg=0.00-0.92s, proc=1424ms, model=972ms, audio=920ms, x1.55)
+speech_recognition  | [asr_node-3] [INFO] [1789465680.810318815] [asr_node]: Published transcript: 'Roger, Roger.' (lang: en, speaker: unknown, proc=1424ms, audio=920ms, x1.55)
+speech_recognition  | [diarization_node-2] [INFO] [1789465681.533263208] [diarization_node]: REDI assignment: track=speaker0 identity=EUT_speaker1 score=1.000 state=PROVISIONAL updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465681.533816706] [diarization_node]: Active eut_speaker_id: EUT_speaker1
+speech_recognition  | [diarization_node-2] [INFO] [1789465683.527151197] [diarization_node]: REDI assignment: track=speaker0 identity=EUT_speaker1 score=0.828 state=PROVISIONAL updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465684.454598071] [diarization_node]: REDI assignment: track=speaker0 identity=EUT_speaker1 score=0.902 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465685.473952044] [diarization_node]: REDI assignment: track=speaker0 identity=EUT_speaker1 score=0.924 state=CONFIRMED updated=True
+speech_recognition  | [asr_node-3] [INFO] [1789465686.362792592] [asr_node]: Transcribing 5.76s of audio...
+speech_recognition  | [diarization_node-2] [INFO] [1789465686.428160002] [diarization_node]: Speech ended: speaker=speaker1
+speech_recognition  | [asr_node-3] [INFO] [1789465686.735673642] [asr_node]: Detected languages (filtered): [('en', '0.8745'), ('es', '0.0243'), ('ca', '0.0003')]
+speech_recognition  | [asr_node-3] [INFO] [1789465687.169478969] [asr_node]: Transcribed 5.76s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789465687.171030959] [asr_node]: Speaker timeline: speaker1[+0.39,+5.26]
+speech_recognition  | [asr_node-3] [INFO] [1789465687.171921841] [asr_node]: Sentence speakers (end, speaker): [(1.98, 'speaker1'), (5.3, 'speaker1')]
+speech_recognition  | [asr_node-3] [INFO] [1789465687.172869880] [asr_node]: Transcript: 'We have main engine start. Four, three, two, one.' (lang: en, speaker: speaker1, seg=0.00-5.30s, proc=418ms, model=805ms, audio=5300ms, x0.08)
+speech_recognition  | [asr_node-3] [INFO] [1789465687.173669453] [asr_node]: Published transcript: 'We have main engine start. Four, three, two, one.' (lang: en, speaker: speaker1, proc=418ms, audio=5300ms, x0.08)
+speech_recognition  | [asr_node-3] [INFO] [1789465687.200989912] [asr_node]: Transcribing 0.54s of audio...
+speech_recognition  | [asr_node-3] [INFO] [1789465687.532861219] [asr_node]: Detected languages (filtered): [('en', '0.6548'), ('es', '0.0574'), ('ca', '0.0008')]
+speech_recognition  | [asr_node-3] [INFO] [1789465687.868894747] [asr_node]: Transcribed 0.54s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789465687.869963889] [asr_node]: Transcript: 'Yeah.' (lang: en, speaker: speaker1, seg=0.00-0.44s, proc=1117ms, model=666ms, audio=440ms, x2.54)
+speech_recognition  | [asr_node-3] [INFO] [1789465687.871682280] [asr_node]: Published transcript: 'Yeah.' (lang: en, speaker: speaker1, proc=1117ms, audio=440ms, x2.54)
+speech_recognition  | [diarization_node-2] [INFO] [1789465700.028394115] [diarization_node]: REDI assignment: track=speaker0 identity=EUT_speaker1 score=0.812 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465700.088443146] [diarization_node]: Speech ended: speaker=speaker1
+speech_recognition  | [diarization_node-2] [INFO] [1789465700.974032771] [diarization_node]: REDI assignment: track=speaker0 identity=EUT_speaker1 score=0.938 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465701.474655090] [diarization_node]: REDI assignment: track=speaker0 identity=EUT_speaker1 score=0.954 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465701.475461571] [diarization_node]: REDI assignment: track=speaker1 identity=EUT_speaker2 score=1.000 state=PROVISIONAL updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465701.476068338] [diarization_node]: Active eut_speaker_id: EUT_speaker2
+speech_recognition  | [asr_node-3] [INFO] [1789465701.497516206] [asr_node]: Transcribing 1.34s of audio...
+speech_recognition  | [asr_node-3] [INFO] [1789465701.824494502] [asr_node]: Detected languages (filtered): [('en', '0.9844'), ('es', '0.0018'), ('ca', '0.0001')]
+speech_recognition  | [asr_node-3] [INFO] [1789465702.193602487] [asr_node]: Transcribed 1.34s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789465702.194944077] [asr_node]: Transcript: 'You're a jerk, Tom.' (lang: en, speaker: speaker1, seg=0.00-0.98s, proc=1912ms, model=694ms, audio=980ms, x1.95)
+speech_recognition  | [asr_node-3] [INFO] [1789465702.195895098] [asr_node]: Published transcript: 'You're a jerk, Tom.' (lang: en, speaker: speaker1, proc=1912ms, audio=980ms, x1.95)
+speech_recognition  | [diarization_node-2] [INFO] [1789465702.468638189] [diarization_node]: REDI assignment: track=speaker0 identity=EUT_speaker1 score=0.965 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465702.469466106] [diarization_node]: REDI assignment: track=speaker1 identity=EUT_speaker2 score=0.828 state=PROVISIONAL updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465703.459176584] [diarization_node]: REDI assignment: track=speaker0 identity=EUT_speaker1 score=0.973 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465703.460035520] [diarization_node]: REDI assignment: track=speaker1 identity=EUT_speaker2 score=0.874 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465703.972309052] [diarization_node]: REDI assignment: track=speaker0 identity=EUT_speaker1 score=0.980 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465703.973147034] [diarization_node]: REDI assignment: track=speaker1 identity=EUT_speaker2 score=0.930 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465704.967934692] [diarization_node]: REDI assignment: track=speaker0 identity=EUT_speaker1 score=0.984 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465704.968766210] [diarization_node]: REDI assignment: track=speaker1 identity=EUT_speaker2 score=0.921 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465705.473590126] [diarization_node]: REDI assignment: track=speaker0 identity=EUT_speaker1 score=0.988 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465705.474923521] [diarization_node]: REDI assignment: track=speaker1 identity=EUT_speaker2 score=0.956 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465706.469030480] [diarization_node]: REDI assignment: track=speaker0 identity=EUT_speaker1 score=0.990 state=CONFIRMED updated=False
+speech_recognition  | [diarization_node-2] [INFO] [1789465706.469839194] [diarization_node]: REDI assignment: track=speaker1 identity=EUT_speaker2 score=0.952 state=CONFIRMED updated=False
+speech_recognition  | [diarization_node-2] [INFO] [1789465707.462453173] [diarization_node]: REDI assignment: track=speaker0 identity=EUT_speaker1 score=0.987 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465707.463340053] [diarization_node]: REDI assignment: track=speaker1 identity=EUT_speaker2 score=0.941 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465707.983725835] [diarization_node]: REDI assignment: track=speaker0 identity=EUT_speaker1 score=0.989 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465707.984589132] [diarization_node]: REDI assignment: track=speaker1 identity=EUT_speaker2 score=0.963 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465708.963169928] [diarization_node]: REDI assignment: track=speaker0 identity=EUT_speaker1 score=0.991 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465708.964042253] [diarization_node]: REDI assignment: track=speaker1 identity=EUT_speaker2 score=0.945 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465709.475758027] [diarization_node]: REDI assignment: track=speaker0 identity=EUT_speaker1 score=0.992 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465709.476619731] [diarization_node]: REDI assignment: track=speaker1 identity=EUT_speaker2 score=0.963 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465711.459826819] [diarization_node]: REDI assignment: track=speaker0 identity=EUT_speaker1 score=0.993 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465711.460694070] [diarization_node]: REDI assignment: track=speaker1 identity=EUT_speaker2 score=0.940 state=CONFIRMED updated=True
+speech_recognition  | [asr_node-3] [INFO] [1789465712.379712968] [asr_node]: Transcribing 11.94s of audio...
+speech_recognition  | [diarization_node-2] [INFO] [1789465712.635404365] [diarization_node]: Speech ended: speaker=speaker2
+speech_recognition  | [asr_node-3] [INFO] [1789465712.733729469] [asr_node]: Detected languages (filtered): [('en', '0.9751'), ('es', '0.0024'), ('ca', '0.0001')]
+speech_recognition  | [asr_node-3] [INFO] [1789465713.286282600] [asr_node]: Transcribed 11.94s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789465713.287282334] [asr_node]: Speaker timeline: speaker1[-19.44,+0.50] speaker2[+0.50,+11.64]
+speech_recognition  | [asr_node-3] [INFO] [1789465713.288164762] [asr_node]: Sentence speakers (end, speaker): [(2.74, 'speaker2'), (5.84, 'speaker2'), (10.2, 'speaker2'), (11.94, 'speaker2')]
+speech_recognition  | [asr_node-3] [INFO] [1789465713.289116819] [asr_node]: Transcript: 'Look, Celia, we have to follow our passions. You have your robotics and I just want to be awesome in space. Why don't you just admit that you're freaked out by my robot hand? I'm not freaked out by it's...' (lang: en, speaker: speaker2, seg=0.00-11.94s, proc=1356ms, model=905ms, audio=11940ms, x0.11)
+speech_recognition  | [asr_node-3] [INFO] [1789465713.289899976] [asr_node]: Published transcript: 'Look, Celia, we have to follow our passions. You have your robotics and I just want to be awesome in space. Why don't you just admit that you're freaked out by my robot hand? I'm not freaked out by it's...' (lang: en, speaker: speaker2, proc=1356ms, audio=11940ms, x0.11)
+speech_recognition  | [diarization_node-2] [INFO] [1789465715.517832472] [diarization_node]: REDI assignment: track=speaker0 identity=EUT_speaker1 score=0.993 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465715.518527416] [diarization_node]: REDI assignment: track=speaker1 identity=EUT_speaker2 score=0.952 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465716.464281337] [diarization_node]: REDI assignment: track=speaker0 identity=EUT_speaker1 score=0.994 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465716.465121819] [diarization_node]: REDI assignment: track=speaker1 identity=EUT_speaker2 score=0.976 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465717.476690750] [diarization_node]: REDI assignment: track=speaker0 identity=EUT_speaker1 score=0.994 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465717.477526927] [diarization_node]: REDI assignment: track=speaker1 identity=EUT_speaker2 score=0.979 state=CONFIRMED updated=True
+mongodb             | {"t":{"$date":"2026-09-15T09:48:38.130+00:00"},"s":"I",  "c":"WTCHKPT",  "id":22430,   "ctx":"Checkpointer","msg":"WiredTiger message","attr":{"message":{"ts_sec":1789465718,"ts_usec":130746,"thread":"1:0xffffa4c5eb80","session_name":"WT_SESSION.checkpoint","category":"WT_VERB_CHECKPOINT_PROGRESS","category_id":6,"verbose_level":"DEBUG_1","verbose_level_id":1,"msg":"saving checkpoint snapshot min: 6, snapshot max: 6 snapshot count: 0, oldest timestamp: (0, 0) , meta checkpoint timestamp: (0, 0) base write gen: 1306"}}}
+speech_recognition  | [diarization_node-2] [INFO] [1789465718.470176791] [diarization_node]: REDI assignment: track=speaker0 identity=EUT_speaker1 score=0.994 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465718.471075181] [diarization_node]: REDI assignment: track=speaker1 identity=EUT_speaker2 score=0.981 state=CONFIRMED updated=True
+speech_recognition  | [asr_node-3] [INFO] [1789465719.802979560] [asr_node]: Transcribing 6.24s of audio...
+speech_recognition  | [diarization_node-2] [INFO] [1789465720.027632797] [diarization_node]: Speech ended: speaker=speaker2
+speech_recognition  | [asr_node-3] [INFO] [1789465720.145000906] [asr_node]: Detected languages (filtered): [('en', '0.9897'), ('es', '0.0014'), ('ca', '0.0000')]
+speech_recognition  | [asr_node-3] [INFO] [1789465720.624871862] [asr_node]: Transcribed 6.24s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789465720.625833772] [asr_node]: Speaker timeline: speaker2[-12.63,+5.90]
+speech_recognition  | [asr_node-3] [INFO] [1789465720.626783607] [asr_node]: Sentence speakers (end, speaker): [(1.04, 'speaker2'), (2.16, 'speaker2'), (5.24, 'speaker2'), (6.26, 'speaker2')]
+speech_recognition  | [asr_node-3] [INFO] [1789465720.627758925] [asr_node]: Transcript: 'All right, fine. I'm freaked out. I'm having nightmares that I'm being chased by these giant robotic claws. Oh, whatever, don't...' (lang: en, speaker: speaker2, seg=0.00-6.26s, proc=309ms, model=820ms, audio=6260ms, x0.05)
+speech_recognition  | [asr_node-3] [INFO] [1789465720.629677975] [asr_node]: Published transcript: 'All right, fine. I'm freaked out. I'm having nightmares that I'm being chased by these giant robotic claws. Oh, whatever, don't...' (lang: en, speaker: speaker2, proc=309ms, audio=6260ms, x0.05)
+speech_recognition  | [diarization_node-2] [INFO] [1789465720.965040676] [diarization_node]: REDI assignment: track=speaker0 identity=EUT_speaker1 score=0.992 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465720.965878935] [diarization_node]: REDI assignment: track=speaker1 identity=EUT_speaker2 score=0.976 state=CONFIRMED updated=True
+speech_recognition  | [asr_node-3] [INFO] [1789465721.531073093] [asr_node]: Transcribing 1.31s of audio...
+speech_recognition  | [diarization_node-2] [INFO] [1789465721.722909250] [diarization_node]: Speech ended: speaker=speaker2
+speech_recognition  | [asr_node-3] [INFO] [1789465721.849749685] [asr_node]: Detected languages (filtered): [('en', '0.9971'), ('es', '0.0004'), ('ca', '0.0000')]
+speech_recognition  | [asr_node-3] [INFO] [1789465722.207027360] [asr_node]: Transcribed 1.31s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789465722.208176902] [asr_node]: Transcript: 'We're done!' (lang: en, speaker: speaker2, seg=0.00-0.98s, proc=1126ms, model=674ms, audio=980ms, x1.15)
+speech_recognition  | [asr_node-3] [INFO] [1789465722.209839348] [asr_node]: Published transcript: 'We're done!' (lang: en, speaker: speaker2, proc=1126ms, audio=980ms, x1.15)
+speech_recognition  | [asr_node-3] [INFO] [1789465723.514270721] [asr_node]: Transcribing 0.54s of audio...
+speech_recognition  | [asr_node-3] [INFO] [1789465723.841148833] [asr_node]: Detected languages (filtered): [('en', '0.3394'), ('es', '0.0790'), ('ca', '0.0008')]
+speech_recognition  | [asr_node-3] [INFO] [1789465724.190077338] [asr_node]: Transcribed 0.54s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789465724.191150953] [asr_node]: Transcript: 'you' (lang: en, speaker: speaker2, seg=0.00-0.48s, proc=1126ms, model=674ms, audio=480ms, x2.35)
+speech_recognition  | [asr_node-3] [INFO] [1789465724.191925619] [asr_node]: Published transcript: 'you' (lang: en, speaker: speaker2, proc=1126ms, audio=480ms, x2.35)
+speech_recognition  | [diarization_node-2] [INFO] [1789465726.472157506] [diarization_node]: REDI assignment: track=speaker0 identity=EUT_speaker1 score=0.984 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465726.473042100] [diarization_node]: REDI assignment: track=speaker1 identity=EUT_speaker2 score=0.975 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465727.460248473] [diarization_node]: REDI assignment: track=speaker0 identity=EUT_speaker1 score=0.985 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465727.461128697] [diarization_node]: REDI assignment: track=speaker1 identity=EUT_speaker2 score=0.975 state=CONFIRMED updated=True
+speech_recognition  | [asr_node-3] [INFO] [1789465729.082948366] [asr_node]: Transcribing 2.91s of audio...
+speech_recognition  | [asr_node-3] [INFO] [1789465729.441671177] [asr_node]: Detected languages (filtered): [('en', '0.9932'), ('es', '0.0011'), ('ca', '0.0000')]
+speech_recognition  | [diarization_node-2] [INFO] [1789465729.482821457] [diarization_node]: REDI assignment: track=speaker0 identity=EUT_speaker1 score=0.987 state=CONFIRMED updated=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465729.483223341] [diarization_node]: REDI assignment: track=speaker1 identity=EUT_speaker2 score=0.970 state=CONFIRMED updated=True
+speech_recognition  | [asr_node-3] [INFO] [1789465729.805860796] [asr_node]: Transcribed 2.91s -> 1 speaker group(s)
+
+
+########output of diart
+not ready yet; missing publishers: /speech_activity_detection, /speech_result
+speech_recognition  | [diarization_node-2] [INFO] [1789465944.078664410] [diarization_node]: BUILT_IMAGE='' NVIDIA_PYTORCH_VERSION='25.08' → IS_ARM=True
+speech_recognition  | [diarization_node-2] [INFO] [1789465944.079305381] [diarization_node]: Using device on diarization: cuda
+speech_recognition  | [diarization_node-2] [INFO] [1789465944.079828572] [diarization_node]: Selected diarization backend: diart
+speech_recognition  | [diarization_node-2] [INFO] [1789465944.086836063] [diarization_node]: Using device: cuda
+speech_recognition  | [diarization_node-2] [INFO] [1789465944.087504385] [diarization_node]: Diarization node initialized, waiting for audio and VAD info...
+mp3_audio_source    | [INFO] [1789465944.412394456] [audio_file_publisher]: Speech pipeline not ready yet; missing publishers: /speech_result
+mp3_audio_source    | [INFO] [1789465944.912399287] [audio_file_publisher]: Speech pipeline not ready yet; missing publishers: /speech_result
+speech_recognition  | [asr_node-3] [INFO] [1789465945.061677462] [asr_node]: Using device on ASR: cuda
+speech_recognition  | [asr_node-3] [INFO] [1789465945.062147171] [asr_node]: Using local snapshot: /workspace/build/speech_recognition/speech_recognition/weights/models--mobiuslabsgmbh--faster-whisper-large-v3-turbo/snapshots/0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf
+mp3_audio_source    | [INFO] [1789465945.412424167] [audio_file_publisher]: Speech pipeline not ready yet; missing publishers: /speech_result
+speech_recognition  | [asr_node-3] [INFO] [1789465945.618694953] [asr_node]: Faster-Whisper model 'turbo' loaded on GPU with compute_type 'float16'.
+speech_recognition  | [asr_node-3] [INFO] [1789465945.629968467] [asr_node]: ASR node initialized, waiting for audio...
+mp3_audio_source    | [INFO] [1789465945.912601936] [audio_file_publisher]: Speech pipeline topics detected. Waiting 2.0s before sending audio...
+mp3_audio_source    | [INFO] [1789465948.412650235] [audio_file_publisher]: STARTING MP3 -> /audio_and_device_info (512 samples every 32.0 ms)
+speech_recognition  | [asr_node-3] [INFO] [1789465948.446972236] [asr_node]: ASR initialized with device: file:four_speakers.mp3 (Sample rate: 16000.0 Hz)
+speech_recognition  | [vad_node-1] [INFO] [1789465948.447036746] [vad_node]: VAD initialized with device: file:four_speakers.mp3 (Sample rate: 16000.0 Hz)
+speech_recognition  | [diarization_node-2] [INFO] [1789465948.447038885] [diarization_node]: Listening audio from device: file:four_speakers.mp3 (Sample rate: 16000.0 Hz) [attempt 1]
+speech_recognition  | [diarization_node-2] [ERROR] [1789465948.447338463] [diarization_node]: HF_TOKEN not set — pyannote models require a Hugging Face token. Set HF_TOKEN in Docker/.env, accept conditions at https://hf.co/pyannote/segmentation and https://hf.co/pyannote/embedding, then restart the container.
+speech_recognition  | [diarization_node-2] [INFO] [1789465948.447620901] [diarization_node]: Loading segmentation model: pyannote/segmentation
+speech_recognition  | [diarization_node-2] Lightning automatically upgraded your loaded checkpoint from v1.5.4 to v2.6.5. To apply the upgrade to your files permanently, run `python -m pytorch_lightning.utilities.upgrade_checkpoint ../root/.cache/torch/pyannote/models--pyannote--segmentation/snapshots/660b9e20307a2b0cdb400d0f80aadc04a701fc54/pytorch_model.bin`
+speech_recognition  | [diarization_node-2] /usr/local/lib/python3.12/dist-packages/pyannote/audio/core/io.py:212: UserWarning: torchaudio._backend.list_audio_backends has been deprecated. This deprecation is part of a large refactoring effort to transition TorchAudio into a maintenance phase. The decoding and encoding capabilities of PyTorch for both audio and video are being consolidated into TorchCodec. Please see https://github.com/pytorch/audio/issues/3902 for more information. It will be removed from the 2.9 release. 
+speech_recognition  | [diarization_node-2]   torchaudio.list_audio_backends()
+speech_recognition  | [diarization_node-2] [INFO] [1789465948.866166151] [diarization_node]: Segmentation model loaded: PyanNet
+speech_recognition  | [diarization_node-2] [INFO] [1789465948.866795158] [diarization_node]: Loading embedding model: pyannote/embedding
+speech_recognition  | [diarization_node-2] /usr/local/lib/python3.12/dist-packages/pytorch_lightning/utilities/migration/migration.py:208: You have multiple `ModelCheckpoint` callback states in this checkpoint, but we found state keys that would end up colliding with each other after an upgrade, which means we can't differentiate which of your checkpoint callbacks needs which states. At least one of your `ModelCheckpoint` callbacks will not be able to reload the state.
+speech_recognition  | [diarization_node-2] Lightning automatically upgraded your loaded checkpoint from v1.2.7 to v2.6.5. To apply the upgrade to your files permanently, run `python -m pytorch_lightning.utilities.upgrade_checkpoint ../root/.cache/torch/pyannote/models--pyannote--embedding/snapshots/4db4899737a38b2d618bbd74350915aa10293cb2/pytorch_model.bin`
+speech_recognition  | [diarization_node-2] /usr/local/lib/python3.12/dist-packages/pyannote/audio/core/model.py:692: UserWarning: Model has been trained with a task-dependent loss function. Set 'strict' to False to load the model without its loss function and prevent this warning from appearing. 
+speech_recognition  | [diarization_node-2]   warnings.warn(msg)
+speech_recognition  | [diarization_node-2] Lightning automatically upgraded your loaded checkpoint from v1.2.7 to v2.6.5. To apply the upgrade to your files permanently, run `python -m pytorch_lightning.utilities.upgrade_checkpoint ../root/.cache/torch/pyannote/models--pyannote--embedding/snapshots/4db4899737a38b2d618bbd74350915aa10293cb2/pytorch_model.bin`
+speech_recognition  | [diarization_node-2] /usr/local/lib/python3.12/dist-packages/pytorch_lightning/core/saving.py:197: Found keys that are not in the model state dict but in the checkpoint: ['loss_func.W']
+speech_recognition  | [diarization_node-2] [INFO] [1789465949.287593823] [diarization_node]: Embedding model loaded: XVectorSincNet
+speech_recognition  | [diarization_node-2] [INFO] [1789465949.288055532] [diarization_node]: Diarization config: duration=1.0s step=0.5s tau_active=0.5 delta_new=0.9 max_speakers=10
+speech_recognition  | [diarization_node-2] [INFO] [1789465949.486366921] [diarization_node]: Pipeline instantiated: SpeakerDiarization
+speech_recognition  | [diarization_node-2] [INFO] [1789465949.487364785] [diarization_node]: Database disabled — using session-only speaker tracking
+speech_recognition  | [diarization_node-2] [INFO] [1789465949.489477403] [diarization_node]: Diarization engine initialized and running.
+speech_recognition  | [diarization_node-2] [INFO] [1789465949.491141589] [diarization_node]: VAD information received.
+speech_recognition  | [asr_node-3] [INFO] [1789465952.355622955] [asr_node]: Transcribing 1.41s of audio...
+speech_recognition  | [asr_node-3] [INFO] [1789465953.007949876] [asr_node]: Detected languages (filtered): [('en', '0.8296'), ('es', '0.0117'), ('ca', '0.0002')]
+speech_recognition  | [asr_node-3] [INFO] [1789465953.401567328] [asr_node]: Transcribed 1.41s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789465953.402640460] [asr_node]: Transcript: 'Roger, Roger.' (lang: en, speaker: unknown, seg=0.00-0.92s, proc=1496ms, model=1044ms, audio=920ms, x1.63)
+speech_recognition  | [asr_node-3] [INFO] [1789465953.404127802] [asr_node]: Published transcript: 'Roger, Roger.' (lang: en, speaker: unknown, proc=1496ms, audio=920ms, x1.63)
+speech_recognition  | [diarization_node-2] [INFO] [1789465953.644797907] [diarization_node]: Active eut_speaker_id: EUT_speaker2
+speech_recognition  | [diarization_node-2] [INFO] [1789465958.163292518] [diarization_node]: Active eut_speaker_id: EUT_speaker1
+speech_recognition  | [asr_node-3] [INFO] [1789465958.242466124] [asr_node]: Transcribing 4.54s of audio...
+speech_recognition  | [asr_node-3] [INFO] [1789465958.603152787] [asr_node]: Detected languages (filtered): [('en', '0.8784'), ('es', '0.0282'), ('ca', '0.0005')]
+speech_recognition  | [asr_node-3] [INFO] [1789465958.884851268] [asr_node]: Transcribing 1.70s of audio...
+speech_recognition  | [diarization_node-2] [INFO] [1789465958.946320963] [diarization_node]: Speech ended: speaker=speaker1
+speech_recognition  | [asr_node-3] [INFO] [1789465959.311684210] [asr_node]: Detected languages (filtered): [('en', '0.8682'), ('es', '0.0263'), ('ca', '0.0005')]
+speech_recognition  | [asr_node-3] [INFO] [1789465959.333767370] [asr_node]: Transcribed 4.54s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789465959.334814123] [asr_node]: Speaker timeline: speaker2[-0.02,+4.55] speaker1[+4.55,+5.26]
+speech_recognition  | [asr_node-3] [INFO] [1789465959.335788552] [asr_node]: Sentence speakers (end, speaker): [(4.86, 'speaker2')]
+speech_recognition  | [asr_node-3] [INFO] [1789465959.336761183] [asr_node]: Transcript: 'We have main engine start, four, three, two, one.' (lang: en, speaker: speaker2, seg=0.00-4.86s, proc=65ms, model=1089ms, audio=4860ms, x0.01)
+speech_recognition  | [asr_node-3] [INFO] [1789465959.337576202] [asr_node]: Published transcript: 'We have main engine start, four, three, two, one.' (lang: en, speaker: speaker2, proc=65ms, audio=4860ms, x0.01)
+speech_recognition  | [asr_node-3] [INFO] [1789465959.693737819] [asr_node]: Transcribed 1.70s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789465959.694936083] [asr_node]: Transcript: '3, 2, 1...' (lang: en, speaker: speaker1, seg=0.00-1.60s, proc=425ms, model=807ms, audio=1600ms, x0.27)
+speech_recognition  | [asr_node-3] [INFO] [1789465959.695883252] [asr_node]: Published transcript: '3, 2, 1...' (lang: en, speaker: speaker1, proc=425ms, audio=1600ms, x0.27)
+speech_recognition  | [asr_node-3] [INFO] [1789465959.718254074] [asr_node]: Transcribing 0.54s of audio...
+speech_recognition  | [asr_node-3] [INFO] [1789465960.038767647] [asr_node]: Detected languages (filtered): [('en', '0.6548'), ('es', '0.0574'), ('ca', '0.0008')]
+speech_recognition  | [asr_node-3] [INFO] [1789465960.378125716] [asr_node]: Transcribed 0.54s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789465960.379209729] [asr_node]: Transcript: 'Yeah.' (lang: en, speaker: speaker1, seg=0.00-0.44s, proc=1110ms, model=658ms, audio=440ms, x2.52)
+speech_recognition  | [asr_node-3] [INFO] [1789465960.380840433] [asr_node]: Published transcript: 'Yeah.' (lang: en, speaker: speaker1, proc=1110ms, audio=440ms, x2.52)
+speech_recognition  | [diarization_node-2] [INFO] [1789465972.660871606] [diarization_node]: Active eut_speaker_id: EUT_speaker3
+speech_recognition  | [diarization_node-2] [INFO] [1789465972.705921799] [diarization_node]: Speech ended: speaker=speaker3
+speech_recognition  | [diarization_node-2] [INFO] [1789465973.652032887] [diarization_node]: Active eut_speaker_id: EUT_speaker4
+speech_recognition  | [diarization_node-2] [INFO] [1789465979.668432522] [diarization_node]: Active eut_speaker_id: EUT_speaker3
+speech_recognition  | [asr_node-3] [INFO] [1789465979.682258380] [asr_node]: Transcribing 7.01s of audio...
+speech_recognition  | [asr_node-3] [INFO] [1789465980.039413543] [asr_node]: Detected languages (filtered): [('en', '0.9766'), ('es', '0.0032'), ('ca', '0.0001')]
+speech_recognition  | [asr_node-3] [INFO] [1789465980.529595911] [asr_node]: Transcribed 7.01s -> 2 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789465980.530568228] [asr_node]: Speaker timeline: speaker1[-14.42,+0.01] speaker3[+0.01,+1.00] speaker4[+1.00,+7.02] speaker3[+7.02,+7.85]
+speech_recognition  | [asr_node-3] [INFO] [1789465980.531452785] [asr_node]: Sentence speakers (end, speaker): [(1.02, 'speaker3'), (3.6, 'speaker4'), (6.72, 'speaker4')]
+speech_recognition  | [asr_node-3] [INFO] [1789465980.532386064] [asr_node]: Transcript: 'You're a jerk, Tom.' (lang: en, speaker: speaker3, seg=0.00-1.02s, proc=1903ms, model=845ms, audio=1020ms, x1.87)
+speech_recognition  | [asr_node-3] [INFO] [1789465980.533148314] [asr_node]: Published transcript: 'You're a jerk, Tom.' (lang: en, speaker: speaker3, proc=1903ms, audio=1020ms, x1.87)
+speech_recognition  | [asr_node-3] [INFO] [1789465980.534089909] [asr_node]: Transcript: 'Look, Celia, we have to follow our passions. You have your robotics and I just want to be awesome in space.' (lang: en, speaker: speaker4, seg=1.30-6.72s, proc=1903ms, model=845ms, audio=5420ms, x0.35)
+speech_recognition  | [asr_node-3] [INFO] [1789465980.534724796] [asr_node]: Published transcript: 'Look, Celia, we have to follow our passions. You have your robotics and I just want to be awesome in space.' (lang: en, speaker: speaker4, proc=1903ms, audio=5420ms, x0.35)
+speech_recognition  | [diarization_node-2] [INFO] [1789465983.670088432] [diarization_node]: Active eut_speaker_id: EUT_speaker1
+speech_recognition  | [asr_node-3] [INFO] [1789465983.682252169] [asr_node]: Transcribing 4.48s of audio...
+speech_recognition  | [asr_node-3] [INFO] [1789465984.026203006] [asr_node]: Detected languages (filtered): [('en', '0.9829'), ('es', '0.0023'), ('ca', '0.0001')]
+speech_recognition  | [asr_node-3] [INFO] [1789465984.425682250] [asr_node]: Transcribed 4.48s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789465984.426663428] [asr_node]: Speaker timeline: speaker4[-5.52,+0.50] speaker3[+0.50,+4.50] speaker1[+4.50,+5.24]
+speech_recognition  | [asr_node-3] [INFO] [1789465984.427535040] [asr_node]: Sentence speakers (end, speaker): [(4.46, 'speaker3')]
+speech_recognition  | [asr_node-3] [INFO] [1789465984.428480699] [asr_node]: Transcript: 'Why don't you just admit that you're freaked out by my robot hand?' (lang: en, speaker: speaker3, seg=0.52-4.46s, proc=1513ms, model=742ms, audio=3940ms, x0.38)
+speech_recognition  | [asr_node-3] [INFO] [1789465984.429238986] [asr_node]: Published transcript: 'Why don't you just admit that you're freaked out by my robot hand?' (lang: en, speaker: speaker3, proc=1513ms, audio=3940ms, x0.38)
+speech_recognition  | [asr_node-3] [INFO] [1789465984.899221381] [asr_node]: Transcribing 2.27s of audio...
+speech_recognition  | [diarization_node-2] [INFO] [1789465985.156380235] [diarization_node]: Speech ended: speaker=speaker1
+speech_recognition  | [asr_node-3] [INFO] [1789465985.225187532] [asr_node]: Detected languages (filtered): [('en', '0.9849'), ('es', '0.0013'), ('ca', '0.0000')]
+speech_recognition  | [asr_node-3] [INFO] [1789465985.597367610] [asr_node]: Transcribed 2.27s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789465985.599478894] [asr_node]: Transcript: 'I'm not freaked out, but it's...' (lang: en, speaker: speaker1, seg=0.84-2.52s, proc=1148ms, model=696ms, audio=1680ms, x0.68)
+speech_recognition  | [asr_node-3] [INFO] [1789465985.601167368] [asr_node]: Published transcript: 'I'm not freaked out, but it's...' (lang: en, speaker: speaker1, proc=1148ms, audio=1680ms, x0.68)
+speech_recognition  | [diarization_node-2] [INFO] [1789465986.209461955] [diarization_node]: Speech ended: speaker=speaker1
+speech_recognition  | [diarization_node-2] [INFO] [1789465987.148693791] [diarization_node]: Active eut_speaker_id: EUT_speaker4
+mongodb             | {"t":{"$date":"2026-09-15T09:53:10.101+00:00"},"s":"I",  "c":"WTCHKPT",  "id":22430,   "ctx":"Checkpointer","msg":"WiredTiger message","attr":{"message":{"ts_sec":1789465990,"ts_usec":101157,"thread":"1:0xffff803deb80","session_name":"WT_SESSION.checkpoint","category":"WT_VERB_CHECKPOINT_PROGRESS","category_id":6,"verbose_level":"DEBUG_1","verbose_level_id":1,"msg":"saving checkpoint snapshot min: 6, snapshot max: 6 snapshot count: 0, oldest timestamp: (0, 0) , meta checkpoint timestamp: (0, 0) base write gen: 1315"}}}
+speech_recognition  | [asr_node-3] [INFO] [1789465992.323401776] [asr_node]: Transcribing 6.24s of audio...
+speech_recognition  | [diarization_node-2] [INFO] [1789465992.547123259] [diarization_node]: Speech ended: speaker=speaker4
+speech_recognition  | [asr_node-3] [INFO] [1789465992.688877337] [asr_node]: Detected languages (filtered): [('en', '0.9897'), ('es', '0.0014'), ('ca', '0.0000')]
+speech_recognition  | [asr_node-3] [INFO] [1789465993.159018878] [asr_node]: Transcribed 6.24s -> 2 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789465993.159978353] [asr_node]: Speaker timeline: speaker1[-2.96,+0.52] speaker4[+0.52,+5.90]
+speech_recognition  | [asr_node-3] [INFO] [1789465993.160848585] [asr_node]: Sentence speakers (end, speaker): [(1.04, 'speaker1'), (2.16, 'speaker4'), (5.24, 'speaker4'), (6.26, 'speaker4')]
+speech_recognition  | [asr_node-3] [INFO] [1789465993.161988599] [asr_node]: Transcript: 'All right, fine.' (lang: en, speaker: speaker1, seg=0.00-1.04s, proc=324ms, model=834ms, audio=1040ms, x0.31)
+speech_recognition  | [asr_node-3] [INFO] [1789465993.163042917] [asr_node]: Published transcript: 'All right, fine.' (lang: en, speaker: speaker1, proc=324ms, audio=1040ms, x0.31)
+speech_recognition  | [asr_node-3] [INFO] [1789465993.164138596] [asr_node]: Transcript: 'I'm freaked out. I'm having nightmares that I'm being chased by these giant robotic claws. Oh, whatever, don't...' (lang: en, speaker: speaker4, seg=1.30-6.26s, proc=324ms, model=834ms, audio=4960ms, x0.07)
+speech_recognition  | [asr_node-3] [INFO] [1789465993.164983078] [asr_node]: Published transcript: 'I'm freaked out. I'm having nightmares that I'm being chased by these giant robotic claws. Oh, whatever, don't...' (lang: en, speaker: speaker4, proc=324ms, audio=4960ms, x0.07)
+speech_recognition  | [asr_node-3] [INFO] [1789465994.052239372] [asr_node]: Transcribing 1.31s of audio...
+speech_recognition  | [asr_node-3] [INFO] [1789465994.380261916] [asr_node]: Detected languages (filtered): [('en', '0.9971'), ('es', '0.0004'), ('ca', '0.0000')]
+speech_recognition  | [asr_node-3] [INFO] [1789465994.739868985] [asr_node]: Transcribed 1.31s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789465994.740937776] [asr_node]: Transcript: 'We're done!' (lang: en, speaker: speaker4, seg=0.00-0.98s, proc=1138ms, model=686ms, audio=980ms, x1.16)
+speech_recognition  | [asr_node-3] [INFO] [1789465994.741730442] [asr_node]: Published transcript: 'We're done!' (lang: en, speaker: speaker4, proc=1138ms, audio=980ms, x1.16)
+speech_recognition  | [asr_node-3] [INFO] [1789465996.034799858] [asr_node]: Transcribing 0.54s of audio...
+speech_recognition  | [asr_node-3] [INFO] [1789465996.366768506] [asr_node]: Detected languages (filtered): [('en', '0.3394'), ('es', '0.0790'), ('ca', '0.0008')]
+speech_recognition  | [asr_node-3] [INFO] [1789465996.713339831] [asr_node]: Transcribed 0.54s -> 1 speaker group(s)
+speech_recognition  | [asr_node-3] [INFO] [1789465996.714423446] [asr_node]: Transcript: 'you' (lang: en, speaker: speaker4, seg=0.00-0.48s, proc=1128ms, model=677ms, audio=480ms, x2.35)
+speech_recognition  | [asr_node-3] [INFO] [1789465996.715200557] [asr_node]: Published transcript: 'you' (lang: e

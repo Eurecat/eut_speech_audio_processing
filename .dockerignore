@@ -1,0 +1,15 @@
+# Build context for Dockerfile.arm is the repo root.
+# Model weights are never baked into the image: compose bind-mounts
+# src/speech_recognition/speech_recognition/weights at /workspace/weights.
+**/weights
+**/weights_pyannote
+
+# Local audio recordings and test output
+src/audio_stream_manager/recordings/*.mp3
+src/audio_stream_manager/recordings/*.wav
+
+# Runtime and build leftovers
+**/__pycache__
+**/.pytest_cache
+Docker/logs
+.git

@@ -5,6 +5,7 @@ import rclpy
 from hri_msgs.msg import AudioAndDeviceInfo, Vad
 from rclpy.node import Node
 
+from speech_recognition.model_weights import weights_dir
 from speech_recognition.vad_engine import VADEngine
 
 
@@ -14,10 +15,7 @@ class VAD(Node):
 
         self.declare_parameter("repo_model", "snakers4/silero-vad")
         self.declare_parameter("model_name", "silero_vad")
-        self.declare_parameter(
-            "weights_dir",
-            os.path.abspath(os.path.join(os.path.dirname(__file__), "weights")),
-        )
+        self.declare_parameter("weights_dir", weights_dir())
 
         self.engine = VADEngine(
             repo_model=self.get_parameter("repo_model").get_parameter_value().string_value,

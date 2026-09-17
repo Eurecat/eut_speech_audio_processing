@@ -28,6 +28,7 @@ class AudioCapturing(Node):
         self.declare_parameter("disconnection_timeout", 3.0)
         self.declare_parameter("disconnection_check_interval", 1.0)
         self.declare_parameter("primary_device_check_interval", 5.0)
+        self.declare_parameter("test_stream_timeout", 2.0)
         self.declare_parameter("target_samplerate", 16000)
 
         # Publisher
@@ -50,6 +51,9 @@ class AudioCapturing(Node):
             .get_parameter_value()
             .double_value,
             primary_device_check_interval=self.get_parameter("primary_device_check_interval")
+            .get_parameter_value()
+            .double_value,
+            test_stream_timeout=self.get_parameter("test_stream_timeout")
             .get_parameter_value()
             .double_value,
             on_chunk_ready=self._publish_audio,

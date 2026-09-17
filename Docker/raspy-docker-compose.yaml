@@ -15,7 +15,8 @@ services:
       - ./.vscode:/workspace/.vscode
       - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
       - ../src/speech_recognition:/workspace/src/speech_recognition
-      - ../src/speech_recognition/speech_recognition/weights_pyannote:/root/.cache/torch/pyannote:rw
+      # Shared model weights (Whisper, Parakeet, VAD, ReDimNet2, pyannote), never baked in the image
+      - ../src/speech_recognition/speech_recognition/weights:/workspace/weights:rw
       - /dev:/dev
     tty: true
     stdin_open: true
@@ -30,9 +31,10 @@ services:
       - QT_X11_NO_MITSHM=1
       - XAUTHORITY=/tmp/xauth/.docker.xauth     
       - HF_TOKEN=${HF_TOKEN}      
-      - HF_HOME=/root/.cache/torch/pyannote
-      - TORCH_HOME=/root/.cache/torch
-
+      - WEIGHTS_DIR=/workspace/weights
+      - PYANNOTE_CACHE=/workspace/weights/pyannote
+      - HF_HOME=/workspace/weights/huggingface
+      - TORCH_HOME=/workspace/weights/torch
     devices:
       - /dev/dri:/dev/dri
       - /dev/snd:/dev/snd
@@ -57,7 +59,8 @@ services:
       - ./.vscode:/workspace/.vscode
       - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
       - ../src/speech_recognition:/workspace/src/speech_recognition
-      - ../src/speech_recognition/speech_recognition/weights_pyannote:/root/.cache/torch/pyannote:rw
+      # Shared model weights (Whisper, Parakeet, VAD, ReDimNet2, pyannote), never baked in the image
+      - ../src/speech_recognition/speech_recognition/weights:/workspace/weights:rw
       - /dev:/dev
     tty: true
     stdin_open: true
@@ -72,9 +75,10 @@ services:
       - QT_X11_NO_MITSHM=1
       - XAUTHORITY=/tmp/xauth/.docker.xauth     
       - HF_TOKEN=${HF_TOKEN}      
-      - HF_HOME=/root/.cache/torch/pyannote
-      - TORCH_HOME=/root/.cache/torch
-
+      - WEIGHTS_DIR=/workspace/weights
+      - PYANNOTE_CACHE=/workspace/weights/pyannote
+      - HF_HOME=/workspace/weights/huggingface
+      - TORCH_HOME=/workspace/weights/torch
     devices:
       - /dev/dri:/dev/dri
       - /dev/snd:/dev/snd

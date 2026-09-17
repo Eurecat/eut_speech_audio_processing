@@ -22,24 +22,36 @@ class VADEngine:
         self._logger.info(f"Using device on VAD: {self.device}")
         self.model.to(self.device)
         self._logger.info("VAD engine ready.")
+        self._pending = np.empty(0, dtype=np.float32)
+        self._last_probability = 0.0
 
     def predict(self, audio_data: np.ndarray, sample_rate: int) -> float:
-        """Run VAD inference on a chunk of audio.
+        """Run VAD inference on streaming audio.
 
-        Args:
-            audio_data: Float32 numpy array, expected length 512.
-            sample_rate: Sample rate in Hz.
-
-        Returns:
-            Speech probability in [0.0, 1.0]. Returns 0.0 for unexpected chunk sizes.
+        Input can be any chunk size. The engine buffers samples and evaluates
+        contiguous 512-sample windows, keeping remainder for the next call.
         """
-        if audio_data.size != self.EXPECTED_CHUNK_SIZE:
-            self._logger.warn(
-                f"Unexpected audio chunk size: {audio_data.size}. "
-                f"Expected {self.EXPECTED_CHUNK_SIZE} samples."
-            )
-            return 0.0
+        if audio_data.size == 0:
+            return self._last_probability
 
-        audio_tensor = torch.from_numpy(audio_data).to(self.device)
-        with torch.no_grad():
-            return self.model(audio_tensor, sr=sample_rate).item()
+        if self._pending.size == 0:
+            merged = audio_data
+        else:
+            merged = np.concatenate((self._pending, audio_data))
+
+        probabilities = []
+        offset = 0
+        while offset + self.EXPECTED_CHUNK_SIZE <= merged.size:
+            window = merged[offset : offset + self.EXPECTED_CHUNK_SIZE]
+            audio_tensor = torch.from_numpy(window).to(self.device)
+            with torch.no_grad():
+                probabilities.append(self.model(audio_tensor, sr=sample_rate).item())
+            offset += self.EXPECTED_CHUNK_SIZE
+
+        self._pending = merged[offset:].astype(np.float32, copy=False)
+
+        if not probabilities:
+            return self._last_probability
+
+        self._last_probability = max(probabilities)
+        return self._last_probability

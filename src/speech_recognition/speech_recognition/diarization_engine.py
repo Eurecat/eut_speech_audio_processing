@@ -93,6 +93,12 @@ class DiarizationObserver(Observer):
         self.active_voices: Set[str] = set()
         self.pending_embeddings: Dict[str, np.ndarray] = {}
 
+        # Session-only identity matching: running centroid per EUT speaker so a
+        # new DIART track can reuse an existing identity instead of always
+        # spawning EUT_speakerN (which caused speaker1..7 for a 4-speaker file).
+        self.eut_centroids: Dict[str, np.ndarray] = {}
+        self._last_active_eut_speaker: Optional[str] = None
+
         self.last_process_time = time.time()
         self.last_confidence_log_time = time.time()
 
@@ -131,21 +137,27 @@ class DiarizationObserver(Observer):
             return
         self.last_process_time = current_time
 
-        active_diart_speakers: Set[str] = set()
+        speaker_durations: Dict[str, float] = {}
         for track_tuple in prediction.itertracks(yield_label=True):
             if len(track_tuple) == 3:
-                _segment, _track, diart_speaker = track_tuple
-                active_diart_speakers.add(diart_speaker)
+                segment, _track, diart_speaker = track_tuple
+                speaker_durations[diart_speaker] = speaker_durations.get(
+                    diart_speaker, 0.0
+                ) + float(segment.duration)
 
                 # Detect new speakers in the during the same session
                 if diart_speaker not in self.known_diart_speakers:
                     self.known_diart_speakers.add(diart_speaker)
                     self._logger.debug(f"New DIART speaker discovered: {diart_speaker}")
 
-        # For simplicity, we focus on the first active speaker for embedding extraction and EUT ID assignment.
-        # TODO: In a multi-speaker scenario, we would need to extract and track embeddings for all active speakers,
-        # and handle cases where speakers overlap, enter, or leave the conversation at different times.
-        current_diart_speaker = next(iter(active_diart_speakers), None)
+        active_diart_speakers: Set[str] = set(speaker_durations)
+
+        # Single top-1 speaker for this window: whoever talked the most.
+        # Iterating a set would give a non-deterministic "primary" speaker
+        # whenever two tracks overlap.
+        current_diart_speaker = (
+            max(speaker_durations, key=speaker_durations.get) if speaker_durations else None
+        )
 
         if current_diart_speaker is None:
             return
@@ -233,6 +245,7 @@ class DiarizationObserver(Observer):
                         for diart_id, eut_id in self.diart_to_eut_mapping.items():
                             if eut_id == discard:
                                 self.diart_to_eut_mapping[diart_id] = keep
+                        self._merge_centroids(keep, discard)
                     elif eut_i:
                         self.diart_to_eut_mapping[sid_j] = eut_i
                     elif eut_j:
@@ -248,16 +261,28 @@ class DiarizationObserver(Observer):
         current_diart_speaker: str,
         active_diart_speakers: Set[str],
     ) -> None:
-        for diart_speaker_id, embedding in pipeline_embeddings.items():
-            if diart_speaker_id != current_diart_speaker:
-                continue
+        primary_eut_speaker: Optional[str] = None
 
+        # Resolve a stable EUT identity for *every* active track, not only the
+        # first one, so overlapping speakers are tracked and mapped too.
+        for diart_speaker_id, embedding in pipeline_embeddings.items():
             if not isinstance(embedding, np.ndarray):
                 embedding = np.array(embedding)
 
             eut_speaker_id = self._resolve_eut_speaker(diart_speaker_id, embedding)
-            self._on_eut_speaker_changed(eut_speaker_id)
-            self._logger.info(f"Final eut_speaker_id: {eut_speaker_id}")
+            if diart_speaker_id == current_diart_speaker:
+                primary_eut_speaker = eut_speaker_id
+
+        if primary_eut_speaker is None:
+            primary_eut_speaker = self.diart_to_eut_mapping.get(current_diart_speaker)
+
+        if primary_eut_speaker is not None:
+            if primary_eut_speaker != self._last_active_eut_speaker:
+                self._logger.info(f"Active eut_speaker_id: {primary_eut_speaker}")
+                self._last_active_eut_speaker = primary_eut_speaker
+            else:
+                self._logger.debug(f"Active eut_speaker_id: {primary_eut_speaker}")
+            self._on_eut_speaker_changed(primary_eut_speaker)
 
         self._merge_similar_speakers(pipeline_embeddings)
 
@@ -271,6 +296,57 @@ class DiarizationObserver(Observer):
             self._on_voice_update(current_eut_speakers, audio_block)
             self.active_voices = current_eut_speakers
 
+    @staticmethod
+    def _normalize(vector: np.ndarray) -> np.ndarray:
+        vector = np.asarray(vector, dtype=np.float64).ravel()
+        norm = float(np.linalg.norm(vector))
+        return vector / norm if norm > 0 else vector
+
+    def _update_centroid(self, eut_speaker_id: str, embedding: np.ndarray, alpha: float = 0.3) -> None:
+        """Maintain a running (exponentially weighted) centroid per EUT speaker."""
+        vector = self._normalize(embedding)
+        if vector.size == 0:
+            return
+        if eut_speaker_id in self.eut_centroids:
+            self.eut_centroids[eut_speaker_id] = (
+                1.0 - alpha
+            ) * self.eut_centroids[eut_speaker_id] + alpha * vector
+        else:
+            self.eut_centroids[eut_speaker_id] = vector
+
+    def _match_existing_speaker(self, embedding: np.ndarray) -> Optional[str]:
+        """Return an already-known EUT speaker whose centroid is close enough."""
+        if not self.eut_centroids:
+            return None
+        query = self._normalize(embedding)
+        if query.size == 0:
+            return None
+
+        best_id: Optional[str] = None
+        best_distance = float("inf")
+        for eut_speaker_id, centroid in self.eut_centroids.items():
+            distance = 1.0 - float(np.dot(query, self._normalize(centroid)))
+            if distance < best_distance:
+                best_id, best_distance = eut_speaker_id, distance
+
+        if best_id is not None and best_distance < self.similarity_threshold:
+            self._logger.debug(
+                f"Session matcher: reusing {best_id} (distance={best_distance:.3f})"
+            )
+            return best_id
+        return None
+
+    def _merge_centroids(self, keep: str, discard: str) -> None:
+        """Fold the discarded speaker's centroid into the kept one."""
+        discard_vec = self.eut_centroids.pop(discard, None)
+        if discard_vec is None:
+            return
+        keep_vec = self.eut_centroids.get(keep)
+        if keep_vec is None:
+            self.eut_centroids[keep] = discard_vec
+        else:
+            self.eut_centroids[keep] = self._normalize(keep_vec + discard_vec)
+
     def _resolve_eut_speaker(self, diart_speaker_id: str, embedding: np.ndarray) -> str:
         """Return the EUT speaker ID for a DIART speaker, creating one if needed."""
         if self.use_database:
@@ -282,11 +358,23 @@ class DiarizationObserver(Observer):
                 )
                 self.diart_to_eut_mapping[diart_speaker_id] = eut_speaker_name
                 self.pending_embeddings.pop(diart_speaker_id, None)
+                self._update_centroid(eut_speaker_name, embedding)
                 return eut_speaker_name
 
-        # Not found in DB or DB disabled — use existing mapping or create new
+        # Already mapped DIART track — refresh its centroid and return.
         if diart_speaker_id in self.diart_to_eut_mapping:
-            return self.diart_to_eut_mapping[diart_speaker_id]
+            eut_speaker_id = self.diart_to_eut_mapping[diart_speaker_id]
+            self._update_centroid(eut_speaker_id, embedding)
+            return eut_speaker_id
+
+        # New DIART track: try to reuse a known session speaker before minting a
+        # new identity. Without this, every new DIART label created a new
+        # EUT_speakerN even when it was the same person.
+        matched = self._match_existing_speaker(embedding)
+        if matched is not None:
+            self.diart_to_eut_mapping[diart_speaker_id] = matched
+            self._update_centroid(matched, embedding)
+            return matched
 
         if self.use_database:
             new_number = self.highest_eut_speaker_number + 1
@@ -298,6 +386,7 @@ class DiarizationObserver(Observer):
         eut_speaker_id = f"EUT_speaker{new_number}"
         self.diart_to_eut_mapping[diart_speaker_id] = eut_speaker_id
         self.pending_embeddings[diart_speaker_id] = embedding
+        self._update_centroid(eut_speaker_id, embedding)
         self._logger.debug(f"New speaker assigned: DIART {diart_speaker_id} -> {eut_speaker_id}")
         return eut_speaker_id
 
@@ -364,10 +453,18 @@ class DiarizationEngine:
         ros4hri_enabled: bool,
         on_eut_speaker_changed: Callable[[Optional[str]], None],
         on_voice_update: Callable[[Set[str], Optional[np.ndarray]], None],
+        step_duration: float = 0.5,
+        tau_active: float = 0.7,
+        delta_new: float = 0.90,
+        max_speakers: int = 10,
         logger,
     ):
         self.chunk_duration = chunk_duration
         self.overlap_duration = overlap_duration
+        self.step_duration = step_duration
+        self.tau_active = tau_active
+        self.delta_new = delta_new
+        self.max_speakers = max_speakers
         self.segmentation_model_name = segmentation_model_name
         self.embedding_model_name = embedding_model_name
         self.vad_threshold = vad_threshold
@@ -411,6 +508,34 @@ class DiarizationEngine:
         if self.source is not None and self._initialized:
             self.source.add_audio_chunk(audio_data)
 
+    @property
+    def speaker_confidence(self) -> float:
+        """Confidence of the latest speaker assignment, if the backend provides one."""
+        return 0.0
+
+    def _create_embedding_model(self, hf_token: Optional[str]):
+        """Factory hook used by selectable embedding backends."""
+        return m.EmbeddingModel.from_pretrained(
+            self.embedding_model_name, use_hf_token=hf_token
+        )
+
+    def _create_observer(self) -> DiarizationObserver:
+        """Factory hook used by selectable identity backends."""
+        return DiarizationObserver(
+            use_database=self.use_database,
+            ros4hri_enabled=self.ros4hri_enabled,
+            vad_threshold=self.vad_threshold,
+            similarity_threshold=self.similarity_threshold,
+            get_current_vad_probability=lambda: self._current_vad_probability,
+            get_pipeline=lambda: self.model,
+            get_last_audio_block=lambda: self.source.last_emitted_block
+            if self.source
+            else None,
+            on_eut_speaker_changed=self._on_eut_speaker_changed,
+            on_voice_update=self._on_voice_update,
+            logger=self._logger,
+        )
+
     def initialize(self, sample_rate: int) -> bool:
         """Load models and set up the pipeline. Returns True on success."""
         if self._initialized:
@@ -435,7 +560,7 @@ class DiarizationEngine:
 
             self._logger.info(f"Loading segmentation model: {self.segmentation_model_name}")
 
-            step_duration = 0.5
+            step_duration = self.step_duration
 
             if self._is_arm:
                 # ------------------------------------------------------------------
@@ -488,9 +613,7 @@ class DiarizationEngine:
                     self._logger.info(f"Segmentation model loaded: {type(segmentation.model).__name__}")
 
                     self._logger.info(f"Loading embedding model: {self.embedding_model_name}")
-                    embedding = m.EmbeddingModel.from_pretrained(
-                        self.embedding_model_name, use_hf_token=hf_token
-                    )
+                    embedding = self._create_embedding_model(hf_token)
                     try:
                         embedding.load()
                     except Exception as load_err:
@@ -509,9 +632,14 @@ class DiarizationEngine:
                         sample_rate=sample_rate,
                         duration=self.chunk_duration,
                         step=step_duration,
-                        tau_active=0.7,
-                        delta_new=0.90,
-                        max_speakers=10,
+                        tau_active=self.tau_active,
+                        delta_new=self.delta_new,
+                        max_speakers=self.max_speakers,
+                    )
+                    self._logger.info(
+                        f"Diarization config: duration={self.chunk_duration}s "
+                        f"step={step_duration}s tau_active={self.tau_active} "
+                        f"delta_new={self.delta_new} max_speakers={self.max_speakers}"
                     )
                     self.model = SpeakerDiarization(self.config)
                     self._logger.info(f"Pipeline instantiated: {type(self.model).__name__}")
@@ -544,9 +672,7 @@ class DiarizationEngine:
                 self._logger.info(f"Segmentation model loaded: {type(segmentation.model).__name__}")
 
                 self._logger.info(f"Loading embedding model: {self.embedding_model_name}")
-                embedding = m.EmbeddingModel.from_pretrained(
-                    self.embedding_model_name, use_hf_token=hf_token
-                )
+                embedding = self._create_embedding_model(hf_token)
                 try:
                     embedding.load()
                 except Exception as load_err:
@@ -568,9 +694,14 @@ class DiarizationEngine:
                     sample_rate=sample_rate,
                     duration=self.chunk_duration,
                     step=step_duration,
-                    tau_active=0.7,
-                    delta_new=0.90,
-                    max_speakers=10,
+                    tau_active=self.tau_active,
+                    delta_new=self.delta_new,
+                    max_speakers=self.max_speakers,
+                )
+                self._logger.info(
+                    f"Diarization config: duration={self.chunk_duration}s "
+                    f"step={step_duration}s tau_active={self.tau_active} "
+                    f"delta_new={self.delta_new} max_speakers={self.max_speakers}"
                 )
                 self.model = SpeakerDiarization(self.config)
                 self._logger.info(f"Pipeline instantiated: {type(self.model).__name__}")
@@ -578,20 +709,7 @@ class DiarizationEngine:
             self.source = ROSAudioSource(sample_rate=sample_rate, block_duration=step_duration)
             self.source.read()
 
-            self.observer = DiarizationObserver(
-                use_database=self.use_database,
-                ros4hri_enabled=self.ros4hri_enabled,
-                vad_threshold=self.vad_threshold,
-                similarity_threshold=self.similarity_threshold,
-                get_current_vad_probability=lambda: self._current_vad_probability,
-                get_pipeline=lambda: self.model,
-                get_last_audio_block=lambda: self.source.last_emitted_block
-                if self.source
-                else None,
-                on_eut_speaker_changed=self._on_eut_speaker_changed,
-                on_voice_update=self._on_voice_update,
-                logger=self._logger,
-            )
+            self.observer = self._create_observer()
 
             self._initialized = True
             self._diarization_thread = threading.Thread(target=self._run_diarization, daemon=True)

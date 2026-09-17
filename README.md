@@ -17,7 +17,7 @@
 - 🎤 **Hardware-Isolated Audio Capture**: Robust audio stream management with automatic device detection and error recovery
 - 🗣️ **Voice Activity Detection (VAD)**: Real-time speech segment detection with configurable sensitivity
 - 👥 **Speaker Diarization with Persistence**: Multi-speaker identification using deep learning embeddings stored in MongoDB—**speaker identities persist across Docker restarts and robot sessions**
-- 📝 **State-of-the-Art ASR**: High-accuracy speech transcription powered by OpenAI Whisper models
+- 📝 **State-of-the-Art ASR**: High-accuracy speech transcription powered by OpenAI Whisper models, or NVIDIA Parakeet TDT (`asr_backend: parakeet`, faster, 25 European languages, no Catalan), selectable in `asr_params.yaml` or with `ASR_BACKEND` in `Docker/.env`
 - 🔊 **Wake Word Detection**: Configurable keyword spotting for hands-free voice activation
 - 🗄️ **MongoDB Database**: Automatic speaker embedding storage and re-identification with persistent identity management
 - 🐳 **Decoupled Architecture**: Hardware management and speech processing run in separate containers for maximum reliability
@@ -92,10 +92,29 @@ cd Docker && ./build_container.sh
 Configure your Hugging Face token in the `.env` file (see `.env.example` for template) to access state-of-the-art models:
 
 - `openai/whisper` - Advanced speech recognition
+- `nvidia/parakeet-tdt-0.6b-v3` - Speech recognition with `asr_backend: parakeet` (public, no token needed)
 - `pyannote/embedding` - Speaker voice embeddings
 - `pyannote/segmentation` - Speaker diarization
 
 Ensure your token has appropriate permissions for these model repositories.
+
+**Model weights (shared folder, never in the image):**
+All models download once to the host folder `src/speech_recognition/speech_recognition/weights/`,
+which every compose file bind-mounts at `/workspace/weights` (`WEIGHTS_DIR`), the same pattern as
+the other EutPerceptionStack repos. `.dockerignore` keeps it out of the image build.
+
+| Model | Location inside `weights/` |
+|---|---|
+| Whisper (`models--*faster-whisper*`), Parakeet (`models--nvidia--parakeet-*`) | root |
+| Silero VAD (`snakers4_silero-vad_master`) | root |
+| pyannote segmentation / embedding (`PYANNOTE_CACHE`) | `pyannote/` |
+| ReDimNet2 torch hub (`TORCH_HOME`) | `torch/hub/` |
+| Parakeet language identification (`langid_ambernet`) | `nemo/` |
+| Other Hugging Face downloads (`HF_HOME`) | `huggingface/` |
+
+Upgrading from the old layout: pyannote models lived in `speech_recognition/weights_pyannote/`.
+Move them once so the gated models do not need `HF_TOKEN` again:
+`sudo mv src/speech_recognition/speech_recognition/weights_pyannote src/speech_recognition/speech_recognition/weights/pyannote`
 
 
 
@@ -152,6 +171,60 @@ command: bash -c "source /workspace/install/setup.bash && ros2 launch speech_rec
 **Important Dependencies:**
 - **Diarization** requires **VAD** to work properly
 - **ASR** requires both **VAD** and **Diarization** for optimal performance
+
+### Android Edge Bridge Mode
+
+This repository now includes an Android bridge profile that lets an Android app stream audio into ROS2 and receive `SpeechResult` back in real time.
+
+Launch it from the Docker folder:
+
+```bash
+docker compose -f android-docker-compose.yaml up
+```
+
+The profile starts two TCP bridges in host network mode:
+
+- Android -> edge audio ingest (`audio_stream_manager/android_audio_bridge.py`)
+  - Binds on `0.0.0.0:${ANDROID_AUDIO_PORT:-17000}`
+  - Accepts NDJSON messages and publishes `audio_and_device_info` (`AudioAndDeviceInfo.msg`)
+- edge -> Android transcript egress (`speech_recognition/android_transcript_bridge.py`)
+  - Binds on `0.0.0.0:${ANDROID_TRANSCRIPT_PORT:-17001}`
+  - Subscribes to `speech_result` (`SpeechResult.msg`) and streams NDJSON to connected clients
+
+#### Android -> edge NDJSON payloads
+
+One JSON object per line over TCP:
+
+```json
+{"type":"stream_start","stream_id":"session-123"}
+{"type":"audio_chunk","stream_id":"session-123","seq":1,"sample_rate":16000,"device_name":"pixel","device_id":1,"audio":[0.01,-0.02,0.03]}
+{"type":"stream_end","stream_id":"session-123"}
+```
+
+`audio_chunk` also supports `audio_b64_f32le` as an alternative to the `audio` array.
+
+#### edge -> Android NDJSON payload
+
+One JSON object per line over TCP:
+
+```json
+{
+  "type": "speech_result",
+  "transcript": "hola",
+  "transcript_confidence": 0.0,
+  "speaker_id": "speaker_1",
+  "speaker_id_confidence": 0.0,
+  "language_code": "es",
+  "locale": "",
+  "stamp": {"sec": 1, "nanosec": 2000000}
+}
+```
+
+#### Notes
+
+- Both bridges use bounded queues to avoid unbounded memory growth.
+- The audio bridge drops the oldest queued chunk when saturated and logs drop counters.
+- Keep Android and host in the same network (or use ADB reverse/forward if needed).
 
 
 
@@ -232,6 +305,71 @@ If you switch between `dev-docker-compose.yaml` and `docker-compose.yaml`, you m
 docker stop $(docker ps -q) #or kill or rm to avoid losing data if you have any important container running
 ```
 then run `docker compose up` again. This cleanly removes all existing containers and allows the new composition to start fresh.
+
+
+### Microphone Stops Streaming After Minutes or Hours (USB Reset)
+
+**Symptom.** Audio stops arriving, although the microphone is still connected and still appears in the device list. The `audio_capturing` log shows:
+
+```
+[ERROR] [audio_capturing]: No callback for 10.00 seconds. Device may be disconnected.
+```
+
+The `audio_to_mp3` log keeps the same `(N chunks)` count on every line.
+
+**Cause.** The cause is outside this code. The Linux kernel resets the USB port of the microphone, and the kernel does not log a warning before the reset. The reset closes the ALSA capture stream inside the kernel. PortAudio does not report the closed stream, so the audio callback stops without an error. This can happen on any Linux PC or Jetson and with any USB microphone. It is more frequent when a full-speed (12 Mbit/s) audio device is connected through a USB 2.0 hub.
+
+**What the node does.** The node detects the stopped callback after `disconnection_timeout` (10 s). It then reconnects to the device named by `DEVICE_NAME` in `Docker/.env`, and normally needs less than 100 ms. On success it logs:
+
+```
+[INFO] [audio_capturing]: Reconnected to audio device: Jabra SPEAK 510 USB: Audio (hw:2,0).
+```
+
+If the named device is not found, the node tries all other input devices. A device that gives no audio within `test_stream_timeout` (2 s) is skipped in later scans. For example, the 32 `NVIDIA Jetson Thor AGX APE` channels never give audio. Set `DEVICE_NAME` correctly, because otherwise the first full scan on a Jetson takes about 64 s.
+
+> Before this fix, a reset stopped the microphone until a manual container restart. The recovery scan waited forever on the first APE channel, and the timeout was 300 s.
+
+Automatic recovery still causes an audio gap of about 10 s for each reset. If the log shows `Reconnected to audio device` often, reduce the USB resets on the host as follows.
+
+**1. Confirm that the kernel resets the microphone.** Run these commands on the host. `journalctl` does not need `sudo`.
+
+```bash
+# Find the USB path of the microphone, for example "usb-a80aa10000.usb-4.2" = port 1-4.2
+cat /proc/asound/cards
+
+# Show USB resets. A line with the same port confirms the problem.
+journalctl -k | grep -E "reset (full|high|low)-speed USB device"
+#   usb 1-4.2: reset full-speed USB device number 4 using tegra-xusb
+
+# During a failure, the capture stream shows "closed" (replace 2 with your card number)
+cat /proc/asound/card2/pcm0c/sub0/status
+```
+
+**2. Connect the microphone without a hub.** Run `lsusb -t`. If the audio device (`Driver=snd-usb-audio, 12M`) is below a `Class=Hub` line, move the microphone to a USB port on the PC or Jetson itself. On the Jetson AGX Thor used for development, the Jabra was behind a 4-port USB 2.0 hub, and a different device on the same hub was also reset 9 times in one day.
+
+**3. Improve power and cable.** Use a powered USB hub or a short, good cable if you must use a hub or extension. Some speakerphones use up to 500 mA (`cat /sys/bus/usb/devices/<port>/bMaxPower`).
+
+**4. Disable USB autosuspend for the microphone.** Check the value first:
+
+```bash
+cat /sys/bus/usb/devices/1-4.2/power/control   # "on" = autosuspend is disabled, skip this step
+```
+
+If the value is `auto`, add a udev rule. Get the vendor and product IDs from `lsusb`, for example `0b0e:0422` for the Jabra SPEAK 510:
+
+```bash
+echo 'ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="0b0e", ATTR{idProduct}=="0422", TEST=="power/control", ATTR{power/control}="on"' \
+  | sudo tee /etc/udev/rules.d/90-usb-mic-no-autosuspend.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+```
+
+**5. Test recovery on a new machine.** This command sends the same USB reset to the microphone. Use the bus and device numbers from `lsusb`, for example `Bus 001 Device 004`:
+
+```bash
+docker exec audio_device_manager python3 -c "import fcntl,os; fd=os.open('/dev/bus/usb/001/004', os.O_WRONLY); fcntl.ioctl(fd, ord('U')<<8|20, 0)"
+```
+
+Within about 10 s the log must show `Reconnected to audio device`.
 
 
 ### Setup for Local Testing

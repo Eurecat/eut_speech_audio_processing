@@ -44,6 +44,37 @@ class DiarizationNode(Node):
         self.declare_parameter("cleanup_inactive_topics", False)
         self.declare_parameter("inactive_topic_timeout", 10.0)
         self.declare_parameter("init_retry_backoff_sec", 10.0)
+        self.declare_parameter("step_duration", 0.5)
+        self.declare_parameter("tau_active", 0.7)
+        self.declare_parameter("delta_new", 0.90)
+        self.declare_parameter("max_speakers", 10)
+        self.declare_parameter("diarization_backend", "diart")
+        self.declare_parameter("redi_repository", "PalabraAI/redimnet2:v1.0.0")
+        self.declare_parameter("redi_model_name", "b6")
+        self.declare_parameter("redi_train_type", "lm")
+        self.declare_parameter("redi_dataset", "vb2+vox2+cnc2_v0")
+        self.declare_parameter("redi_mongo_uri", "")
+        self.declare_parameter("redi_use_database", True)
+        self.declare_parameter("redi_turn_silence_seconds", 0.35)
+        self.declare_parameter("redi_min_embed_seconds", 0.8)
+        self.declare_parameter("redi_embed_interval_seconds", 0.5)
+        self.declare_parameter("redi_max_embed_seconds", 2.0)
+        self.declare_parameter("redi_min_create_seconds", 1.5)
+        self.declare_parameter("redi_probe_seconds", 1.0)
+        self.declare_parameter("redi_change_threshold", 0.35)
+        self.declare_parameter("redi_identity_short_window_seconds", 1.5)
+        self.declare_parameter("redi_identity_short_window_threshold", 0.40)
+        self.declare_parameter("redi_identity_similarity_threshold", 0.55)
+        self.declare_parameter("redi_identity_young_threshold", 0.40)
+        self.declare_parameter("redi_identity_match_margin", 0.06)
+        self.declare_parameter("redi_identity_stickiness_margin", 0.25)
+        self.declare_parameter("redi_identity_merge_threshold", 0.80)
+        self.declare_parameter("diart_use_voice_identity_manager", False)
+        self.declare_parameter("diart_identity_similarity_threshold", 0.60)
+        self.declare_parameter("diart_identity_young_threshold", 0.60)
+        self.declare_parameter("diart_identity_match_margin", 0.08)
+        self.declare_parameter("diart_identity_stickiness_margin", 0.20)
+        self.declare_parameter("diart_identity_merge_threshold", 0.85)
 
         self.vad_threshold = self.get_parameter("vad_threshold").get_parameter_value().double_value
         self.ros4hri_enabled = (
@@ -62,7 +93,69 @@ class DiarizationNode(Node):
         # ------------------------------------------------------------------
         # Engine
         # ------------------------------------------------------------------
-        self.engine = DiarizationEngine(
+        backend = self.get_parameter("diarization_backend").value.lower()
+        if backend not in {"diart", "redimnet2"}:
+            raise ValueError(
+                f"Unsupported diarization_backend '{backend}'. Use 'diart' or 'redimnet2'."
+            )
+
+        engine_class = DiarizationEngine
+        backend_options = {}
+        if backend == "diart" and self.get_parameter("diart_use_voice_identity_manager").value:
+            from speech_recognition.diart_identity_engine import DiartManagedIdentityEngine
+
+            engine_class = DiartManagedIdentityEngine
+            backend_options = {
+                "identity_options": {
+                    "similarity_threshold": self.get_parameter(
+                        "diart_identity_similarity_threshold"
+                    ).value,
+                    "young_identity_threshold": self.get_parameter(
+                        "diart_identity_young_threshold"
+                    ).value,
+                    "match_margin": self.get_parameter("diart_identity_match_margin").value,
+                    "stickiness_margin": self.get_parameter(
+                        "diart_identity_stickiness_margin"
+                    ).value,
+                    "merge_threshold": self.get_parameter(
+                        "diart_identity_merge_threshold"
+                    ).value,
+                },
+            }
+        if backend == "redimnet2":
+            from speech_recognition.redi_voice_engine import RediVoiceEngine
+
+            def value(name):
+                return self.get_parameter(name).value
+
+            engine_class = RediVoiceEngine
+            backend_options = {
+                "redi_repository": value("redi_repository"),
+                "redi_model_name": value("redi_model_name"),
+                "redi_train_type": value("redi_train_type"),
+                "redi_dataset": value("redi_dataset"),
+                "redi_mongo_uri": value("redi_mongo_uri"),
+                "min_create_seconds": value("redi_min_create_seconds"),
+                "change_threshold": value("redi_change_threshold"),
+                "turn_options": {
+                    "turn_silence_seconds": value("redi_turn_silence_seconds"),
+                    "min_embed_seconds": value("redi_min_embed_seconds"),
+                    "embed_interval_seconds": value("redi_embed_interval_seconds"),
+                    "max_embed_seconds": value("redi_max_embed_seconds"),
+                    "probe_seconds": value("redi_probe_seconds"),
+                },
+                "identity_options": {
+                    "similarity_threshold": value("redi_identity_similarity_threshold"),
+                    "young_identity_threshold": value("redi_identity_young_threshold"),
+                    "match_margin": value("redi_identity_match_margin"),
+                    "stickiness_margin": value("redi_identity_stickiness_margin"),
+                    "merge_threshold": value("redi_identity_merge_threshold"),
+                    "short_window_seconds": value("redi_identity_short_window_seconds"),
+                    "short_window_threshold": value("redi_identity_short_window_threshold"),
+                },
+            }
+
+        self.engine = engine_class(
             chunk_duration=self.get_parameter("chunk_duration").get_parameter_value().double_value,
             overlap_duration=self.get_parameter("overlap_duration")
             .get_parameter_value()
@@ -77,11 +170,25 @@ class DiarizationNode(Node):
             similarity_threshold=self.get_parameter("similarity_threshold")
             .get_parameter_value()
             .double_value,
-            use_database=self.get_parameter("use_database").get_parameter_value().bool_value,
+            step_duration=self.get_parameter("step_duration").get_parameter_value().double_value,
+            tau_active=self.get_parameter("tau_active").get_parameter_value().double_value,
+            delta_new=self.get_parameter("delta_new").get_parameter_value().double_value,
+            max_speakers=self.get_parameter("max_speakers").get_parameter_value().integer_value,
+            # REDI has its own switch so enabling its persistence never changes the
+            # legacy diart backend, which reads use_database.
+            use_database=self.get_parameter(
+                "redi_use_database" if backend == "redimnet2" else "use_database"
+            )
+            .get_parameter_value()
+            .bool_value,
             ros4hri_enabled=self.ros4hri_enabled,
             on_eut_speaker_changed=self._on_eut_speaker_changed,
             on_voice_update=self._on_voice_update,
             logger=self.get_logger(),
+            **backend_options,
+        )
+        self.get_logger().info(
+            f"Selected diarization backend: {backend} (engine={engine_class.__name__})"
         )
 
         # ------------------------------------------------------------------
@@ -263,6 +370,7 @@ class DiarizationNode(Node):
         msg = SpeechActivityDetection()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.speaker_id = eut_speaker_id.replace("EUT_", "")
+        msg.speaker_id_confidence = float(self.engine.speaker_confidence)
         msg.active = active
         self.speech_activity_pub.publish(msg)
 
