@@ -38,6 +38,8 @@ services:
     environment:
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-12}
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}
+      - OPENBLAS_NUM_THREADS=${OPENBLAS_NUM_THREADS:-1}  # numpy BLAS threads busy-wait on small matrices (~200% CPU per node)
+      - OPENCV_FOR_THREADS_NUM=${OPENCV_FOR_THREADS_NUM:-2}  # ~10 OpenCV processes x 14 threads each oversubscribe the CPU
       - FASTDDS_BUILTIN_TRANSPORTS=${FASTDDS_BUILTIN_TRANSPORTS:-}
       - PACKAGE_NAME=audio_stream_manager
       - BUILD_LOGS_TO_KEEP=${BUILD_LOGS_TO_KEEP:-2}
@@ -82,6 +84,8 @@ services:
     environment:
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-12}
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}
+      - OPENBLAS_NUM_THREADS=${OPENBLAS_NUM_THREADS:-1}  # numpy BLAS threads busy-wait on small matrices (~200% CPU per node)
+      - OPENCV_FOR_THREADS_NUM=${OPENCV_FOR_THREADS_NUM:-2}  # ~10 OpenCV processes x 14 threads each oversubscribe the CPU
       - FASTDDS_BUILTIN_TRANSPORTS=${FASTDDS_BUILTIN_TRANSPORTS:-}
       - PACKAGE_NAME=speech_recognition
       - BUILD_LOGS_TO_KEEP=${BUILD_LOGS_TO_KEEP:-2}

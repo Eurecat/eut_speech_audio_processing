@@ -18,6 +18,7 @@ services:
       - ./logs:/workspace/log
       - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
       - ../src/speech_recognition:/workspace/src/speech_recognition
+      - ./deps/hri_msgs:/workspace/src/hri_msgs  # branch dev/refactor_person_identity, rebuilt at container start
       # Shared model weights (Whisper, Parakeet, VAD, ReDimNet2, pyannote), never baked in the image
       - ../src/speech_recognition/speech_recognition/weights:/workspace/weights:rw
       - /dev:/dev
@@ -29,6 +30,8 @@ services:
       - CYCLONEDDS_URI=file:///etc/cyclonedds.xml
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-2}  
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
+      - OPENBLAS_NUM_THREADS=${OPENBLAS_NUM_THREADS:-1}  # numpy BLAS threads busy-wait on small matrices (~200% CPU per node)
+      - OPENCV_FOR_THREADS_NUM=${OPENCV_FOR_THREADS_NUM:-2}  # ~10 OpenCV processes x 14 threads each oversubscribe the CPU
       - FASTDDS_BUILTIN_TRANSPORTS=${FASTDDS_BUILTIN_TRANSPORTS:-UDPv4}
       - PACKAGE_NAME=audio_stream_manager
       - BUILD_LOGS_TO_KEEP=${BUILD_LOGS_TO_KEEP:-2}
@@ -77,6 +80,7 @@ services:
       - ./logs:/workspace/log
       - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
       - ../src/speech_recognition:/workspace/src/speech_recognition
+      - ./deps/hri_msgs:/workspace/src/hri_msgs  # branch dev/refactor_person_identity, rebuilt at container start
       # Shared model weights (Whisper, Parakeet, VAD, ReDimNet2, pyannote), never baked in the image
       - ../src/speech_recognition/speech_recognition/weights:/workspace/weights:rw
       - /dev:/dev
@@ -88,6 +92,8 @@ services:
       - CYCLONEDDS_URI=file:///etc/cyclonedds.xml
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-2}  
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
+      - OPENBLAS_NUM_THREADS=${OPENBLAS_NUM_THREADS:-1}  # numpy BLAS threads busy-wait on small matrices (~200% CPU per node)
+      - OPENCV_FOR_THREADS_NUM=${OPENCV_FOR_THREADS_NUM:-2}  # ~10 OpenCV processes x 14 threads each oversubscribe the CPU
       - FASTDDS_BUILTIN_TRANSPORTS=${FASTDDS_BUILTIN_TRANSPORTS:-UDPv4}
       - PACKAGE_NAME=speech_recognition
       - BUILD_LOGS_TO_KEEP=${BUILD_LOGS_TO_KEEP:-2}
