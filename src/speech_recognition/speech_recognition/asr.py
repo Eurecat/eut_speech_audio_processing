@@ -210,7 +210,9 @@ class ASRNode(Node):
         self.engine.update_vad(msg.vad_probability)
 
     def _speech_activity_callback(self, msg: SpeechActivityDetection) -> None:
-        self.engine.update_speaker(msg.speaker_id, bool(msg.active))
+        self.engine.update_speaker(
+            msg.speaker_id, bool(msg.active), float(msg.speaker_id_confidence)
+        )
 
         # Create ROS4HRI speech publisher for this speaker if needed
         if self.ros4hri_enabled and msg.speaker_id and msg.speaker_id != "unknown":
@@ -230,6 +232,7 @@ class ASRNode(Node):
         processing_ms: int,
         audio_duration_ms: int,
         realtime_factor: float,
+        speaker_confidence: float = -1.0,
     ) -> None:
         """Called by the engine when a transcript is ready. Stamps and publishes."""
         msg = SpeechResult()
@@ -239,12 +242,17 @@ class ASRNode(Node):
         msg.language_code = language_code
         # Keep confidence channel as optional edge metric carrier for Android bridge.
         msg.transcript_confidence = float(processing_ms)
-        msg.speaker_id_confidence = 0.0
+        # How much this attribution is worth: the identity match score weighted by
+        # how much of the utterance that speaker actually held. -1.0 means the
+        # backend reported no score, which downstream must read as "unavailable",
+        # never as "low" — EutPersonManager weighs a voice link by this value.
+        msg.speaker_id_confidence = float(speaker_confidence)
         msg.locale = f"audio_ms={audio_duration_ms};rtf={realtime_factor:.4f}"
         self.asr_pub.publish(msg)
 
         self.get_logger().info(
-            f"Published transcript: '{transcript}' (lang: {language_code}, speaker: {speaker_id}, "
+            f"Published transcript: '{transcript}' (lang: {language_code}, speaker: {speaker_id}"
+            f"@{speaker_confidence:.2f}, "
             f"proc={processing_ms}ms, audio={audio_duration_ms}ms, x{realtime_factor:.2f})"
         )
 

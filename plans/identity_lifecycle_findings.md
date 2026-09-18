@@ -94,15 +94,59 @@ The code comment in `_assign_batch` states this outright: *"A near-tie means we 
 the speakers apart; treating that as a match is how two people end up sharing an identity."*
 Any future change must preserve that asymmetry.
 
-## 6. Message API: no change needed
+## 5 bis. Is the speaker already decided from the complete utterance?
+
+Half of it is, and the half that is missing is the one that matters.
+
+**What already happens.** `asr_engine._resolve_speaker_for_interval(start, end)` takes the
+whole ASR utterance interval and picks the speaker with the largest overlap in
+`speaker_timeline`, falling back to the last speaker seen before the interval and then to
+the nearest one. So the *vote* is already taken over the complete utterance, exactly as the
+`/speech_result` semantics require.
+
+**What does not happen.** The entries being voted over are labels produced from
+`redi_max_embed_seconds = 2.0` windows and 1.0 s change probes. Aggregating them inherits
+their errors: if the chunks were ambiguous, the majority vote over ambiguous chunks is still
+ambiguous. **Nothing ever embeds the complete utterance audio in one go and re-matches it**
+against the identity database, and a 3-second utterance embedding is a far better ReDimNet2
+input than any 1-second probe.
+
+**Latency cost: none.** This is worth stating because it was the objection. The idea does not
+delay anything:
+
+- `/speech_activity_detection` keeps streaming per chunk exactly as today, in real time;
+- the extra embedding happens at end-of-utterance, a point the pipeline already reaches and
+  already does work at (that is when ASR runs);
+- only `/speech_result`'s `speaker_id` changes, and it is published after ASR anyway.
+
+**The real cost is architectural**, which is why it is not implemented here: ASR and
+diarization are separate ROS 2 nodes. The ASR node holds the utterance audio but not the
+ReDimNet2 model or the identity manager; the diarization node holds both but does not know
+where ASR decided the utterance boundaries are. Closing that needs either a
+`ResolveSpeakerForInterval` service on the diarization node (cleanest, keeps one identity
+owner) or moving utterance-level embedding into the diarization node driven by an
+ASR-published interval. Either is a real design change and should be measured, not assumed.
+
+## 6. Message API: no change needed — and `speaker_id_confidence` is now populated
 
 `SpeechResult` and `SpeechActivityDetection` already carry `speaker_id_confidence`, so an
 "unresolved vs stable" distinction needs no new field. Two observations:
 
-- `asr.py:242` hardcodes `msg.speaker_id_confidence = 0.0`. Populating it with the identity
-  manager's match score would let `EutPersonManager.link_voice` weigh the link — it already
-  accepts a `confidence` argument. Not done here: the score is not currently threaded
-  through `asr_engine._resolve_speaker_for_interval`, so it is more than a minimal change.
+- `asr.py` used to hardcode `msg.speaker_id_confidence = 0.0`, which downstream cannot tell
+  apart from "identified with zero confidence". **Now implemented.** The diarization node
+  already publishes its match score on `SpeechActivityDetection`; the ASR node was dropping
+  it. It is now carried into `speaker_timeline` and combined at publish time as
+
+  ```text
+  speaker_id_confidence = coverage_of_utterance x mean_identity_match_score
+  ```
+
+  Both factors have to hold for the label to be worth anything: a speaker identified with
+  certainty who held a third of the utterance is a weak label, and so is one who held all of
+  it but was barely recognised. `-1.0` is emitted when the backend reported no score, and
+  must be read as *unavailable*, never as *low*. `EutPersonManager.link_voice` already takes
+  a `confidence` argument and can now be given a real one. Unit tests:
+  `test/test_speaker_confidence.py`.
 - `asr.py:240` and `:243` overload `transcript_confidence` and `locale` as metric carriers
   for the Android bridge. That is already tracked as a P0 contract fix on the Android side
   and should be resolved there, not by adding fields here.
@@ -117,17 +161,16 @@ reducing provisional publications in EutSpeech, not for changing EutPersonManage
 
 ## 7. Recommended direction, in order of cost
 
-1. **Delay publishing a probe's id** until the following full window confirms it. Costs one
-   embed interval (~0.5 s) of speaker-activity latency for a newcomer; removes most
-   provisional ids from ROS. The identity would still be created internally.
-2. **Decide `SpeechResult`'s speaker from the whole utterance.** When ASR closes an
-   utterance, embed the accumulated clean speech of that interval in one go and match that,
-   instead of inheriting the label from whichever chunk was most active. A 3-second
-   utterance embedding is far more reliable than a 1-second probe, and `SpeechResult` is
-   what `EutPersonManager` consumes. This fits the pipeline naturally because the audio is
-   already buffered, and it adds no latency beyond the existing end-of-utterance point.
-3. Expose the match score on `speaker_id_confidence` (§6) so downstream consumers can weigh
-   a link rather than trusting every id equally.
+1. ~~**Delay publishing a probe's id**~~ — **rejected**: it costs about half a second of
+   speaker-activity latency for a newcomer, and keeping the activity signal real time is a
+   product requirement. The provisional ids stay visible on
+   `/speech_activity_detection`; the fix belongs on `/speech_result` instead, which is what
+   `EutPersonManager` consumes.
+2. **Decide `SpeechResult`'s speaker from the whole utterance** — the recommended next
+   step, and the one with no latency cost (§5 bis). It needs a service boundary between the
+   ASR and diarization nodes, so it is a design change rather than a patch.
+3. ~~Expose the match score on `speaker_id_confidence`~~ — **done**, see §6.
 
-None of these were implemented in this sprint: real-world behaviour of the deployed system
-is reported as good, and the measured evidence did not justify changing it blind.
+Item 3 is implemented. Item 1 is rejected on latency grounds. Item 2 is the recommended
+next step and needs a design decision about the node boundary, so it is deliberately left
+unimplemented rather than rushed.

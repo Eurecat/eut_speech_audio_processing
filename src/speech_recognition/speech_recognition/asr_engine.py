@@ -91,7 +91,7 @@ class ASREngine:
         speaker_interval_tolerance: float = 3.0,
         min_speaker_chunk_duration: float = 0.3,
         weights_dir: str,
-        on_transcript_ready: Callable[[str, str, str, int, int, float], None],
+        on_transcript_ready: Callable[[str, str, str, int, int, float, float], None],
         logger,
     ):
         self._logger = logger
@@ -302,8 +302,14 @@ class ASREngine:
                 )
                 self._force_chunk_split()
 
-    def update_speaker(self, speaker_id: Optional[str], active: bool = True) -> None:
+    def update_speaker(
+        self, speaker_id: Optional[str], active: bool = True, confidence: float = -1.0
+    ) -> None:
         """Called on every SpeechActivityDetection message.
+
+        ``confidence`` is the identity manager's match score for that speaker,
+        carried through so the published ``SpeechResult`` can say how much the
+        attribution is worth instead of always claiming 0.0.
 
         Keeps a hold timeline (a speaker stays current until a different id is
         reported) and, importantly, when the speaker changes *while speech is
@@ -323,12 +329,19 @@ class ASREngine:
                 last = self.speaker_timeline[-1]
                 if last["speaker"] == speaker_id:
                     last["end"] = now
+                    last["confidence"] = float(confidence)
                     return
                 previous_speaker = last["speaker"]
                 last["end"] = now
 
             self.speaker_timeline.append(
-                {"start": now, "end": now, "speaker": speaker_id, "active": bool(active)}
+                {
+                    "start": now,
+                    "end": now,
+                    "speaker": speaker_id,
+                    "active": bool(active),
+                    "confidence": float(confidence),
+                }
             )
 
             cutoff = now - self._SPEAKER_TIMELINE_DURATION
@@ -402,6 +415,50 @@ class ASREngine:
         if self._interval_distance(nearest, start_time, end_time) <= self.speaker_interval_tolerance:
             return nearest["speaker"]
         return fallback
+
+    def speaker_confidence_for_interval(
+        self, start_time: Optional[float], end_time: Optional[float], speaker: str
+    ) -> float:
+        """How much the speaker label for a published utterance is worth, in [0, 1].
+
+        Two things have to hold for the attribution to be trustworthy, and both
+        are folded in:
+
+        * the identity manager was confident about *who* that voice is, and
+        * that speaker actually held most of the utterance.
+
+        A speaker identified with certainty but covering a third of the interval
+        is a weak label, and so is a speaker who covered all of it but was barely
+        recognised. The product is 1.0 only when both are, and it degrades
+        gracefully. ``-1.0`` means no usable evidence, which is the project's
+        convention for "not available" and is never to be read as "low".
+        """
+        if start_time is None or end_time is None or end_time <= start_time:
+            return -1.0
+        with self._speaker_lock:
+            segments = [s for s in self.speaker_timeline if s["speaker"] == speaker]
+        if not segments:
+            return -1.0
+
+        duration = end_time - start_time
+        covered = 0.0
+        weighted = 0.0
+        for segment in segments:
+            overlap = min(end_time, segment["end"]) - max(start_time, segment["start"])
+            if overlap <= 0:
+                continue
+            match = float(segment.get("confidence", -1.0))
+            if match < 0.0:
+                # The diarization backend did not report a score for this stretch;
+                # without it we cannot claim a calibrated confidence at all.
+                return -1.0
+            covered += overlap
+            weighted += overlap * match
+        if covered <= 0.0:
+            return -1.0
+        mean_match = weighted / covered
+        coverage = min(1.0, covered / duration)
+        return round(max(0.0, min(1.0, coverage * mean_match)), 4)
 
     @staticmethod
     def _max_overlap_speaker(segments, start_time: float, end_time: float):
@@ -841,6 +898,11 @@ class ASREngine:
                         f"proc={processing_ms}ms, model={model_processing_ms}ms, "
                         f"audio={group_audio_ms}ms, x{realtime_factor:.2f})"
                     )
+                    speaker_confidence = self.speaker_confidence_for_interval(
+                        None if start_time is None else start_time + group["start_offset"],
+                        None if start_time is None else start_time + group["end_offset"],
+                        group["speaker"],
+                    )
                     self._on_transcript_ready(
                         group_text,
                         group["speaker"],
@@ -848,6 +910,7 @@ class ASREngine:
                         processing_ms,
                         group_audio_ms,
                         realtime_factor,
+                        speaker_confidence,
                     )
             else:
                 self._logger.info("Empty transcript — not publishing.")
