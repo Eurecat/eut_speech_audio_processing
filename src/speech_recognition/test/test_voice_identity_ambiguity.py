@@ -18,7 +18,11 @@ sys.path.insert(
     0, os.path.join(os.path.dirname(__file__), "..", "speech_recognition")
 )
 
-from voice_identity_manager import VoiceIdentityManager, normalize_embedding  # noqa: E402
+from voice_identity_manager import (  # noqa: E402
+    NO_MATCH_SCORE,
+    VoiceIdentityManager,
+    normalize_embedding,
+)
 
 
 def manager(**kwargs):
@@ -158,6 +162,41 @@ def test_a_clear_match_is_unaffected_by_the_guard():
 
     assert set(vm.identities) == before
     assert result["probe"][0] == first
+
+
+def test_a_created_identity_reports_no_match_score():
+    """Creating a speaker must not be reported as a confident attribution.
+
+    The track matched nothing — that is why a speaker was created for it — so
+    there is no score. Reporting 1.0, as this used to, made a freshly seeded
+    identity look like the most certain attribution in the system when it is the
+    least certain, and it is why `speaker_id_confidence` did not separate
+    provisional ids from established ones.
+    """
+    vm = manager()
+    vector = np.zeros(32, dtype=np.float32)
+    vector[5] = 1.0
+
+    result = vm.process_new_embedding_batch({"t": vector}, speech_seconds=2.0, quality=1.0)
+
+    unique_id, confidence = result["t"]
+    assert unique_id in vm.identities
+    assert confidence == NO_MATCH_SCORE
+    assert confidence < 0.0, "a negative confidence is the 'unavailable' convention"
+
+
+def test_a_real_match_still_reports_a_usable_score():
+    vm, first, _second = two_similar_identities()
+    exact = vm.identities[first].mean_embedding.copy()
+
+    _unique_id, confidence = vm.process_new_embedding_batch(
+        {"t": exact}, speech_seconds=2.0, learn=False
+    )["t"]
+
+    # Cosine similarity of a vector with itself lands a hair above 1.0 in float32;
+    # the published value is clamped downstream, so the bar here is just "usable".
+    assert 0.0 <= confidence <= 1.0 + 1e-5
+    assert confidence > 0.9
 
 
 def test_transient_identities_never_reach_the_store():

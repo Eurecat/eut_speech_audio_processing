@@ -44,6 +44,17 @@ class VoiceIdentityCluster:
     persisted: bool = False
 
 
+#: Reported for a track that was assigned to a brand-new identity.
+#:
+#: There is no match score to report: the track matched nothing, which is why a
+#: speaker was created for it. Reporting 1.0 here — as this did — says the exact
+#: opposite of the truth, because a speaker seeded from one short, unmatched
+#: window is the *least* certain attribution the system produces, not the most.
+#: The project convention is that a negative confidence means "unavailable" and
+#: must never be read as "low".
+NO_MATCH_SCORE = -1.0
+
+
 def normalize_embedding(embedding: np.ndarray) -> np.ndarray:
     vector = np.asarray(embedding, dtype=np.float32).reshape(-1)
     norm = float(np.linalg.norm(vector))
@@ -250,7 +261,9 @@ class VoiceIdentityManager:
     ) -> Dict[str, Tuple[str, float]]:
         """Assign every track in this batch to a speaker.
 
-        Returns ``{track_id: (EUT_speakerN, confidence)}``.
+        Returns ``{track_id: (EUT_speakerN, confidence)}``. A track that caused a
+        new speaker to be created reports :data:`NO_MATCH_SCORE`, because it
+        matched nothing and so has no score to report.
 
         ``speech_seconds`` and ``quality`` may be a single value applied to every
         track, or a per-track mapping. ``overlapped`` marks the whole batch as
@@ -316,7 +329,7 @@ class VoiceIdentityManager:
                     self._last_rejection.pop(track_id, None)
                     continue
                 unique_id = self._create_identity(track_id, vector, track_seconds, now)
-                results[track_id] = (unique_id, 1.0)
+                results[track_id] = (unique_id, NO_MATCH_SCORE)
                 continue
 
             identity = self.identities[unique_id]

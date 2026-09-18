@@ -93,10 +93,24 @@ def test_other_speakers_do_not_contribute(confidence):
     assert confidence(timeline, 0.0, 10.0, "EUT_speaker1") == pytest.approx(0.4)
 
 
-def test_missing_score_reports_unavailable_not_zero(confidence):
-    """A backend that reports no score must not be turned into low confidence."""
+def test_entirely_unscored_reports_unavailable_not_zero(confidence):
+    """A backend that reports no score must not be turned into low confidence.
+
+    This is the freshly-created-speaker case: the track matched nothing, so there
+    is no score, and the attribution has no calibrated confidence at all.
+    """
     timeline = [segment(0.0, 10.0, "EUT_speaker1", -1.0)]
     assert confidence(timeline, 0.0, 10.0, "EUT_speaker1") == -1.0
+
+
+def test_a_brief_unscored_stretch_only_reduces_coverage(confidence):
+    """One unscored tail must not discard an otherwise well-matched utterance."""
+    timeline = [
+        segment(0.0, 8.0, "EUT_speaker1", 1.0),
+        segment(8.0, 10.0, "EUT_speaker1", -1.0),
+    ]
+    # 8s of 10s scored at 1.0 -> coverage 0.8, mean match 1.0
+    assert confidence(timeline, 0.0, 10.0, "EUT_speaker1") == pytest.approx(0.8)
 
 
 def test_unknown_speaker_or_empty_timeline_is_unavailable(confidence):

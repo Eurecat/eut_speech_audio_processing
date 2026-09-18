@@ -449,9 +449,13 @@ class ASREngine:
                 continue
             match = float(segment.get("confidence", -1.0))
             if match < 0.0:
-                # The diarization backend did not report a score for this stretch;
-                # without it we cannot claim a calibrated confidence at all.
-                return -1.0
+                # No score for this stretch — typically a speaker that had just
+                # been created, which matched nothing by definition. Such a
+                # stretch counts as uncovered rather than aborting the whole
+                # utterance: a long, confidently matched utterance with a brief
+                # unscored tail is still a good label, while one made entirely of
+                # unscored stretches ends with no coverage and reports -1.0.
+                continue
             covered += overlap
             weighted += overlap * match
         if covered <= 0.0:

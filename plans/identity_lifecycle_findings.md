@@ -143,10 +143,44 @@ ASR-published interval. Either is a real design change and should be measured, n
 
   Both factors have to hold for the label to be worth anything: a speaker identified with
   certainty who held a third of the utterance is a weak label, and so is one who held all of
-  it but was barely recognised. `-1.0` is emitted when the backend reported no score, and
-  must be read as *unavailable*, never as *low*. `EutPersonManager.link_voice` already takes
-  a `confidence` argument and can now be given a real one. Unit tests:
+  it but was barely recognised. `-1.0` is emitted when there is no score to report, and must
+  be read as *unavailable*, never as *low*. `EutPersonManager.link_voice` already takes a
+  `confidence` argument and can now be given a real one. Unit tests:
   `test/test_speaker_confidence.py`.
+
+- **A related bug found while measuring it.** `process_new_embedding_batch` reported
+  confidence `1.0` for a track that had just *created* a speaker. That is backwards: the
+  track matched nothing — which is why a speaker was created for it — so a freshly seeded
+  identity was being published as the most certain attribution in the system when it is the
+  least certain. It now reports `NO_MATCH_SCORE` (`-1.0`). This is a reporting change only;
+  nothing in matching, learning or persistence reads that value.
+
+### How much does the confidence actually help? (measured)
+
+It was tempting to conclude that `EutPersonManager` could simply refuse to link a voice
+below a confidence threshold, and thereby ignore the provisional ids. **That does not
+work**, and the numbers say so. On `spa_0018_2spk_clean`, splitting the published segments
+by whether their id ended up dominant:
+
+| | scored segments | mean | median | reported unavailable (`-1`) |
+|---|---|---|---|---|
+| dominant ids | 28 | 0.577 | 0.673 | 1 of 29 (3 %) |
+| transient ids | 11 | 0.563 | 0.557 | **5 of 16 (31 %)** |
+
+The *scored* values barely separate: a transient id can be matched confidently once it
+exists. What does carry signal is the **`-1.0` flag**, which now lands on about a third of
+transient attributions and almost never on a good one. So:
+
+- gating on `speaker_id_confidence >= threshold` is **not** a transient-id filter;
+- refusing to *create a new voice profile* on a `-1.0` attribution is cheap, safe and
+  catches a useful share of them, because `-1.0` now means literally "this speaker had just
+  been invented".
+
+Attribution accuracy over the same file was 0.698 after the change against 0.709 before,
+which is inside the run-to-run spread of this real-time pipeline (a third run of the
+unchanged code gave 0.664). Published ids stayed 11 and dominant ids stayed 2, so there is
+no regression — but with one file and a stochastic pipeline, none of these small deltas
+should be read as an improvement either.
 - `asr.py:240` and `:243` overload `transcript_confidence` and `locale` as metric carriers
   for the Android bridge. That is already tracked as a P0 contract fix on the Android side
   and should be resolved there, not by adding fields here.
