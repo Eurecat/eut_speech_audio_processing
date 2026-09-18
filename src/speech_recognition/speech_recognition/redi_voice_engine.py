@@ -191,6 +191,7 @@ class RediVoiceEngine:
         redi_mongo_uri: str = "",
         min_create_seconds: float = 1.5,
         change_threshold: float = 0.35,
+        create_on_ambiguous_probe: bool = True,
         turn_options: Optional[dict] = None,
         identity_options: Optional[dict] = None,
         **_diart_options,  # the node passes DIART-only settings to every engine
@@ -212,6 +213,7 @@ class RediVoiceEngine:
         self._turn_options = turn_options or {}
         self._min_create_seconds = min_create_seconds
         self._change_threshold = change_threshold
+        self._create_on_ambiguous_probe = create_on_ambiguous_probe
         self._identity_options = identity_options or {}
 
         self._vad_probability = 0.0
@@ -439,6 +441,12 @@ class RediVoiceEngine:
             speech_seconds=probe_seconds,
             quality=observation.mean_vad,
             learn=False,
+            # Whether a near-tie against two known speakers may still create a
+            # third. Suppressing it here looks obviously right and was measured:
+            # it does not help, because the same ambiguity reappears on the full
+            # window a moment later and creates the identity anyway. Default
+            # keeps the behaviour that measured better. See the config comment.
+            allow_create_when_ambiguous=self._create_on_ambiguous_probe,
         )
         self._logger.info(
             f"REDI change in {observation.turn_id}: last {probe_seconds:.2f}s scored "

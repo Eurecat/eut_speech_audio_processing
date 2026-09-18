@@ -80,6 +80,23 @@ diarization_node:
                                                         # waiting until they dominate the 2s window (~2-4s).
                                                         # 0 disables. 0.8 switched even earlier but split one
                                                         # speaker into extra ids.
+    redi_create_on_ambiguous_probe: True               # Whether a 1.0s speaker-change probe may CREATE a speaker when
+                                                        # it already scores above the match bar against a known one and
+                                                        # was rejected only for a small top1-top2 margin.
+                                                        # True is the measured-better default. Setting it False is the
+                                                        # obvious-looking fix and it was tried: on the same CALLHOME
+                                                        # Spanish 2-speaker file it went from 11 published ids to 12,
+                                                        # and attribution accuracy fell 70.9% -> 66.4%. The guard fires
+                                                        # (6 times), but the same ambiguity reappears on the next full
+                                                        # window, which creates the identity through the normal path
+                                                        # instead. The ambiguity is a property of short ReDimNet2
+                                                        # windows in fast turn-taking, not of the probe path.
+                                                        # Kept as a knob so the hypothesis can be retested after any
+                                                        # change to embedding windows or thresholds. Note the design
+                                                        # trade-off it probes: creating on ambiguity fragments one
+                                                        # person into several ids, which _absorb_stray_identities
+                                                        # later repairs; matching on ambiguity would merge two people
+                                                        # into one id, which nothing can undo.
     redi_change_threshold: 0.35                        # Probe score against the current speaker below which the
                                                         # speaker changed. Measured on the test mp3: a 1.0s probe
                                                         # scores 0.42-0.82 against its own speaker and at most 0.36

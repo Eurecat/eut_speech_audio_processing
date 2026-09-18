@@ -245,6 +245,7 @@ class VoiceIdentityManager:
         overlapped: bool = False,
         learn: bool = True,
         allow_create: bool = True,
+        allow_create_when_ambiguous: bool = True,
         learn_if_assigned_to: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Tuple[str, float]]:
         """Assign every track in this batch to a speaker.
@@ -258,6 +259,11 @@ class VoiceIdentityManager:
         provisional observations that will be followed by a better one.
         ``allow_create=False`` leaves an unmatched track out of the result instead of
         creating a speaker from it, for observations too short to seed a reliable one.
+        ``allow_create_when_ambiguous=False`` additionally refuses to create when the
+        track already sounds like a known speaker (it met the score bar) and was
+        rejected only because two candidates were too close to separate. A near-tie
+        between two known voices means the speech probably belongs to one of them,
+        so inventing a third speaker is the one answer that cannot be right.
         ``learn_if_assigned_to`` restricts learning for a track to the case where it
         was assigned to the given identity, so a window that crossed a speaker
         change is never learned into whoever it happened to land on.
@@ -294,7 +300,19 @@ class VoiceIdentityManager:
             track_quality = self._per_track(quality, track_id)
 
             if unique_id is None:
-                if not allow_create:
+                rejection = self._last_rejection.get(track_id)
+                # rejection is (nearest, best_score, margin, required). Reaching the
+                # required score but failing the margin is the ambiguous case; a
+                # score below it means the voice really is unlike anything known.
+                ambiguous = rejection is not None and rejection[1] >= rejection[3]
+                if not allow_create or (ambiguous and not allow_create_when_ambiguous):
+                    if ambiguous and not allow_create_when_ambiguous:
+                        nearest, score, margin, required = rejection
+                        self._logger.info(
+                            f"Track {track_id} left unresolved rather than creating a speaker: "
+                            f"nearest={nearest} score={score:.3f} required={required:.3f} "
+                            f"margin={margin:.3f} (too close to call)"
+                        )
                     self._last_rejection.pop(track_id, None)
                     continue
                 unique_id = self._create_identity(track_id, vector, track_seconds, now)

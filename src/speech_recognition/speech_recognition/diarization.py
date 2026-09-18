@@ -62,6 +62,7 @@ class DiarizationNode(Node):
         self.declare_parameter("redi_min_create_seconds", 1.5)
         self.declare_parameter("redi_probe_seconds", 1.0)
         self.declare_parameter("redi_change_threshold", 0.35)
+        self.declare_parameter("redi_create_on_ambiguous_probe", True)
         self.declare_parameter("redi_identity_short_window_seconds", 1.5)
         self.declare_parameter("redi_identity_short_window_threshold", 0.40)
         self.declare_parameter("redi_identity_similarity_threshold", 0.55)
@@ -137,6 +138,7 @@ class DiarizationNode(Node):
                 "redi_mongo_uri": value("redi_mongo_uri"),
                 "min_create_seconds": value("redi_min_create_seconds"),
                 "change_threshold": value("redi_change_threshold"),
+                "create_on_ambiguous_probe": value("redi_create_on_ambiguous_probe"),
                 "turn_options": {
                     "turn_silence_seconds": value("redi_turn_silence_seconds"),
                     "min_embed_seconds": value("redi_min_embed_seconds"),
