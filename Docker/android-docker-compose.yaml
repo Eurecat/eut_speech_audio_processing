@@ -1,8 +1,8 @@
-name: coghri_audio_dev
+name: coghri_audio_android_bridge
 
 services:
   audio_device_manager_service:
-    container_name: "audio_device_manager"
+    container_name: "audio_device_manager_android"
     network_mode: host
     ipc: host
     shm_size: 1gb
@@ -18,17 +18,15 @@ services:
       - ./logs:/workspace/log
       - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
       - ../src/speech_recognition:/workspace/src/speech_recognition
-      - ./deps/hri_msgs:/workspace/src/hri_msgs  # branch dev/refactor_person_identity, rebuilt at container start
       # Shared model weights (Whisper, Parakeet, VAD, ReDimNet2, pyannote), never baked in the image
       - ../src/speech_recognition/speech_recognition/weights:/workspace/weights:rw
       - /dev:/dev
-            # Cyclone DDS configuration for TiagoPro WiFi
-      - ./cyclone_xmls/${CYCLONE_CONFIG_FILE:-eth_tiago_cyclone.xml}:/etc/cyclonedds.xml:ro
+      - ./cyclone_xmls/${CYCLONE_CONFIG_FILE:-cyclonedds_ethernet.xml}:/etc/cyclonedds.xml:ro
     tty: true
     stdin_open: true
     environment:
       - CYCLONEDDS_URI=file:///etc/cyclonedds.xml
-      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-2}  
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-2}
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
       - OPENBLAS_NUM_THREADS=${OPENBLAS_NUM_THREADS:-1}  # numpy BLAS threads busy-wait on small matrices (~200% CPU per node)
       - OPENCV_FOR_THREADS_NUM=${OPENCV_FOR_THREADS_NUM:-2}  # ~10 OpenCV processes x 14 threads each oversubscribe the CPU
@@ -36,36 +34,35 @@ services:
       - PACKAGE_NAME=audio_stream_manager
       - BUILD_LOGS_TO_KEEP=${BUILD_LOGS_TO_KEEP:-2}
       - RUNTIME_LOGS_TO_KEEP=${RUNTIME_LOGS_TO_KEEP:-2}
-      - NVIDIA_VISIBLE_DEVICES=all 
+      - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
       - DISPLAY=$DISPLAY
       - QT_X11_NO_MITSHM=1
-      - XAUTHORITY=/tmp/xauth/.docker.xauth     
+      - XAUTHORITY=/tmp/xauth/.docker.xauth
       - HF_TOKEN=${HF_TOKEN}
       - WEIGHTS_DIR=/workspace/weights
       - PYANNOTE_CACHE=/workspace/weights/pyannote
       - HF_HOME=/workspace/weights/huggingface
       - TORCH_HOME=/workspace/weights/torch
       - AI_VENV=/opt/ros_python_env
-      - DEVICE_NAME=${DEVICE_NAME:-jabra}
-      - MONGODB_URI=mongodb://eurecat:cerdanyola@localhost:${SPEAKERS_DB_MONGO_PORT:-27020}/?authSource=admin
 
     devices:
       - /dev/dri:/dev/dri
       - /dev/snd:/dev/snd
       - /dev/bus/usb:/dev/bus/usb
     device_cgroup_rules:
-      - 'c 180:* rwm'  # 180 is usb
-      - 'c 189:* rwm' # 189 is usb_device
+      - 'c 180:* rwm'
+      - 'c 189:* rwm'
 
-    # Modify audio input device name in this repo's Docker/.env (DEVICE_NAME=...)
     command: >
       bash -c "source /workspace/install/setup.bash &&
-      exec ros2 launch audio_stream_manager audio_stream_manager.launch.py"
-
+      exec ros2 launch audio_stream_manager audio_stream_android.launch.py
+      bind_host:=0.0.0.0
+      bind_port:=${ANDROID_AUDIO_PORT:-17000}
+      default_samplerate:=${ANDROID_DEFAULT_SAMPLERATE:-16000.0}"
 
   speech_recognition_service:
-    container_name: "speech_recognition"
+    container_name: "speech_recognition_android"
     network_mode: host
     ipc: host
     shm_size: 1gb
@@ -81,17 +78,15 @@ services:
       - ./logs:/workspace/log
       - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
       - ../src/speech_recognition:/workspace/src/speech_recognition
-      - ./deps/hri_msgs:/workspace/src/hri_msgs  # branch dev/refactor_person_identity, rebuilt at container start
       # Shared model weights (Whisper, Parakeet, VAD, ReDimNet2, pyannote), never baked in the image
       - ../src/speech_recognition/speech_recognition/weights:/workspace/weights:rw
       - /dev:/dev
-            # Cyclone DDS configuration for TiagoPro WiFi
-      - ./cyclone_xmls/${CYCLONE_CONFIG_FILE:-eth_tiago_cyclone.xml}:/etc/cyclonedds.xml:ro
+      - ./cyclone_xmls/${CYCLONE_CONFIG_FILE:-cyclonedds_ethernet.xml}:/etc/cyclonedds.xml:ro
     tty: true
     stdin_open: true
     environment:
       - CYCLONEDDS_URI=file:///etc/cyclonedds.xml
-      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-2}  
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-2}
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
       - OPENBLAS_NUM_THREADS=${OPENBLAS_NUM_THREADS:-1}  # numpy BLAS threads busy-wait on small matrices (~200% CPU per node)
       - OPENCV_FOR_THREADS_NUM=${OPENCV_FOR_THREADS_NUM:-2}  # ~10 OpenCV processes x 14 threads each oversubscribe the CPU
@@ -99,51 +94,44 @@ services:
       - PACKAGE_NAME=speech_recognition
       - BUILD_LOGS_TO_KEEP=${BUILD_LOGS_TO_KEEP:-2}
       - RUNTIME_LOGS_TO_KEEP=${RUNTIME_LOGS_TO_KEEP:-2}
-      - NVIDIA_VISIBLE_DEVICES=all 
+      - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
       - DISPLAY=$DISPLAY
       - QT_X11_NO_MITSHM=1
-      - XAUTHORITY=/tmp/xauth/.docker.xauth     
+      - XAUTHORITY=/tmp/xauth/.docker.xauth
       - HF_TOKEN=${HF_TOKEN}
       - WEIGHTS_DIR=/workspace/weights
       - PYANNOTE_CACHE=/workspace/weights/pyannote
       - HF_HOME=/workspace/weights/huggingface
       - TORCH_HOME=/workspace/weights/torch
       - AI_VENV=/opt/ros_python_env
-      - MONGODB_URI=mongodb://eurecat:cerdanyola@localhost:${SPEAKERS_DB_MONGO_PORT:-27020}/?authSource=admin
 
     devices:
       - /dev/dri:/dev/dri
       - /dev/snd:/dev/snd
       - /dev/bus/usb:/dev/bus/usb
     device_cgroup_rules:
-      - 'c 180:* rwm'  # 180 is usb
-      - 'c 189:* rwm' # 189 is usb_device
+      - 'c 180:* rwm'
+      - 'c 189:* rwm'
 
-    # Enable/disable components via launch file arguments:
-    # ros2 launch speech_recognition speech_recognition.launch.py enable_vad:=false enable_diarization:=false enable_asr:=false enable_wake_word:=false
     command: >
       bash -c "source /workspace/install/setup.bash &&
       exec ros2 launch speech_recognition speech_recognition.launch.py
+      enable_android_transcript_bridge:=true
+      android_transcript_bind_host:=0.0.0.0
+      android_transcript_bind_port:=${ANDROID_TRANSCRIPT_PORT:-17001}
       redi_use_database:=${REDI_USE_DATABASE:-true}
-      asr_backend:=${ASR_BACKEND:-whisper}"
+      asr_backend:=${ASR_BACKEND:-}"
 
     stop_signal: SIGINT
     stop_grace_period: 30s
 
   mongodb_service:
     image: mongo:7
-    container_name: "mongodb"
+    container_name: "mongodb_android"
     restart: unless-stopped
     ports:
-      # Host port is configurable (default 27020) because 27017 collides with
-      # a native mongod service on hosts that run one outside Docker (e.g. this
-      # machine's system mongod at 127.0.0.1:27017). Internal container-to-container
-      # traffic (mongo_express -> mongodb_service) always uses the fixed
-      # in-network port 27017 below, unaffected by this mapping. The two
-      # host-network services (audio_device_manager, speech_recognition) are
-      # given MONGODB_URI above so they reach Mongo on the same host port.
-      - "${SPEAKERS_DB_MONGO_PORT:-27020}:27017"
+      - "27017:27017"
     volumes:
       - mongodb_data:/data/db
     environment:
@@ -151,12 +139,10 @@ services:
       - MONGO_INITDB_ROOT_PASSWORD=cerdanyola
     stop_signal: SIGTERM
     stop_grace_period: 60s
-    #if any change in env vars, need to delete volume coghri_speakers_mongodb_data to reinit DB
-    #docker compose down -v
 
   mongo_express:
     image: mongo-express:latest
-    container_name: "mongo-express"
+    container_name: "mongo-express_android"
     restart: unless-stopped
     depends_on:
       - mongodb_service
@@ -169,9 +155,7 @@ services:
       - ME_CONFIG_MONGODB_SERVER=mongodb_service
       - ME_CONFIG_MONGODB_URL=mongodb://eurecat:cerdanyola@mongodb_service:27017/?authSource=admin
 
-
 volumes:
   mongodb_data:
-    name: coghri_speakers_mongodb_data
+    name: coghri_speakers_mongodb_data_android
     driver: local
-    

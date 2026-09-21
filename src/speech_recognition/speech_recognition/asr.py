@@ -1,4 +1,3 @@
-import os
 import time
 from typing import Dict
 
@@ -11,9 +10,13 @@ from hri_msgs.msg import (
     SpeechResult,
     Vad,
 )
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 
 from speech_recognition.asr_engine import ASREngine
+from speech_recognition.model_weights import weights_dir
+
+ASR_BACKENDS = ("whisper", "parakeet")
 
 
 class ASRNode(Node):
@@ -43,15 +46,52 @@ class ASRNode(Node):
         self.declare_parameter("max_chunk_duration", 30.0)
         self.declare_parameter("silence_detection_threshold", 0.00001)
         self.declare_parameter("pre_buffer_duration", 0.3)
+        self.declare_parameter("diarization_offset", 0.0)
+        self.declare_parameter("min_speaker_run_tokens", 2)
+        self.declare_parameter("min_speaker_run_duration", 0.4)
+        self.declare_parameter("snap_splits_to_sentences", True)
+        self.declare_parameter("speaker_interval_tolerance", 3.0)
+        self.declare_parameter("min_speaker_chunk_duration", 0.3)
+        self.declare_parameter("asr_backend", "whisper")
+        self.declare_parameter("parakeet_model_name", "nvidia/parakeet-tdt-0.6b-v3")
+        self.declare_parameter("parakeet_language_id_model", "langid_ambernet")
+        self.declare_parameter("parakeet_language_id_min_confidence", 0.9)
         self.declare_parameter("ros4hri_with_id", True)
         self.declare_parameter("cleanup_inactive_topics", False)
         self.declare_parameter("inactive_topic_timeout", 10.0)
 
         model_size = self.get_parameter("model_size").get_parameter_value().string_value
 
+        # Backend selection: both backends share the ASREngine pipeline and
+        # publish the same SpeechResult; only the model differs.
+        backend = self.get_parameter("asr_backend").get_parameter_value().string_value
+        backend = backend.strip().lower()
+        if backend not in ASR_BACKENDS:
+            raise ValueError(f"Unsupported asr_backend '{backend}'. Use one of {ASR_BACKENDS}.")
+
+        engine_class = ASREngine
+        backend_options = {}
+        if backend == "parakeet":
+            # Imported only when selected: the Whisper backend never loads NeMo.
+            from speech_recognition.parakeet_asr_engine import ParakeetASREngine
+
+            engine_class = ParakeetASREngine
+            backend_options["parakeet_model_name"] = (
+                self.get_parameter("parakeet_model_name").get_parameter_value().string_value
+            )
+            backend_options["language_id_model"] = (
+                self.get_parameter("parakeet_language_id_model").get_parameter_value().string_value
+            )
+            backend_options["language_id_min_confidence"] = (
+                self.get_parameter("parakeet_language_id_min_confidence")
+                .get_parameter_value()
+                .double_value
+            )
+        self.get_logger().info(f"Selected ASR backend: {backend}")
+
         # Validate model size early so the node fails fast with a clear message
         try:
-            ASREngine.validate_model_size(model_size)
+            engine_class.validate_model_size(model_size)
         except ValueError as e:
             self.get_logger().error(str(e))
             raise
@@ -66,12 +106,10 @@ class ASRNode(Node):
             self.get_parameter("inactive_topic_timeout").get_parameter_value().double_value
         )
 
-        weights_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "weights"))
-
         # ------------------------------------------------------------------
         # Engine
         # ------------------------------------------------------------------
-        self.engine = ASREngine(
+        self.engine = engine_class(
             model_size=model_size,
             compute_type=self.get_parameter("compute_type").get_parameter_value().string_value,
             language=self.get_parameter("language").get_parameter_value().string_value,
@@ -92,9 +130,28 @@ class ASRNode(Node):
             pre_buffer_duration=self.get_parameter("pre_buffer_duration")
             .get_parameter_value()
             .double_value,
-            weights_dir=weights_dir,
+            diarization_offset=self.get_parameter("diarization_offset")
+            .get_parameter_value()
+            .double_value,
+            min_speaker_run_tokens=self.get_parameter("min_speaker_run_tokens")
+            .get_parameter_value()
+            .integer_value,
+            min_speaker_run_duration=self.get_parameter("min_speaker_run_duration")
+            .get_parameter_value()
+            .double_value,
+            snap_splits_to_sentences=self.get_parameter("snap_splits_to_sentences")
+            .get_parameter_value()
+            .bool_value,
+            speaker_interval_tolerance=self.get_parameter("speaker_interval_tolerance")
+            .get_parameter_value()
+            .double_value,
+            min_speaker_chunk_duration=self.get_parameter("min_speaker_chunk_duration")
+            .get_parameter_value()
+            .double_value,
+            weights_dir=weights_dir(),
             on_transcript_ready=self._publish_transcript,
             logger=self.get_logger(),
+            **backend_options,
         )
 
         # ------------------------------------------------------------------
@@ -153,7 +210,9 @@ class ASRNode(Node):
         self.engine.update_vad(msg.vad_probability)
 
     def _speech_activity_callback(self, msg: SpeechActivityDetection) -> None:
-        self.engine.update_speaker(msg.speaker_id)
+        self.engine.update_speaker(
+            msg.speaker_id, bool(msg.active), float(msg.speaker_id_confidence)
+        )
 
         # Create ROS4HRI speech publisher for this speaker if needed
         if self.ros4hri_enabled and msg.speaker_id and msg.speaker_id != "unknown":
@@ -165,19 +224,37 @@ class ASRNode(Node):
     # Engine callback
     # ------------------------------------------------------------------
 
-    def _publish_transcript(self, transcript: str, speaker_id: str, language_code: str) -> None:
+    def _publish_transcript(
+        self,
+        transcript: str,
+        speaker_id: str,
+        language_code: str,
+        processing_ms: int,
+        silence_ms: int,
+        audio_duration_ms: int,
+        realtime_factor: float,
+        speaker_confidence: float = -1.0,
+    ) -> None:
         """Called by the engine when a transcript is ready. Stamps and publishes."""
         msg = SpeechResult()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.transcript = transcript
         msg.speaker_id = speaker_id
         msg.language_code = language_code
-        msg.transcript_confidence = 0.0
-        msg.speaker_id_confidence = 0.0
+        # Keep confidence channel as optional edge metric carrier for Android bridge.
+        msg.transcript_confidence = float(processing_ms)
+        # How much this attribution is worth: the identity match score weighted by
+        # how much of the utterance that speaker actually held. -1.0 means the
+        # backend reported no score, which downstream must read as "unavailable",
+        # never as "low" — EutPersonManager weighs a voice link by this value.
+        msg.speaker_id_confidence = float(speaker_confidence)
+        msg.locale = f"audio_ms={audio_duration_ms};rtf={realtime_factor:.4f}"
         self.asr_pub.publish(msg)
 
         self.get_logger().info(
-            f"Published transcript: '{transcript}' (lang: {language_code}, speaker: {speaker_id})"
+            f"Published transcript: '{transcript}' (lang: {language_code}, speaker: {speaker_id}"
+            f"@{speaker_confidence:.2f}, "
+            f"proc={processing_ms}ms, silence={silence_ms}ms, audio={audio_duration_ms}ms, x{realtime_factor:.2f})"
         )
 
         if self.ros4hri_enabled and speaker_id and speaker_id != "unknown":
@@ -232,11 +309,12 @@ def main(args=None):
     node = ASRNode()
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
         node.get_logger().info("Shutting down ASR node.")
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == "__main__":

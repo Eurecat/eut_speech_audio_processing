@@ -43,6 +43,10 @@ def _setup(context, *args, **kwargs):
     additional_params = {}
     if compute_type and compute_type != "compute_type":  # check if actually provided
         additional_params["compute_type"] = compute_type
+    # Empty keeps the yaml value
+    asr_backend = LaunchConfiguration("asr_backend").perform(context).strip().lower()
+    if asr_backend:
+        additional_params["asr_backend"] = asr_backend
 
     return [
         LogInfo(msg=f"[speech_recognition] Using AI venv: {VENV_PATH}"),
@@ -92,6 +96,11 @@ def generate_launch_description():
                 "compute_type",
                 default_value="",
                 description="Override compute type (float32, float16, int8_float32, int8, int16)",
+            ),
+            DeclareLaunchArgument(
+                "asr_backend",
+                default_value="",
+                description="Override asr_backend ('whisper' or 'parakeet'); empty keeps the yaml value",
             ),
             OpaqueFunction(function=_setup),
         ]

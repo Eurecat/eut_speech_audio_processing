@@ -13,9 +13,13 @@ speech_recognition/
 ├── wake_word.py            # ROS2 node (thin wrapper)
 ├── wake_word_engine.py     # All wake-word logic: OpenWakeWord, sliding-window inference
 ├── diarization.py          # ROS2 node (thin wrapper)
-├── diarization_engine.py   # All diarization logic: diart pipeline, observer, speaker mapping
+├── diarization_engine.py   # diart backend (legacy): diart pipeline, observer, speaker mapping
+├── diart_identity_engine.py # diart backend using VoiceIdentityManager (diart_use_voice_identity_manager)
+├── redi_voice_engine.py    # redimnet2 backend, no diart: VAD turns -> ReDimNet2 -> VoiceIdentityManager
+├── voice_identity_manager.py # Shared speaker identities: matching, merging, persistence
 ├── asr.py                  # ROS2 node (thin wrapper)
 ├── asr_engine.py           # All ASR logic: Whisper model, VAD state machine, buffering
+├── parakeet_asr_engine.py  # asr_backend=parakeet: NeMo Parakeet TDT model on the same ASREngine pipeline
 ├── ros_audio_source.py     # AudioSource adapter: bridges ROS audio chunks to diart
 └── utils/
     └── database_utils.py   # DataBaseManager: MongoDB speaker embedding persistence
@@ -127,19 +131,135 @@ Manages speaker embedding persistence in MongoDB:
 - `HF_TOKEN` environment variable or `huggingface-cli login` for gated pyannote models
 - MongoDB running and accessible (see root `README.md` for setup)
 
+#### Selecting the backend
+
+`diarization_backend` chooses the engine; the node logs
+`Selected diarization backend: <backend> (engine=<class>)` at startup, check it.
+
+| `diarization_backend` | `diart_use_voice_identity_manager` | Engine |
+|---|---|---|
+| `redimnet2` (launch default) | n/a | `RediVoiceEngine` |
+| `diart` | `False` (default) | `DiarizationEngine` (legacy, unchanged) |
+| `diart` | `True` | `DiartManagedIdentityEngine` |
+
+`docker-compose_mp3.yaml` passes `diarization_backend:=${DIARIZATION_BACKEND:-diart}`
+explicitly, which overrides the launch default: set `DIARIZATION_BACKEND` in `Docker/.env`.
+
+#### REDI backend (`redi_voice_engine.py` + `voice_identity_manager.py`)
+
+Independent of diart: no pyannote, no online clustering. Modelled on
+`EutHRIFaces/face_recognition/identity_manager.py`, with a voice *turn* playing the role of a
+tracked face.
+
+```
+/vad -> speech turns (split on pauses)
+     -> ReDimNet2 embedding of the most recent 2 s of the turn, refreshed every 0.5 s
+     -> VoiceIdentityManager: match / create / learn / merge EUT_speakerN
+     -> /speech_activity_detection
+```
+
+- **Speaker change without a pause:** each refresh also embeds the last 1.0 s (the *probe*). If
+  it scores below `redi_change_threshold` (0.35) against the current speaker, the turn is split
+  there and the newcomer is labelled from the probe, about 1 s after they start.
+- **Matching:** cosine score plus a top-1/top-2 margin, exclusive assignment, stickiness.
+  Bars: 0.55 for a confirmed speaker, 0.40 for a young one or for windows under 1.5 s.
+- **Creating:** only from ≥1.5 s of speech, or from a probe after a detected change. A speaker
+  created from a short window is reseeded from its longer windows as it keeps talking.
+- **Learning:** only from stable stretches (consecutive windows on the same speaker), at most once
+  per 2 s of speech, never from a window that crosses a speaker change.
+- **Merging:** identities that turn out to be the same person are merged, keeping the lower number.
+
+Model: ReDimNet2 `b6` / `lm` / `vb2+vox2+cnc2_v0`, loaded through torch hub from a pinned commit
+of `PalabraAI/redimnet2` (the `v1.0.0` tag cannot load this checkpoint). Internet is needed on the
+first load. Every threshold is documented in `config/diarization_params.yaml`; measurements and
+history are in `plans/plan_REDI_fixes.md`.
+
+Known limit: a line shorter than ~1 s, by someone not heard yet, followed with no pause by another
+speaker, keeps the previous label.
+
+#### Speaker persistence in MongoDB (REDI)
+
+Like EutHRIFaces, REDI saves speakers and reloads them at startup, so after a restart the same
+voice keeps the same `EUT_speakerN` and new speakers continue the numbering.
+
+| | |
+|---|---|
+| On/off | `REDI_USE_DATABASE=true` / `false` in `Docker/.env` (passed as the `redi_use_database` launch argument by `docker-compose.yaml`, `android-docker-compose.yaml` and `docker-compose_mp3.yaml`). Without the launch argument the yaml value `redi_use_database: True` applies. |
+| Server | The same `mongodb` container and `coghri_speakers_mongodb_data` volume as diart |
+| Location | database `speaker_recognition`, collection `voice_identities`, one `model_key` per ReDimNet2 checkpoint (`redimnet2:b6:lm:vb2+vox2+cnc2_v0`). Legacy diart uses collection `speakers`, so the two backends never mix embeddings. |
+| Saved | Confirmed speakers, and unconfirmed ones with ≥2 embeddings from ≥3 s of speech. A single short burst is never saved. Up to the last 20 embeddings plus the mean. |
+| When | When a speaker first qualifies, at every turn end, and at shutdown. Saving never waits for a clean shutdown. |
+| Loaded | At startup, into memory. MongoDB is not queried per turn. Loaded speakers are never dropped by inactive cleanup. |
+| Errors | If MongoDB is unreachable the node logs a warning and runs with session-only speakers. |
+
+The legacy diart backend is unaffected: it keeps its own `use_database` parameter (default `False`).
+
+Startup log lines to check:
+
+```
+Voice identities persisted in MongoDB (model_key=redimnet2:b6:lm:vb2+vox2+cnc2_v0)
+Voice identity manager ready with 2 persistent identities: EUT_speaker2, EUT_speaker3
+Persisted voice identity EUT_speaker4 (2 embeddings, 4.0s)
+```
+
+Forget all REDI speakers (the MongoDB container must be running):
+
+```bash
+docker exec mongodb mongosh -u eurecat -p cerdanyola --authenticationDatabase admin --eval \
+  'db.getSiblingDB("speaker_recognition").voice_identities.deleteMany({model_key: "redimnet2:b6:lm:vb2+vox2+cnc2_v0"})'
+```
+
+For ground-truth mp3 tests set `REDI_USE_DATABASE=false`, otherwise speakers saved from the
+microphone or earlier runs are loaded and the ids differ from a fresh run.
+
 **Diagram**: [Open diarization workflow](diarization_workflow.mmd)
 
 ---
 
 ### 4. ASR — Automatic Speech Recognition (`asr.py` + `asr_engine.py`)
 
-**Purpose**: Buffers incoming audio, uses VAD probabilities to detect speech segments, and transcribes them with a Whisper model. Publishes `SpeechResult` and `LiveSpeech` messages, with optional ROS4HRI-compatible per-speaker publication.
+**Purpose**: Buffers incoming audio, uses VAD probabilities to detect speech segments, and transcribes them with a Whisper or Parakeet model. Publishes `SpeechResult` and `LiveSpeech` messages, with optional ROS4HRI-compatible per-speaker publication.
+
+#### Selecting the backend
+
+`asr_backend` in `asr_params.yaml` chooses the model; the node logs
+`Selected ASR backend: <backend>` at startup. Both backends use the same
+`ASREngine` pipeline (VAD segmentation, speaker-change flushes, per-speaker
+sentence grouping) and publish the same `/speech_result`, so diarization and
+downstream consumers do not change.
+
+| `asr_backend` | Engine | Languages | Notes |
+|---|---|---|---|
+| `whisper` (default) | `ASREngine` (faster-whisper) | all Whisper languages, **including Catalan** | `model_size`, `compute_type`, batched inference apply |
+| `parakeet` | `ParakeetASREngine` (NVIDIA NeMo, `parakeet_model_name`) | 25 European languages, Spanish yes, **Catalan no** | always float32 on GPU; `language_code` from a separate LangID model (see below) |
+
+Override without editing the yaml: `ASR_BACKEND=parakeet` in `Docker/.env` (passed as the
+`asr_backend` launch argument by `docker-compose.yaml`, `android-docker-compose.yaml` and
+`docker-compose_mp3.yaml`). Empty keeps the yaml value.
+
+**Parakeet language code.** `parakeet-tdt-0.6b-v3` neither outputs nor accepts a language id
+(confirmed by NVIDIA in NeMo issues #14799 and #15097). `language_id.py` runs NVIDIA's
+`langid_ambernet` (`parakeet_language_id_model`, 107 languages including Catalan, ~6 ms per chunk)
+on every published chunk and picks the most likely language from `language`, with the same meaning
+as for Whisper (`"auto"` = en/es/ca, one code = no detection, a list = choose from it). Below
+`parakeet_language_id_min_confidence` (0.9) or for chunks under 0.25 s the last detected language is
+kept, so short replies do not flip it. Measured on Jetson Thor, choosing from en/es/ca:
+
+| Test | Whisper turbo detection (Whisper backend) | AmberNet + confidence gate (Parakeet backend) |
+|---|---|---|
+| FLEURS, 1 s / 2 s / 3 s of speech | 82% / 91% / 98% (Catalan at 1 s: 48%) | 88% / 96% / 99% without gate |
+| Spanish/Catalan/English sequence, real chunk lengths | 82% (Catalan 58%) | 97% (ROS pipeline: 46/46) |
+| English movie mp3 (music, short chunks) | 98% | 98% (ROS pipeline: ~97%) |
+
+The Parakeet checkpoint (`nvidia/parakeet-tdt-0.6b-v3`, ~2.5 GB) downloads once to
+`speech_recognition/weights/`, next to the Whisper weights. NeMo (`nemo_toolkit[asr]==2.4.0`)
+is installed in the ARM / Jetson Thor image (`requirements_arm.txt`).
 
 #### `ASRNode` (ROS2 node)
 Thin node whose only responsibilities are:
 - Declare and read ROS2 parameters from `asr_params.yaml`
-- Validate the model size early (fail fast with a clear message) via `ASREngine.validate_model_size`
-- Instantiate `ASREngine` and provide publishing callbacks
+- Select the backend (`asr_backend`) and validate the model size early (fail fast with a clear message) via `validate_model_size`
+- Instantiate `ASREngine` or `ParakeetASREngine` and provide publishing callbacks
 - Feed audio chunks, VAD probabilities, and speaker IDs into the engine
 - Manage ROS4HRI voice publisher lifecycle (create, cleanup)
 
@@ -147,6 +267,7 @@ Thin node whose only responsibilities are:
 Owns all ASR logic with zero ROS2 dependencies:
 - **Model registry**: maps short names (`turbo`, `large-v3`, `distil-large-v3`, …) to HuggingFace model IDs
 - **Model loading**: downloads and caches a `faster_whisper.WhisperModel`; supports optional `BatchedInferencePipeline`
+- **Backend hooks**: `_load_model()`, `_resolve_language()` and `_run_transcription()` are the only methods a backend overrides (`ParakeetASREngine`)
 - **VAD state machine**: tracks `speech` / `silence` states, manages pre-buffer for leading audio capture
 - **Silence timer thread**: triggers transcription after `min_silence_duration` of silence
 - **Chunk splitting**: splits long utterances at `max_chunk_duration` to avoid latency spikes

@@ -38,6 +38,8 @@ services:
     environment:
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-12}
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}
+      - OPENBLAS_NUM_THREADS=${OPENBLAS_NUM_THREADS:-1}  # numpy BLAS threads busy-wait on small matrices (~200% CPU per node)
+      - OPENCV_FOR_THREADS_NUM=${OPENCV_FOR_THREADS_NUM:-2}  # ~10 OpenCV processes x 14 threads each oversubscribe the CPU
       - FASTDDS_BUILTIN_TRANSPORTS=${FASTDDS_BUILTIN_TRANSPORTS:-}
       - PACKAGE_NAME=audio_stream_manager
       - BUILD_LOGS_TO_KEEP=${BUILD_LOGS_TO_KEEP:-2}
@@ -74,14 +76,16 @@ services:
       - ./logs:/workspace/log
       - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
       - ../src/speech_recognition:/workspace/src/speech_recognition
-      # Pyannote weights volume — persists downloaded HF models across restarts
-      - pyannote_weights:/workspace/src/speech_recognition/speech_recognition/weights_pyannote
+      # Shared model weights (Whisper, Parakeet, VAD, ReDimNet2, pyannote), never baked in the image
+      - ../src/speech_recognition/speech_recognition/weights:/workspace/weights:rw
       - /dev:/dev
     tty: true
     stdin_open: true
     environment:
       - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-12}
       - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}
+      - OPENBLAS_NUM_THREADS=${OPENBLAS_NUM_THREADS:-1}  # numpy BLAS threads busy-wait on small matrices (~200% CPU per node)
+      - OPENCV_FOR_THREADS_NUM=${OPENCV_FOR_THREADS_NUM:-2}  # ~10 OpenCV processes x 14 threads each oversubscribe the CPU
       - FASTDDS_BUILTIN_TRANSPORTS=${FASTDDS_BUILTIN_TRANSPORTS:-}
       - PACKAGE_NAME=speech_recognition
       - BUILD_LOGS_TO_KEEP=${BUILD_LOGS_TO_KEEP:-2}
@@ -89,9 +93,11 @@ services:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
       - HF_TOKEN=${HF_TOKEN}
-      - HF_HOME=/workspace/src/speech_recognition/speech_recognition/weights_pyannote
+      - WEIGHTS_DIR=/workspace/weights
+      - PYANNOTE_CACHE=/workspace/weights/pyannote
+      - HF_HOME=/workspace/weights/huggingface
       - BUILT_IMAGE=${BUILT_IMAGE:-eut_audio_arm:jazzy}
-      - TORCH_HOME=/root/.cache/torch
+      - TORCH_HOME=/workspace/weights/torch
       - AI_VENV=/opt/ros_python_env
     devices:
       - /dev/snd:/dev/snd
@@ -141,7 +147,4 @@ services:
 volumes:
   mongodb_data:
     name: coghri_speakers_mongodb_data
-    driver: local
-  pyannote_weights:
-    name: coghri_audio_arm_pyannote_weights
     driver: local

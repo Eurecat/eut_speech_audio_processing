@@ -1,0 +1,120 @@
+name: coghri_audio_mp3_test
+
+services:
+  mongodb_service:
+    image: mongo:7
+    container_name: mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=eurecat
+      - MONGO_INITDB_ROOT_PASSWORD=cerdanyola
+    stop_signal: SIGTERM
+    stop_grace_period: 60s
+
+  speech_recognition_service:
+    container_name: speech_recognition
+    network_mode: host
+    ipc: host
+    shm_size: 1gb
+    runtime: ${DOCKER_RUNTIME:-runc}
+    image: ${BUILT_IMAGE}
+    privileged: true
+    depends_on:
+      - mongodb_service
+
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ~/.xauth_docker/share/:/tmp/xauth/
+      - ./logs:/workspace/log
+      - ../src/audio_stream_manager:/workspace/src/audio_stream_manager
+      - ../src/speech_recognition:/workspace/src/speech_recognition
+      # Shared model weights (Whisper, Parakeet, VAD, ReDimNet2, pyannote), never baked in the image
+      - ../src/speech_recognition/speech_recognition/weights:/workspace/weights:rw
+      - ./cyclone_xmls/${CYCLONE_CONFIG_FILE:-eth_tiago_cyclone.xml}:/etc/cyclonedds.xml:ro
+
+    tty: true
+    stdin_open: true
+
+    environment:
+      - CYCLONEDDS_URI=file:///etc/cyclonedds.xml
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-2}
+      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
+      - FASTDDS_BUILTIN_TRANSPORTS=${FASTDDS_BUILTIN_TRANSPORTS:-UDPv4}
+      - PACKAGE_NAME=speech_recognition
+      - BUILD_LOGS_TO_KEEP=${BUILD_LOGS_TO_KEEP:-2}
+      - RUNTIME_LOGS_TO_KEEP=${RUNTIME_LOGS_TO_KEEP:-2}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - DISPLAY=$DISPLAY
+      - QT_X11_NO_MITSHM=1
+      - XAUTHORITY=/tmp/xauth/.docker.xauth
+      - HF_TOKEN=${HF_TOKEN}
+      - WEIGHTS_DIR=/workspace/weights
+      - PYANNOTE_CACHE=/workspace/weights/pyannote
+      - HF_HOME=/workspace/weights/huggingface
+      - TORCH_HOME=/workspace/weights/torch
+      - AI_VENV=/opt/ros_python_env
+
+    devices:
+      - /dev/dri:/dev/dri
+
+    command: >
+      bash -c "source /workspace/install/setup.bash &&
+      exec ros2 launch speech_recognition speech_recognition.launch.py
+      enable_vad:=true
+      enable_diarization:=true
+      enable_asr:=true
+      enable_wake_word:=false
+      diarization_backend:=${DIARIZATION_BACKEND:-redimnet2}
+      redi_use_database:=${REDI_USE_DATABASE:-false}
+      asr_backend:=${ASR_BACKEND:-}"
+
+    stop_signal: SIGINT
+    stop_grace_period: 30s
+
+  mp3_audio_source:
+    container_name: mp3_audio_source
+    network_mode: host
+    ipc: host
+    image: ${BUILT_IMAGE}
+    depends_on:
+      - speech_recognition_service
+
+    volumes:
+      - ../src/audio_stream_manager:/workspace/src/audio_stream_manager:ro
+      - ./audio_samples:/workspace/audio_samples:ro
+      - ./cyclone_xmls/${CYCLONE_CONFIG_FILE:-eth_tiago_cyclone.xml}:/etc/cyclonedds.xml:ro
+
+    environment:
+      - CYCLONEDDS_URI=file:///etc/cyclonedds.xml
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-2}
+      - RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}
+      - FASTDDS_BUILTIN_TRANSPORTS=${FASTDDS_BUILTIN_TRANSPORTS:-UDPv4}
+      - AI_VENV=/opt/ros_python_env
+      - AUDIO_PUBLISHER_B64=IyEvdXNyL2Jpbi9lbnYgcHl0aG9uMwppbXBvcnQgb3MKaW1wb3J0IHN1YnByb2Nlc3MKaW1wb3J0IHRpbWUKCmltcG9ydCBudW1weSBhcyBucAppbXBvcnQgcmNscHkKZnJvbSBocmlfbXNncy5tc2cgaW1wb3J0IEF1ZGlvQW5kRGV2aWNlSW5mbwpmcm9tIHJjbHB5Lm5vZGUgaW1wb3J0IE5vZGUKCgpjbGFzcyBBdWRpb0ZpbGVQdWJsaXNoZXIoTm9kZSk6CiAgICBkZWYgX19pbml0X18oc2VsZik6CiAgICAgICAgc3VwZXIoKS5fX2luaXRfXygiYXVkaW9fZmlsZV9wdWJsaXNoZXIiKQoKICAgICAgICBzZWxmLmRlY2xhcmVfcGFyYW1ldGVyKCJpbnB1dF9maWxlIiwgIiIpCiAgICAgICAgc2VsZi5kZWNsYXJlX3BhcmFtZXRlcigic2FtcGxlX3JhdGUiLCAxNjAwMCkKICAgICAgICBzZWxmLmRlY2xhcmVfcGFyYW1ldGVyKCJjaHVua19zaXplIiwgNTEyKQogICAgICAgIHNlbGYuZGVjbGFyZV9wYXJhbWV0ZXIoInRhaWxfc2lsZW5jZSIsIDIuMCkKICAgICAgICBzZWxmLmRlY2xhcmVfcGFyYW1ldGVyKCJyZWFkeV9kZWxheSIsIDIuMCkKCiAgICAgICAgc2VsZi5pbnB1dF9maWxlID0gc3RyKHNlbGYuZ2V0X3BhcmFtZXRlcigiaW5wdXRfZmlsZSIpLnZhbHVlKQogICAgICAgIHNlbGYuc2FtcGxlX3JhdGUgPSBpbnQoc2VsZi5nZXRfcGFyYW1ldGVyKCJzYW1wbGVfcmF0ZSIpLnZhbHVlKQogICAgICAgIHNlbGYuY2h1bmtfc2l6ZSA9IGludChzZWxmLmdldF9wYXJhbWV0ZXIoImNodW5rX3NpemUiKS52YWx1ZSkKICAgICAgICBzZWxmLnRhaWxfc2lsZW5jZSA9IGZsb2F0KHNlbGYuZ2V0X3BhcmFtZXRlcigidGFpbF9zaWxlbmNlIikudmFsdWUpCiAgICAgICAgc2VsZi5yZWFkeV9kZWxheSA9IGZsb2F0KHNlbGYuZ2V0X3BhcmFtZXRlcigicmVhZHlfZGVsYXkiKS52YWx1ZSkKCiAgICAgICAgaWYgbm90IHNlbGYuaW5wdXRfZmlsZToKICAgICAgICAgICAgcmFpc2UgVmFsdWVFcnJvcigiaW5wdXRfZmlsZSBpcyByZXF1aXJlZCIpCiAgICAgICAgaWYgbm90IG9zLnBhdGguaXNmaWxlKHNlbGYuaW5wdXRfZmlsZSk6CiAgICAgICAgICAgIHJhaXNlIEZpbGVOb3RGb3VuZEVycm9yKGYiQXVkaW8gZmlsZSBub3QgZm91bmQ6IHtzZWxmLmlucHV0X2ZpbGV9IikKCiAgICAgICAgc2VsZi5wdWIgPSBzZWxmLmNyZWF0ZV9wdWJsaXNoZXIoCiAgICAgICAgICAgIEF1ZGlvQW5kRGV2aWNlSW5mbywgIi9hdWRpb19hbmRfZGV2aWNlX2luZm8iLCAxMAogICAgICAgICkKCiAgICAgICAgc2VsZi5nZXRfbG9nZ2VyKCkuaW5mbyhmIkRlY29kaW5nIGF1ZGlvOiB7c2VsZi5pbnB1dF9maWxlfSIpCiAgICAgICAgc2VsZi5hdWRpbyA9IHNlbGYuX2RlY29kZShzZWxmLmlucHV0X2ZpbGUpCgogICAgICAgIHRhaWxfc2FtcGxlcyA9IGludChyb3VuZChzZWxmLnRhaWxfc2lsZW5jZSAqIHNlbGYuc2FtcGxlX3JhdGUpKQogICAgICAgIGlmIHRhaWxfc2FtcGxlcyA+IDA6CiAgICAgICAgICAgIHNlbGYuYXVkaW8gPSBucC5jb25jYXRlbmF0ZSgKICAgICAgICAgICAgICAgIFtzZWxmLmF1ZGlvLCBucC56ZXJvcyh0YWlsX3NhbXBsZXMsIGR0eXBlPW5wLmZsb2F0MzIpXQogICAgICAgICAgICApCgogICAgICAgIHNlbGYuaW5kZXggPSAwCiAgICAgICAgc2VsZi5yZWFkeV9zaW5jZSA9IE5vbmUKICAgICAgICBzZWxmLnN0YXJ0ZWQgPSBGYWxzZQogICAgICAgIHNlbGYucGxheV90aW1lciA9IE5vbmUKCiAgICAgICAgdG90YWxfcyA9IGxlbihzZWxmLmF1ZGlvKSAvIGZsb2F0KHNlbGYuc2FtcGxlX3JhdGUpCiAgICAgICAgc2VsZi5nZXRfbG9nZ2VyKCkuaW5mbygKICAgICAgICAgICAgZiJQcmVwYXJlZCB7dG90YWxfczouMmZ9cyBAIHtzZWxmLnNhbXBsZV9yYXRlfSBIeiBtb25vIGZsb2F0MzIgIgogICAgICAgICAgICBmIihjaHVuaz17c2VsZi5jaHVua19zaXplfSwgdGFpbCBzaWxlbmNlPXtzZWxmLnRhaWxfc2lsZW5jZTouMWZ9cykiCiAgICAgICAgKQogICAgICAgIHNlbGYuZ2V0X2xvZ2dlcigpLmluZm8oCiAgICAgICAgICAgICJXYWl0aW5nIGZvciAvdmFkLCAvc3BlZWNoX2FjdGl2aXR5X2RldGVjdGlvbiBhbmQgL3NwZWVjaF9yZXN1bHQgcHVibGlzaGVycy4uLiIKICAgICAgICApCgogICAgICAgIHNlbGYud2FpdF90aW1lciA9IHNlbGYuY3JlYXRlX3RpbWVyKDAuNSwgc2VsZi5fd2FpdF9mb3JfcGlwZWxpbmUpCgogICAgZGVmIF9kZWNvZGUoc2VsZiwgcGF0aCk6CiAgICAgICAgY21kID0gWwogICAgICAgICAgICAiZmZtcGVnIiwgIi1ub3N0ZGluIiwgIi12IiwgImVycm9yIiwKICAgICAgICAgICAgIi1pIiwgcGF0aCwKICAgICAgICAgICAgIi12biIsCiAgICAgICAgICAgICItZiIsICJmMzJsZSIsCiAgICAgICAgICAgICItYWNvZGVjIiwgInBjbV9mMzJsZSIsCiAgICAgICAgICAgICItYWMiLCAiMSIsCiAgICAgICAgICAgICItYXIiLCBzdHIoc2VsZi5zYW1wbGVfcmF0ZSksCiAgICAgICAgICAgICJwaXBlOjEiLAogICAgICAgIF0KCiAgICAgICAgdHJ5OgogICAgICAgICAgICBwcm9jID0gc3VicHJvY2Vzcy5ydW4oCiAgICAgICAgICAgICAgICBjbWQsCiAgICAgICAgICAgICAgICBzdGRvdXQ9c3VicHJvY2Vzcy5QSVBFLAogICAgICAgICAgICAgICAgc3RkZXJyPXN1YnByb2Nlc3MuUElQRSwKICAgICAgICAgICAgICAgIGNoZWNrPVRydWUsCiAgICAgICAgICAgICkKICAgICAgICBleGNlcHQgRmlsZU5vdEZvdW5kRXJyb3IgYXMgZXhjOgogICAgICAgICAgICByYWlzZSBSdW50aW1lRXJyb3IoImZmbXBlZyBpcyBub3QgaW5zdGFsbGVkIGluIHRoZSBpbWFnZSIpIGZyb20gZXhjCiAgICAgICAgZXhjZXB0IHN1YnByb2Nlc3MuQ2FsbGVkUHJvY2Vzc0Vycm9yIGFzIGV4YzoKICAgICAgICAgICAgZXJyID0gZXhjLnN0ZGVyci5kZWNvZGUoInV0Zi04IiwgZXJyb3JzPSJyZXBsYWNlIikKICAgICAgICAgICAgcmFpc2UgUnVudGltZUVycm9yKGYiZmZtcGVnIGZhaWxlZDpcbntlcnJ9IikgZnJvbSBleGMKCiAgICAgICAgYXVkaW8gPSBucC5mcm9tYnVmZmVyKHByb2Muc3Rkb3V0LCBkdHlwZT0iPGY0IikuYXN0eXBlKG5wLmZsb2F0MzIsIGNvcHk9VHJ1ZSkKICAgICAgICBpZiBhdWRpby5zaXplID09IDA6CiAgICAgICAgICAgIHJhaXNlIFJ1bnRpbWVFcnJvcihmIk5vIGF1ZGlvIGRlY29kZWQgZnJvbSB7cGF0aH0iKQogICAgICAgIHJldHVybiBhdWRpbwoKICAgIGRlZiBfdG9waWNfaGFzX3B1Ymxpc2hlcihzZWxmLCB0b3BpYyk6CiAgICAgICAgcmV0dXJuIGxlbihzZWxmLmdldF9wdWJsaXNoZXJzX2luZm9fYnlfdG9waWModG9waWMpKSA+IDAKCiAgICBkZWYgX3dhaXRfZm9yX3BpcGVsaW5lKHNlbGYpOgogICAgICAgIGlmIHNlbGYuc3RhcnRlZDoKICAgICAgICAgICAgcmV0dXJuCgogICAgICAgIHJlYWRpbmVzcyA9IHsKICAgICAgICAgICAgIi92YWQiOiBzZWxmLl90b3BpY19oYXNfcHVibGlzaGVyKCIvdmFkIiksCiAgICAgICAgICAgICIvc3BlZWNoX2FjdGl2aXR5X2RldGVjdGlvbiI6IHNlbGYuX3RvcGljX2hhc19wdWJsaXNoZXIoCiAgICAgICAgICAgICAgICAiL3NwZWVjaF9hY3Rpdml0eV9kZXRlY3Rpb24iCiAgICAgICAgICAgICksCiAgICAgICAgICAgICIvc3BlZWNoX3Jlc3VsdCI6IHNlbGYuX3RvcGljX2hhc19wdWJsaXNoZXIoIi9zcGVlY2hfcmVzdWx0IiksCiAgICAgICAgfQoKICAgICAgICBtaXNzaW5nID0gW25hbWUgZm9yIG5hbWUsIG9rIGluIHJlYWRpbmVzcy5pdGVtcygpIGlmIG5vdCBva10KCiAgICAgICAgaWYgbWlzc2luZzoKICAgICAgICAgICAgc2VsZi5yZWFkeV9zaW5jZSA9IE5vbmUKICAgICAgICAgICAgc2VsZi5nZXRfbG9nZ2VyKCkuaW5mbygKICAgICAgICAgICAgICAgICJTcGVlY2ggcGlwZWxpbmUgbm90IHJlYWR5IHlldDsgbWlzc2luZyBwdWJsaXNoZXJzOiAiCiAgICAgICAgICAgICAgICArICIsICIuam9pbihtaXNzaW5nKQogICAgICAgICAgICApCiAgICAgICAgICAgIHJldHVybgoKICAgICAgICBub3cgPSB0aW1lLm1vbm90b25pYygpCgogICAgICAgIGlmIHNlbGYucmVhZHlfc2luY2UgaXMgTm9uZToKICAgICAgICAgICAgc2VsZi5yZWFkeV9zaW5jZSA9IG5vdwogICAgICAgICAgICBzZWxmLmdldF9sb2dnZXIoKS5pbmZvKAogICAgICAgICAgICAgICAgZiJTcGVlY2ggcGlwZWxpbmUgdG9waWNzIGRldGVjdGVkLiBXYWl0aW5nIHtzZWxmLnJlYWR5X2RlbGF5Oi4xZn1zICIKICAgICAgICAgICAgICAgICJiZWZvcmUgc2VuZGluZyBhdWRpby4uLiIKICAgICAgICAgICAgKQogICAgICAgICAgICByZXR1cm4KCiAgICAgICAgaWYgbm93IC0gc2VsZi5yZWFkeV9zaW5jZSA8IHNlbGYucmVhZHlfZGVsYXk6CiAgICAgICAgICAgIHJldHVybgoKICAgICAgICBzZWxmLnN0YXJ0ZWQgPSBUcnVlCiAgICAgICAgc2VsZi53YWl0X3RpbWVyLmNhbmNlbCgpCgogICAgICAgIHBlcmlvZCA9IHNlbGYuY2h1bmtfc2l6ZSAvIGZsb2F0KHNlbGYuc2FtcGxlX3JhdGUpCiAgICAgICAgc2VsZi5nZXRfbG9nZ2VyKCkuaW5mbygKICAgICAgICAgICAgZiJTVEFSVElORyBNUDMgLT4gL2F1ZGlvX2FuZF9kZXZpY2VfaW5mbyAiCiAgICAgICAgICAgIGYiKHtzZWxmLmNodW5rX3NpemV9IHNhbXBsZXMgZXZlcnkge3BlcmlvZCAqIDEwMDA6LjFmfSBtcykiCiAgICAgICAgKQogICAgICAgIHNlbGYucGxheV90aW1lciA9IHNlbGYuY3JlYXRlX3RpbWVyKHBlcmlvZCwgc2VsZi5fcHVibGlzaF9uZXh0KQoKICAgIGRlZiBfcHVibGlzaF9uZXh0KHNlbGYpOgogICAgICAgIGlmIHNlbGYuaW5kZXggPj0gbGVuKHNlbGYuYXVkaW8pOgogICAgICAgICAgICBzZWxmLmdldF9sb2dnZXIoKS5pbmZvKAogICAgICAgICAgICAgICAgIk1QMyBGSU5JU0hFRC4gVGFpbCBzaWxlbmNlIHdhcyBzZW50OyBBU1IgY2FuIGZsdXNoIGZpbmFsIHV0dGVyYW5jZS4iCiAgICAgICAgICAgICkKICAgICAgICAgICAgc2VsZi5wbGF5X3RpbWVyLmNhbmNlbCgpCiAgICAgICAgICAgIHJjbHB5LnNodXRkb3duKCkKICAgICAgICAgICAgcmV0dXJuCgogICAgICAgIGVuZCA9IG1pbihzZWxmLmluZGV4ICsgc2VsZi5jaHVua19zaXplLCBsZW4oc2VsZi5hdWRpbykpCiAgICAgICAgY2h1bmsgPSBzZWxmLmF1ZGlvW3NlbGYuaW5kZXg6ZW5kXQoKICAgICAgICBpZiBsZW4oY2h1bmspIDwgc2VsZi5jaHVua19zaXplOgogICAgICAgICAgICBjaHVuayA9IG5wLnBhZChjaHVuaywgKDAsIHNlbGYuY2h1bmtfc2l6ZSAtIGxlbihjaHVuaykpKQoKICAgICAgICBtc2cgPSBBdWRpb0FuZERldmljZUluZm8oKQogICAgICAgIG1zZy5oZWFkZXIuc3RhbXAgPSBzZWxmLmdldF9jbG9jaygpLm5vdygpLnRvX21zZygpCiAgICAgICAgbXNnLmF1ZGlvID0gY2h1bmsuYXN0eXBlKG5wLmZsb2F0MzIsIGNvcHk9RmFsc2UpLnRvbGlzdCgpCiAgICAgICAgbXNnLmRldmljZV9uYW1lID0gZiJmaWxlOntvcy5wYXRoLmJhc2VuYW1lKHNlbGYuaW5wdXRfZmlsZSl9IgogICAgICAgIG1zZy5kZXZpY2VfaWQgPSAwCiAgICAgICAgbXNnLmRldmljZV9zYW1wbGVyYXRlID0gZmxvYXQoc2VsZi5zYW1wbGVfcmF0ZSkKCiAgICAgICAgc2VsZi5wdWIucHVibGlzaChtc2cpCiAgICAgICAgc2VsZi5pbmRleCA9IGVuZAoKCmRlZiBtYWluKGFyZ3M9Tm9uZSk6CiAgICByY2xweS5pbml0KGFyZ3M9YXJncykKICAgIG5vZGUgPSBBdWRpb0ZpbGVQdWJsaXNoZXIoKQogICAgdHJ5OgogICAgICAgIHJjbHB5LnNwaW4obm9kZSkKICAgIGV4Y2VwdCBLZXlib2FyZEludGVycnVwdDoKICAgICAgICBwYXNzCiAgICBmaW5hbGx5OgogICAgICAgIG5vZGUuZGVzdHJveV9ub2RlKCkKICAgICAgICBpZiByY2xweS5vaygpOgogICAgICAgICAgICByY2xweS5zaHV0ZG93bigpCgoKaWYgX19uYW1lX18gPT0gIl9fbWFpbl9fIjoKICAgIG1haW4oKQo=
+
+    # The Python publisher is embedded in this compose as base64.
+    # No ./audio_file_publisher.py bind mount is needed.
+    command: >
+      bash -c "printf '%s' \"$${AUDIO_PUBLISHER_B64}\" |
+      base64 -d > /tmp/audio_file_publisher.py &&
+      source /workspace/install/setup.bash &&
+      exec python3 /tmp/audio_file_publisher.py
+      --ros-args
+      -p input_file:=${AUDIO_FILE:-/workspace/src/audio_stream_manager/recordings/diarization_test_spicy4tuna.mp3}
+      -p sample_rate:=16000
+      -p chunk_size:=512
+      -p tail_silence:=2.0
+      -p ready_delay:=2.0"
+
+    stop_signal: SIGINT
+    stop_grace_period: 10s
+
+volumes:
+  mongodb_data:
+    name: coghri_speakers_mongodb_data
+    driver: local

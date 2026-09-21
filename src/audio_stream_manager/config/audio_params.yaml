@@ -12,9 +12,13 @@ audio_capturing:
     target_samplerate: 16000                # Target sample rate for audio output (Hz)
     
     # Disconnection Detection
-    disconnection_timeout: 300.0              # Time (seconds) before considering device disconnected
+    disconnection_timeout: 10.0             # Seconds without any audio callback before the stream is treated as dead.
+                                            # Callbacks fire every chunk (~32ms) even when silent/muted, so a gap
+                                            # this long only happens when the capture stream really died.
     disconnection_check_interval: 1.0       # Interval (seconds) between disconnection checks
-    test_stream_duration: 0.1               # Duration (seconds) for testing device connectivity
+    test_stream_timeout: 2.0                # Max seconds to wait for a device probe to deliver audio. Devices that
+                                            # accept the open but never send frames (e.g. Jetson APE channels) are
+                                            # given up on after this and skipped in later recovery scans.
     
     # Primary Device Recovery
     primary_device_check_interval: 5.0      # Interval (seconds) to check for primary device recovery
@@ -23,7 +27,17 @@ audio_to_mp3:
   ros__parameters:
     # Recording Output
     sample_rate: 16000                      # Sample rate of the recorded audio (Hz)
-    temp_wav: "recording_temp.wav"          # Temporary WAV file path used during conversion
-    output_mp3: "/workspace/src/audio_stream_manager/recording.mp3"  # Final MP3 output path
+    temp_wav: "recording_temp.wav"          # Temporary WAV file path used during conversion (full mode only)
+    output_mp3: "/workspace/src/audio_stream_manager/recording.mp3"  # Final MP3 output path (full mode only)
     flush_interval: 30.0                    # Flush buffered audio to disk every X seconds and regenerate MP3
-    max_buffer_seconds: 30.0                # Max seconds kept in RAM before forced flush
+    max_buffer_seconds: 30.0                # Max seconds kept in RAM before forced flush / cyclic batch length
+
+    # Recording mode toggle:
+    #   "cyclic" (default) — rolls a small window of `cyclic_num_files` batch MP3s of
+    #                         ~max_buffer_seconds each in `recordings_dir`, so disk usage
+    #                         stays bounded during long unattended runs.
+    #   "full"              — legacy behaviour: keeps appending the whole session into a
+    #                         single ever-growing `output_mp3` (use for full-session captures).
+    recording_mode: "cyclic"
+    recordings_dir: "/workspace/src/audio_stream_manager/recordings"  # cyclic mode output folder
+    cyclic_num_files: 4                     # number of rolling batch files to keep in cyclic mode

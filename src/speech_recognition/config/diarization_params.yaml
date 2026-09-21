@@ -4,17 +4,128 @@
 diarization_node:
   ros__parameters:
     # Audio Processing Configuration
-    chunk_duration: 2.0                     # Duration (seconds) of audio chunks for diarization
+    chunk_duration: 1.0                     # Duration (seconds) of audio chunks for diarization
     overlap_duration: 0.5                   # Overlap (seconds) between consecutive chunks
+    step_duration: 0.5                      # Sliding-window step (seconds). Lower = finer speaker
+                                            # change resolution but more compute.
+    
+    # Diart clustering (online speaker tracking)
+    tau_active: 0.5                         # Min. activity probability for a speaker to count as active
+    delta_new: 0.90                         # Cosine-distance threshold to spawn a NEW speaker.
+                                            # Raise (e.g. 0.95) to fight over-segmentation.
+    max_speakers: 10                        # Upper bound of concurrently tracked speakers
     
     # Model Configuration
     segmentation_model_name: "pyannote/segmentation"  # Model name for speaker segmentation
     embedding_model_name: "pyannote/embedding"        # Model name for speaker embedding
-    
+    diarization_backend: "redimnet2"                       # diart (legacy) or redimnet2
+
+    # Diart backend identity layer (used only when diarization_backend=diart)
+    diart_use_voice_identity_manager: False            # True routes diart's local tracks through the shared
+                                                        # VoiceIdentityManager (exclusive assignment, stickiness,
+                                                        # gated updates, merging). False keeps the legacy mapping,
+                                                        # which pins a diart track to an identity forever and
+                                                        # updates it on every call without any similarity check.
+    diart_identity_similarity_threshold: 0.60          # Calibrated for diart CENTROIDS, which are already
+    diart_identity_young_threshold: 0.60               # averaged. Unlike single ReDimNet2 utterances they are not
+                                                        # noisy when new, so there is deliberately no young-identity
+                                                        # relief: a lower young bar would let a new speaker's
+                                                        # centroid fold into an existing identity.
+    diart_identity_match_margin: 0.08
+    diart_identity_stickiness_margin: 0.20
+    diart_identity_merge_threshold: 0.85
+
+    # ReDimNet2 backend (used only when diarization_backend=redimnet2)
+    # Independent of diart: VAD speech turns -> ReDimNet2 embedding -> VoiceIdentityManager.
+    # See plans/plan_REDI_diart.md.
+    redi_repository: "PalabraAI/redimnet2:c5bbe0b76e37df698c403f8844e41304ceab6307"
+                                                        # Pinned commit, NOT the "v1.0.0" tag: that tag predates
+                                                        # the b6/vb2+vox2+cnc2_v0 checkpoint (added upstream in
+                                                        # e8bfa167) and cannot load its config
+                                                        # (TypeError: unexpected keyword argument 'agg_gnorm').
+    redi_model_name: "b6"
+    redi_train_type: "lm"                              # Large-margin checkpoint (recommended upstream)
+    redi_dataset: "vb2+vox2+cnc2_v0"
+    redi_mongo_uri: ""                                 # Empty uses MONGODB_URI or local default
+    redi_use_database: True                            # Persist confirmed REDI speakers in MongoDB and reload them
+                                                        # at startup, like EutHRIFaces: a restart keeps the same
+                                                        # EUT_speakerN for the same voice. Database speaker_recognition,
+                                                        # collection voice_identities, one model_key per ReDimNet2
+                                                        # checkpoint. Independent of use_database (legacy diart).
+                                                        # docker-compose_mp3.yaml forces it off (REDI_USE_DATABASE)
+                                                        # so ground-truth runs start from zero.
+
+    # Turn segmentation
+    redi_turn_silence_seconds: 0.35                    # Pause that ends a speaker turn. Kept below the ASR's
+                                                        # min_silence_duration (0.45) so a turn's final label is
+                                                        # ready by the time ASR publishes the utterance.
+    redi_min_embed_seconds: 0.8                        # Speech needed before a turn can match a known speaker
+    redi_min_create_seconds: 1.5                       # Speech needed before a window may CREATE a new speaker.
+                                                        # A 0.8s ReDimNet2 embedding is too noisy to define a
+                                                        # voice: identities seeded from one scored under 0.21
+                                                        # against the same person later, so that person came
+                                                        # back under a new id. Cost: an unheard speaker's first
+                                                        # label arrives ~0.7s later.
+    redi_embed_interval_seconds: 0.5                   # Refresh the label this often while a turn continues
+    redi_max_embed_seconds: 2.0                        # Embed only the most recent speech. Short on purpose: the
+                                                        # label must follow whoever is talking NOW, so when someone
+                                                        # takes over without a pause the label switches and ASR
+                                                        # splits the utterance. At 6.0 a whole A/B exchange blended
+                                                        # into one embedding and poisoned the identity it learned.
+    redi_probe_seconds: 1.0                            # Speaker-change probe: each refresh also embeds only the
+                                                        # last 1.0s of speech. When it no longer sounds like the
+                                                        # current speaker the turn is split there and the newcomer
+                                                        # is labelled from the probe, ~1s after they start (which
+                                                        # the ASR's diarization_offset -1.0 lines up), instead of
+                                                        # waiting until they dominate the 2s window (~2-4s).
+                                                        # 0 disables. 0.8 switched even earlier but split one
+                                                        # speaker into extra ids.
+    redi_create_on_ambiguous_probe: True               # Whether a 1.0s speaker-change probe may CREATE a speaker when
+                                                        # it already scores above the match bar against a known one and
+                                                        # was rejected only for a small top1-top2 margin.
+                                                        # True is the measured-better default. Setting it False is the
+                                                        # obvious-looking fix and it was tried: on the same CALLHOME
+                                                        # Spanish 2-speaker file it went from 11 published ids to 12,
+                                                        # and attribution accuracy fell 70.9% -> 66.4%. The guard fires
+                                                        # (6 times), but the same ambiguity reappears on the next full
+                                                        # window, which creates the identity through the normal path
+                                                        # instead. The ambiguity is a property of short ReDimNet2
+                                                        # windows in fast turn-taking, not of the probe path.
+                                                        # Kept as a knob so the hypothesis can be retested after any
+                                                        # change to embedding windows or thresholds. Note the design
+                                                        # trade-off it probes: creating on ambiguity fragments one
+                                                        # person into several ids, which _absorb_stray_identities
+                                                        # later repairs; matching on ambiguity would merge two people
+                                                        # into one id, which nothing can undo.
+    redi_change_threshold: 0.35                        # Probe score against the current speaker below which the
+                                                        # speaker changed. Measured on the test mp3: a 1.0s probe
+                                                        # scores 0.42-0.82 against its own speaker and at most 0.36
+                                                        # against a different one.
+
+    # Identity matching (VoiceIdentityManager)
+    redi_identity_similarity_threshold: 0.55           # Match bar for a confirmed identity
+    redi_identity_young_threshold: 0.40                # Match bar while an identity is still young: its mean is
+                                                        # one or two utterances, so the same speaker scores lower
+                                                        # against it. The margin below still applies. Was briefly
+                                                        # 0.30 to compensate for identities seeded from 0.8s
+                                                        # windows; redi_min_create_seconds fixes that at the
+                                                        # source, and 0.30 was already reaching the
+                                                        # different-speaker range (0.05-0.21).
+    redi_identity_match_margin: 0.06                   # Required lead over the second-best speaker
+    redi_identity_stickiness_margin: 0.25              # A turn stays on its speaker unless another beats it by this
+    redi_identity_merge_threshold: 0.80                # Merge two identities that turn out to be one person
+    redi_identity_short_window_seconds: 1.5            # Windows shorter than this (turn starts, change probes)...
+    redi_identity_short_window_threshold: 0.40         # ...match a known speaker at this bar instead: a 1.0s
+                                                        # window scores 0.42-0.82 against its own speaker and at
+                                                        # most 0.36 against another, so the confirmed bar (0.55)
+                                                        # kept stale labels ~0.7s longer. 0.45 missed an
+                                                        # overlapped 1s probe (0.41-0.43) of a confirmed speaker
+                                                        # and created a duplicate id.
+
     # VAD Integration
-    vad_threshold: 0.75                       # VAD threshold for publishing speech activity
+    vad_threshold: 0.5                        # VAD threshold for publishing speech activity (kept aligned with the ASR gate)
 
     # Diarization 
     use_database: False                          # Whether to use MongoDB for storing diarization results
-    similarity_threshold: 0.2                   # Cosine distance threshold below which two DIART speakers are merged into one EUT speaker (lower = stricter)
+    similarity_threshold: 0.35                  # Cosine distance threshold below which two DIART speakers are merged into one EUT speaker (lower = stricter, higher = more merging)
     init_retry_backoff_sec: 10.0                # Delay between failed engine initialization retries

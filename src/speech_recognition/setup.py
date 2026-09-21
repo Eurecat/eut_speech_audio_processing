@@ -36,6 +36,7 @@ setup(
             "diarization_node = speech_recognition.diarization:main",
             "asr_node = speech_recognition.asr:main",
             "wake_word_node = speech_recognition.wake_word:main",
+            "android_transcript_bridge = speech_recognition.android_transcript_bridge:main",
         ],
     },
 )

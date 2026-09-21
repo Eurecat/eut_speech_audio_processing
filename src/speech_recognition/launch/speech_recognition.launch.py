@@ -34,9 +34,21 @@ def _setup(context, *args, **kwargs):
     enable_vad = LaunchConfiguration("enable_vad").perform(context)
     enable_wake_word = LaunchConfiguration("enable_wake_word").perform(context)
     enable_diarization = LaunchConfiguration("enable_diarization").perform(context)
+    diarization_backend = LaunchConfiguration("diarization_backend").perform(context).lower()
+    redi_use_database = LaunchConfiguration("redi_use_database").perform(context).strip().lower()
     enable_asr = LaunchConfiguration("enable_asr").perform(context)
+    asr_backend = LaunchConfiguration("asr_backend").perform(context).strip().lower()
     diarization_delay = float(LaunchConfiguration("diarization_delay").perform(context))
     asr_delay = float(LaunchConfiguration("asr_delay").perform(context))
+    enable_android_transcript_bridge = (
+        LaunchConfiguration("enable_android_transcript_bridge").perform(context).lower() == "true"
+    )
+    android_transcript_bind_host = LaunchConfiguration("android_transcript_bind_host").perform(
+        context
+    )
+    android_transcript_bind_port = int(
+        LaunchConfiguration("android_transcript_bind_port").perform(context)
+    )
 
     # Get ros4hri_with_id parameter
     ros4hri_with_id = LaunchConfiguration("ros4hri_with_id").perform(context).lower() == "true"
@@ -51,6 +63,12 @@ def _setup(context, *args, **kwargs):
     # Common setup for environment variables
     nodes_to_launch = []
     log_messages = []
+
+    if diarization_backend not in {"diart", "redimnet2"}:
+        raise ValueError(
+            f"Unsupported diarization_backend '{diarization_backend}'. "
+            "Use 'diart' or 'redimnet2'."
+        )
 
     # VAD Node Setup
 
@@ -160,6 +178,9 @@ def _setup(context, *args, **kwargs):
                 LogInfo(
                     msg=f"[speech_recognition] Diarization: ROS4HRI with ID: {'enabled' if ros4hri_with_id else 'disabled'}"
                 ),
+                LogInfo(
+                    msg=f"[speech_recognition] Diarization backend: {diarization_backend}"
+                ),
             ]
         )
 
@@ -180,6 +201,13 @@ def _setup(context, *args, **kwargs):
                                 "ros4hri_with_id": ros4hri_with_id,
                                 "cleanup_inactive_topics": cleanup_inactive_topics,
                                 "inactive_topic_timeout": inactive_topic_timeout,
+                                "diarization_backend": diarization_backend,
+                                # Empty keeps the yaml value
+                                **(
+                                    {"redi_use_database": redi_use_database == "true"}
+                                    if redi_use_database
+                                    else {}
+                                ),
                             },
                         ],
                         condition=IfCondition(LaunchConfiguration("enable_diarization")),
@@ -204,6 +232,9 @@ def _setup(context, *args, **kwargs):
                 LogInfo(msg=f"[speech_recognition] ASR: Loading config from: {asr_config_file}"),
                 LogInfo(msg=f"[speech_recognition] ASR: Will start with {asr_delay} second delay"),
                 LogInfo(
+                    msg=f"[speech_recognition] ASR backend: {asr_backend or 'from asr_params.yaml'}"
+                ),
+                LogInfo(
                     msg=f"[speech_recognition] ASR: ROS4HRI with ID: {'enabled' if ros4hri_with_id else 'disabled'}"
                 ),
             ]
@@ -226,10 +257,40 @@ def _setup(context, *args, **kwargs):
                                 "ros4hri_with_id": ros4hri_with_id,
                                 "cleanup_inactive_topics": cleanup_inactive_topics,
                                 "inactive_topic_timeout": inactive_topic_timeout,
+                                # Empty keeps the yaml value
+                                **({"asr_backend": asr_backend} if asr_backend else {}),
                             },
                         ],
                         condition=IfCondition(LaunchConfiguration("enable_asr")),
                     ),
+                ],
+            )
+        )
+
+    if enable_android_transcript_bridge:
+        log_messages.extend(
+            [
+                LogInfo(
+                    msg=(
+                        "[speech_recognition] Android transcript bridge enabled on "
+                        f"{android_transcript_bind_host}:{android_transcript_bind_port}"
+                    )
+                ),
+            ]
+        )
+
+        nodes_to_launch.append(
+            Node(
+                package="speech_recognition",
+                executable="android_transcript_bridge",
+                name="android_transcript_bridge",
+                output="screen",
+                parameters=[
+                    {
+                        "bind_host": android_transcript_bind_host,
+                        "bind_port": android_transcript_bind_port,
+                        "topic_name": "speech_result",
+                    }
                 ],
             )
         )
@@ -260,6 +321,16 @@ def generate_launch_description():
                 description="Enable Diarization (Speaker Identification) node",
             ),
             DeclareLaunchArgument(
+                "diarization_backend",
+                default_value="redimnet2",
+                description="Diarization backend: 'diart' or 'redimnet2'",
+            ),
+            DeclareLaunchArgument(
+                "redi_use_database",
+                default_value="",
+                description="Override redi_use_database (true/false); empty keeps the yaml value",
+            ),
+            DeclareLaunchArgument(
                 "diarization_delay",
                 default_value="4.0",
                 description="Delay (seconds)",
@@ -268,6 +339,11 @@ def generate_launch_description():
                 "enable_asr",
                 default_value="true",
                 description="Enable ASR (Automatic Speech Recognition) node",
+            ),
+            DeclareLaunchArgument(
+                "asr_backend",
+                default_value="",
+                description="Override asr_backend ('whisper' or 'parakeet'); empty keeps the yaml value",
             ),
             DeclareLaunchArgument(
                 "asr_delay",
@@ -288,6 +364,21 @@ def generate_launch_description():
                 "inactive_topic_timeout",
                 default_value="10.0",
                 description="Timeout in seconds before destroying inactive topics",
+            ),
+            DeclareLaunchArgument(
+                "enable_android_transcript_bridge",
+                default_value="false",
+                description="Enable TCP bridge that forwards SpeechResult to Android clients",
+            ),
+            DeclareLaunchArgument(
+                "android_transcript_bind_host",
+                default_value="0.0.0.0",
+                description="Bind host for Android transcript bridge",
+            ),
+            DeclareLaunchArgument(
+                "android_transcript_bind_port",
+                default_value="17001",
+                description="Bind port for Android transcript bridge",
             ),
             # Add informational log message
             LogInfo(msg="[speech_recognition] Starting Speech Recognition Suite"),

@@ -133,6 +133,7 @@ class AudioCaptureEngine:
         disconnection_timeout: float,
         disconnection_check_interval: float,
         primary_device_check_interval: float,
+        test_stream_timeout: float,
         on_chunk_ready: Callable[[np.ndarray, str, int, float], None],
         on_device_changed: Callable[[str], None],
         logger,
@@ -141,6 +142,7 @@ class AudioCaptureEngine:
         self.channels = channels
         self.chunk = chunk
         self.target_samplerate = target_samplerate
+        self.test_stream_timeout = test_stream_timeout
         self._on_chunk_ready = on_chunk_ready
         self._on_device_changed = on_device_changed
         self._logger = logger
@@ -158,8 +160,22 @@ class AudioCaptureEngine:
         self._callback_lock = threading.Lock()
         self.last_callback_time = time.time()
 
+        # Serializes device switches. The disconnection watchdog and the
+        # primary-device recovery watchdog run on separate threads and can
+        # otherwise both call _stop_stream()/create_audio_stream() at the
+        # same time, clobbering self.stream/self.active_device mid-switch
+        # and leaving the old stream alive — causing two devices to publish
+        # to the same topic simultaneously.
+        self._device_switch_lock = threading.Lock()
+
         self.devices = None
         self.available_devices: list = []
+
+        # Names of devices whose probe got no audio within test_stream_timeout
+        # (e.g. the 32 Jetson APE virtual channels). They never start delivering,
+        # and re-probing them costs test_stream_timeout each on every retry pass,
+        # delaying reconnection. Devices matching the primary name are never added.
+        self._hung_devices: set = set()
 
         self.watchdog = DeviceWatchdog(
             disconnection_timeout=disconnection_timeout,
@@ -236,57 +252,92 @@ class AudioCaptureEngine:
     # Device connection methods
     # ------------------------------------------------------------------
 
-    def _connect_fallback_device(self) -> bool:
-        """Try every available device until one receives audio."""
-        for device_index in self.available_devices:
+    def _probe_and_connect(self, candidates: list, primary_matches: list) -> Optional[str]:
+        """Probe candidates in order and open a stream on the first one receiving audio.
+
+        Returns the connected device name, or None if no candidate worked.
+        """
+        for device_index in candidates:
             device_name = self.devices[device_index]["name"]
+            is_primary = device_index in primary_matches
+            if not is_primary and device_name in self._hung_devices:
+                continue
+
             self._logger.debug(f"Testing device {device_index}: {device_name}")
+            started = time.monotonic()
             success, active_device = self.sd_manager.test_device(
-                device_index, self.devices, self.channels, self.dtype, self.chunk
+                device_index,
+                self.devices,
+                self.channels,
+                self.dtype,
+                self.chunk,
+                self.test_stream_timeout,
             )
             if success:
                 self._apply_device_info(active_device)
                 self.create_audio_stream()
                 self.audio_buffer = np.array([], dtype=np.float32)
-                self._on_device_changed(device_name)
-                self._logger.debug(f"Successfully connected to fallback device: {device_name}.")
-                return True
-            self._logger.warn(
-                f"Device {device_index} ({device_name}) is not receiving audio or failed to open."
-            )
-        self._logger.error(
-            "No working audio devices found that are receiving input during disconnection recovery."
+                return device_name
+
+            if not is_primary and time.monotonic() - started >= self.test_stream_timeout:
+                self._hung_devices.add(device_name)
+                self._logger.warn(
+                    f"Device {device_index} ({device_name}) did not deliver audio within "
+                    f"{self.test_stream_timeout:.1f}s. Skipping it from now on."
+                )
+            else:
+                self._logger.warn(
+                    f"Device {device_index} ({device_name}) is not receiving audio or failed to open."
+                )
+        return None
+
+    def _connect_fallback_device(self) -> bool:
+        """Try the primary device first, then any other available device."""
+        primary_name = self.watchdog.primary_device_name
+        primary_matches = (
+            self.sd_manager.find_by_name(primary_name, self.available_devices, self.devices)
+            if primary_name
+            else []
         )
-        return False
+        candidates = primary_matches + [
+            i for i in self.available_devices if i not in primary_matches
+        ]
+
+        device_name = self._probe_and_connect(candidates, primary_matches)
+        if device_name is None:
+            self._logger.error(
+                "No working audio devices found that are receiving input during disconnection recovery."
+            )
+            return False
+
+        # Landing back on the primary device means recovery is complete; leaving
+        # the fallback flag set would make the primary-recovery watchdog keep
+        # probing a device this stream already holds exclusively.
+        self.watchdog.is_using_fallback = not (
+            primary_name and primary_name.upper() in device_name.upper()
+        )
+        self._on_device_changed(device_name)
+        self._logger.info(f"Reconnected to audio device: {device_name}.")
+        return True
 
     def _connect_primary_device(self, device_name_param: str) -> bool:
         """Try devices matching device_name_param. Normal startup path."""
-        matching_devices = self.sd_manager.find_by_name(
+        primary_matches = self.sd_manager.find_by_name(
             device_name_param, self.available_devices, self.devices, self._logger
         )
-        if not matching_devices:
+        candidates = primary_matches
+        if not primary_matches:
             self._logger.warn(
                 f"No devices found containing '{device_name_param}'. Trying all available devices."
             )
-            matching_devices = self.available_devices
+            candidates = self.available_devices
 
-        for device_index in matching_devices:
-            self._logger.debug(
-                f"Testing device {device_index}: {self.devices[device_index]['name']}"
+        if self._probe_and_connect(candidates, primary_matches) is None:
+            self._logger.error(
+                "No working audio devices found that are receiving input. Retrying in 2 seconds..."
             )
-            success, active_device = self.sd_manager.test_device(
-                device_index, self.devices, self.channels, self.dtype, self.chunk
-            )
-            if success:
-                self._apply_device_info(active_device)
-                self.create_audio_stream()
-                self.audio_buffer = np.array([], dtype=np.float32)
-                return True
-            self._logger.warn(f"Device {device_index} is not receiving audio or failed to open.")
-        self._logger.error(
-            "No working audio devices found that are receiving input. Retrying in 2 seconds..."
-        )
-        return False
+            return False
+        return True
 
     def setup_working_device(self, device_name_param: str) -> None:
         """Dispatcher: delegates to primary or fallback connection based on device_name_param."""
@@ -312,6 +363,20 @@ class AudioCaptureEngine:
                 else:
                     self.watchdog.is_using_fallback = False
                     if self._connect_primary_device(device_name_param):
+                        # _connect_primary_device falls back to ANY device when
+                        # no name match is found. If what we actually connected
+                        # to isn't the requested device, treat it as a fallback
+                        # so the primary-recovery watchdog keeps looking for the
+                        # real one instead of settling permanently on the wrong
+                        # microphone.
+                        connected_name = self.active_device.name if self.active_device else ""
+                        matched_primary = device_name_param.upper() in connected_name.upper()
+                        if not matched_primary:
+                            self._logger.warn(
+                                f"Connected to '{connected_name}' instead of requested "
+                                f"'{device_name_param}'. Will keep searching for primary device."
+                            )
+                        self.watchdog.is_using_fallback = not matched_primary
                         return
                 time.sleep(2)
             except KeyboardInterrupt:
@@ -407,8 +472,9 @@ class AudioCaptureEngine:
             # can occasionally raise; never let that abort the recovery below.
             self._logger.error("Exception notifying node of device change:", exc_info=True)
         self._logger.error("Device disconnected. Stopping stream and searching for replacement.")
-        self._stop_stream()
-        self._handle_device_disconnection()
+        with self._device_switch_lock:
+            self._stop_stream()
+            self._handle_device_disconnection()
 
     def _handle_device_disconnection(self) -> None:
         try:
@@ -439,20 +505,26 @@ class AudioCaptureEngine:
 
             for device_index in matching_devices:
                 success, active_device = self.sd_manager.test_device(
-                    device_index, current_devices, self.channels, self.dtype, self.chunk
+                    device_index,
+                    current_devices,
+                    self.channels,
+                    self.dtype,
+                    self.chunk,
+                    self.test_stream_timeout,
                 )
                 if success:
                     self._logger.debug(
                         f"Primary device '{active_device.name}' is available again! Switching back..."
                     )
-                    self._stop_stream()
-                    self.devices = current_devices
-                    self.available_devices = current_available
-                    self._apply_device_info(active_device)
-                    self._on_device_changed(self.watchdog.primary_device_name)
-                    self.create_audio_stream()
-                    self.audio_buffer = np.array([], dtype=np.float32)
-                    self.watchdog.is_using_fallback = False
+                    with self._device_switch_lock:
+                        self._stop_stream()
+                        self.devices = current_devices
+                        self.available_devices = current_available
+                        self._apply_device_info(active_device)
+                        self._on_device_changed(self.watchdog.primary_device_name)
+                        self.create_audio_stream()
+                        self.audio_buffer = np.array([], dtype=np.float32)
+                        self.watchdog.is_using_fallback = False
                     with self._callback_lock:
                         self.last_callback_time = time.time()
                     self._logger.debug(

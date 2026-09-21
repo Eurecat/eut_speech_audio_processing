@@ -87,7 +87,7 @@ class TestAudioCapturing:
                     call("chunk", 512),
                     call("disconnection_timeout", 3.0),
                     call("disconnection_check_interval", 1.0),
-                    call("test_stream_duration", 0.1),
+                    call("test_stream_timeout", 2.0),
                     call("primary_device_check_interval", 5.0),
                     call("target_samplerate", 16000),
                 ]
