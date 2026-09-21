@@ -66,14 +66,45 @@ RUN if [ "$CPU_ONLY" = "true" ]; then \
     else \
         /bin/bash -c "source /opt/ros_python_env/bin/activate && \
         uv pip install -r requirements_general_active.txt && \
-        uv pip uninstall onnxruntime && \
         if [ "$TARGET_DISTRO" = "humble" ]; then \
             uv pip install onnxruntime-gpu==1.16.3; \
         else \
             uv pip install onnxruntime-gpu==1.24.1; \
         fi"; \
     fi
-#we need to install onnxruntime separately because openwakeword has a dependency on onnxruntime, and we want to ensure the GPU version is installed if no using cpu flag
+# We install onnxruntime-gpu on top (not instead of) the plain "onnxruntime"
+# that openwakeword pulls in as a dependency: onnxruntime-gpu's files
+# overwrite onnxruntime's in site-packages, so `import onnxruntime` still
+# resolves to the GPU build (verified: get_available_providers() lists
+# CUDAExecutionProvider), but the "onnxruntime" distribution stays
+# registered. Previously this uninstalled "onnxruntime" first, which left
+# openwakeword's own declared dependency (onnxruntime<2,>=1.10.0) unsatisfied
+# in the environment's package metadata — harmless until something walks
+# the full pkg_resources dependency graph and raises DistributionNotFound
+# for it (NeMo's model loader does exactly that, see fix_dotted_distinfo.py
+# below for the same class of issue with dotted package names).
+
+# NeMo's model loader (nemo.core.classes.common.safe_instantiate, invoked
+# from asr_node when asr_backend=parakeet) validates every installed
+# package's declared dependencies via the legacy pkg_resources API. That API
+# does not apply PEP 503 name normalization to a Requirement string, so a
+# dependency declared with a literal dot (diart -> "pyannote.audio>=2.1.1",
+# speechbrain's hyperpyyaml -> "ruamel.yaml>=...") fails to match the
+# installed distribution when its wheel's dist-info directory was built with
+# the now-standard underscored name (pyannote_audio-3.4.0.dist-info) instead
+# of the literal dotted one pkg_resources' Requirement.key still expects.
+# This only ever surfaces when pkg_resources itself comes from the system
+# site-packages (as it does here: the venv has no pkg_resources of its own,
+# see asr.launch.py's PYTHONPATH-injection instead of real venv activation)
+# AND the process's PATH has the venv's bin/ first (true for every node here,
+# since entrypoint.sh activates the venv for the whole container) — nemo
+# happens to be the first thing in this stack to exercise that specific
+# pkg_resources code path. Fix: duplicate the affected dist-info directories
+# under their literal dotted name so pkg_resources finds them either way.
+COPY fix_dotted_distinfo.py /tmp/fix_dotted_distinfo.py
+RUN /bin/bash -c "source /opt/ros_python_env/bin/activate && \
+    python3 /tmp/fix_dotted_distinfo.py \$(python3 -c 'import site; print(site.getsitepackages()[0])')" && \
+    rm /tmp/fix_dotted_distinfo.py
 
 # Humble (Python 3.10, /usr/bin/python3 entrypoints) can mix venv matplotlib
 # with system mpl_toolkits and crash in diarization.
