@@ -230,6 +230,7 @@ class ASRNode(Node):
         speaker_id: str,
         language_code: str,
         processing_ms: int,
+        silence_ms: int,
         audio_duration_ms: int,
         realtime_factor: float,
         speaker_confidence: float = -1.0,

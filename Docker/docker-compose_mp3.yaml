@@ -105,7 +105,7 @@ services:
       source /workspace/install/setup.bash &&
       exec python3 /tmp/audio_file_publisher.py
       --ros-args
-      -p input_file:=${AUDIO_FILE:-/workspace/src/audio_stream_manager/recordings/four_speakers.mp3}
+      -p input_file:=${AUDIO_FILE:-/workspace/src/audio_stream_manager/recordings/diarization_test_spicy4tuna.mp3}
       -p sample_rate:=16000
       -p chunk_size:=512
       -p tail_silence:=2.0

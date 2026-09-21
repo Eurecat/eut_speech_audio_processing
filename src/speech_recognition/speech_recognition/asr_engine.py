@@ -862,8 +862,12 @@ class ASREngine:
 
             if transcript:
                 model_processing_ms = int((time.time() - transcribe_start) * 1000)
+                # last_silence_time is stamped when the VAD silence timer STARTS, so the
+                # raw delta includes the min_silence_duration wait itself. Subtract it so
+                # processing_ms reflects actual work, not VAD's trailing-silence hold-off.
+                silence_ms = int(self.min_silence_duration * 1000)
                 if self.last_silence_time > 0:
-                    processing_ms = int((time.time() - self.last_silence_time) * 1000)
+                    processing_ms = max(0, int((time.time() - self.last_silence_time) * 1000) - silence_ms)
                 else:
                     processing_ms = model_processing_ms
                 # A single VAD chunk can contain several speakers (e.g. fast
@@ -899,7 +903,7 @@ class ASREngine:
                         f"Transcript: '{group_text}' (lang: {detected_language}, "
                         f"speaker: {group['speaker']}, "
                         f"seg={group['start_offset']:.2f}-{group['end_offset']:.2f}s, "
-                        f"proc={processing_ms}ms, model={model_processing_ms}ms, "
+                        f"proc={processing_ms}ms, silence={silence_ms}ms, model={model_processing_ms}ms, "
                         f"audio={group_audio_ms}ms, x{realtime_factor:.2f})"
                     )
                     speaker_confidence = self.speaker_confidence_for_interval(
@@ -912,6 +916,7 @@ class ASREngine:
                         group["speaker"],
                         detected_language,
                         processing_ms,
+                        silence_ms,
                         group_audio_ms,
                         realtime_factor,
                         speaker_confidence,
