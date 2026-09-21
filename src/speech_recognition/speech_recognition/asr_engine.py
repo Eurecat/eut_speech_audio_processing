@@ -91,7 +91,7 @@ class ASREngine:
         speaker_interval_tolerance: float = 3.0,
         min_speaker_chunk_duration: float = 0.3,
         weights_dir: str,
-        on_transcript_ready: Callable[[str, str, str, int, int, float, float], None],
+        on_transcript_ready: Callable[[str, str, str, int, int, int, float, float], None],
         logger,
     ):
         self._logger = logger

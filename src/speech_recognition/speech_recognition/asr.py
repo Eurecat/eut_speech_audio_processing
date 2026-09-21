@@ -254,7 +254,7 @@ class ASRNode(Node):
         self.get_logger().info(
             f"Published transcript: '{transcript}' (lang: {language_code}, speaker: {speaker_id}"
             f"@{speaker_confidence:.2f}, "
-            f"proc={processing_ms}ms, audio={audio_duration_ms}ms, x{realtime_factor:.2f})"
+            f"proc={processing_ms}ms, silence={silence_ms}ms, audio={audio_duration_ms}ms, x{realtime_factor:.2f})"
         )
 
         if self.ros4hri_enabled and speaker_id and speaker_id != "unknown":
