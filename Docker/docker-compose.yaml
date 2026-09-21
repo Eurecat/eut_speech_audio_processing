@@ -48,6 +48,7 @@ services:
       - TORCH_HOME=/workspace/weights/torch
       - AI_VENV=/opt/ros_python_env
       - DEVICE_NAME=${DEVICE_NAME:-jabra}
+      - MONGODB_URI=mongodb://eurecat:cerdanyola@localhost:${SPEAKERS_DB_MONGO_PORT:-27020}/?authSource=admin
 
     devices:
       - /dev/dri:/dev/dri
@@ -109,6 +110,7 @@ services:
       - HF_HOME=/workspace/weights/huggingface
       - TORCH_HOME=/workspace/weights/torch
       - AI_VENV=/opt/ros_python_env
+      - MONGODB_URI=mongodb://eurecat:cerdanyola@localhost:${SPEAKERS_DB_MONGO_PORT:-27020}/?authSource=admin
 
     devices:
       - /dev/dri:/dev/dri
@@ -117,14 +119,14 @@ services:
     device_cgroup_rules:
       - 'c 180:* rwm'  # 180 is usb
       - 'c 189:* rwm' # 189 is usb_device
-    
+
     # Enable/disable components via launch file arguments:
     # ros2 launch speech_recognition speech_recognition.launch.py enable_vad:=false enable_diarization:=false enable_asr:=false enable_wake_word:=false
     command: >
       bash -c "source /workspace/install/setup.bash &&
       exec ros2 launch speech_recognition speech_recognition.launch.py
       redi_use_database:=${REDI_USE_DATABASE:-true}
-      asr_backend:=${ASR_BACKEND:-}"
+      asr_backend:=${ASR_BACKEND:-whisper}"
 
     stop_signal: SIGINT
     stop_grace_period: 30s
@@ -134,7 +136,14 @@ services:
     container_name: "mongodb"
     restart: unless-stopped
     ports:
-      - "27017:27017"
+      # Host port is configurable (default 27020) because 27017 collides with
+      # a native mongod service on hosts that run one outside Docker (e.g. this
+      # machine's system mongod at 127.0.0.1:27017). Internal container-to-container
+      # traffic (mongo_express -> mongodb_service) always uses the fixed
+      # in-network port 27017 below, unaffected by this mapping. The two
+      # host-network services (audio_device_manager, speech_recognition) are
+      # given MONGODB_URI above so they reach Mongo on the same host port.
+      - "${SPEAKERS_DB_MONGO_PORT:-27020}:27017"
     volumes:
       - mongodb_data:/data/db
     environment:
