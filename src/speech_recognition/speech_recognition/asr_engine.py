@@ -740,7 +740,7 @@ class ASREngine:
         return smoothed
 
     def _group_tokens_by_sentence(self, tokens: List[tuple]) -> List[dict]:
-        """Label whole sentences with their majority speaker.
+        """Label whole sentences with their trailing (or majority) speaker.
 
         Tokens are ``(start, end, text, speaker)``. Sentence units are formed at
         punctuation, so a noisy diarization boundary can never split a sentence
@@ -754,22 +754,53 @@ class ASREngine:
         for token in tokens:
             unit.append(token)
             if self._is_sentence_end(token[2]):
-                sentence_labels.append((round(unit[-1][1], 2), self._majority_speaker(unit)))
+                sentence_labels.append((round(unit[-1][1], 2), self._sentence_speaker(unit)))
                 self._append_sentence_group(groups, unit)
                 unit = []
         if unit:
-            sentence_labels.append((round(unit[-1][1], 2), self._majority_speaker(unit)))
+            sentence_labels.append((round(unit[-1][1], 2), self._sentence_speaker(unit)))
             self._append_sentence_group(groups, unit)
         self._last_sentence_labels = sentence_labels
         return groups
 
     def _append_sentence_group(self, groups: List[dict], unit: List[tuple]) -> None:
-        speaker = self._majority_speaker(unit)
+        speaker = self._sentence_speaker(unit)
         spans = [(start, end, text) for start, end, text, _ in unit]
         if groups and groups[-1]["speaker"] == speaker:
             groups[-1]["spans"].extend(spans)
         else:
             groups.append({"speaker": speaker, "spans": spans})
+
+    def _sentence_speaker(self, unit: List[tuple]) -> str:
+        """Speaker for a whole sentence unit.
+
+        Diarization only reports a speaker change once it has enough audio to be
+        sure (REDI needs ~0.8-1.36s), so a real switch is always confirmed later
+        than it actually happened. On a short sentence the new speaker can end up
+        holding a minority of the words even though the switch is correct — a raw
+        duration majority would then keep the old speaker. Once diarization has
+        committed to a switch (the sentence ends on a credible run of the new
+        speaker, not a one-word flicker) that switch is trusted over the word-time
+        majority. ``credible`` reuses the same run-length bar as ``_smooth_spans``.
+        """
+        runs: List[dict] = []
+        for start, end, _text, speaker in unit:
+            if runs and runs[-1]["speaker"] == speaker:
+                runs[-1]["end"] = end
+                runs[-1]["tokens"] += 1
+            else:
+                runs.append({"speaker": speaker, "start": start, "end": end, "tokens": 1})
+
+        if len(runs) > 1:
+            last = runs[-1]
+            credible = (
+                last["tokens"] >= self.min_speaker_run_tokens
+                and (last["end"] - last["start"]) >= self.min_speaker_run_duration
+            )
+            if credible:
+                return last["speaker"]
+
+        return self._majority_speaker(unit)
 
     @staticmethod
     def _majority_speaker(unit: List[tuple]) -> str:
