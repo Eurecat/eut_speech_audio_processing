@@ -1,0 +1,525 @@
+{
+  "schema_version": 1,
+  "audio": "callhome_spa_snr20__spa_0018_2spk_snr20.wav",
+  "duration_sec": 120.0,
+  "language": "es",
+  "speakers": [
+    "A",
+    "B"
+  ],
+  "turn_source": "rttm:callhome_spa_snr20__spa_0018_2spk_snr20.rttm",
+  "text_source": "silver: faster-whisper models--mobiuslabsgmbh--faster-whisper-large-v3-turbo per GT turn, beam 5",
+  "review_note": "text is machine-made; edit 'text', keep 'text_silver', set verified=true when checked",
+  "utterances": [
+    {
+      "id": "u000",
+      "start": 0.0,
+      "end": 1.74,
+      "speaker": "B",
+      "overlap": false,
+      "text": "¿Se vais a ir el 31 vosotros?",
+      "text_silver": "¿Se vais a ir el 31 vosotros?",
+      "verified": false
+    },
+    {
+      "id": "u001",
+      "start": 2.39,
+      "end": 5.52,
+      "speaker": "A",
+      "overlap": true,
+      "text": "Mira, ya veremos, ya veremos.",
+      "text_silver": "Mira, ya veremos, ya veremos.",
+      "verified": false
+    },
+    {
+      "id": "u002",
+      "start": 4.96, 
+      "end": 10.24,
+      "speaker": "B",
+      "overlap": true,
+      "text": "Oye, hoy Pili ha estado diciendo aquí que el tren de... Pili Álava está aquí, ha venido la boda de Miquel.",
+      "text_silver": "Oye, hoy Pili ha estado diciendo aquí que el tren de... Pili Álava está aquí, ha venido la boda de Miquel.",
+      "verified": false
+    },
+    {
+      "id": "u003",
+      "start": 10.32,
+      "end": 11.59,
+      "speaker": "A",
+      "overlap": true,
+      "text": "¡Ah, sí! ¡Miquel!",
+      "text_silver": "¡Ah, sí! ¡Miquel!",
+      "verified": false
+    },
+    {
+      "id": "u004",
+      "start": 11.49,
+      "end": 13.22,
+      "speaker": "B",
+      "overlap": true,
+      "text": "Miquel se ha casado con Nicole.",
+      "text_silver": "Miquel se ha casado con Nicole.",
+      "verified": false
+    },
+    {
+      "id": "u005",
+      "start": 13.55,
+      "end": 14.26,
+      "speaker": "A",
+      "overlap": true,
+      "text": "¡Así!",
+      "text_silver": "¡Así!",
+      "verified": false
+    },
+    {
+      "id": "u006",
+      "start": 14.22,
+      "end": 15.08,
+      "speaker": "B",
+      "overlap": true,
+      "text": "Colchonchon",
+      "text_silver": "Colchonchon",
+      "verified": false
+    },
+    {
+      "id": "u007",
+      "start": 15.37,
+      "end": 16.95,
+      "speaker": "A",
+      "overlap": true,
+      "text": "Sí, sí, yo sé quien es Nicole.",
+      "text_silver": "Sí, sí, yo sé quien es Nicole.",
+      "verified": false
+    },
+    {
+      "id": "u008",
+      "start": 16.93,
+      "end": 20.46,
+      "speaker": "B",
+      "overlap": true,
+      "text": "Sí, se ha casado por lo civil porque ella es judía, ¿no?",
+      "text_silver": "Sí, se ha casado por lo civil porque ella es judía, ¿no?",
+      "verified": false
+    },
+    {
+      "id": "u009",
+      "start": 20.58,
+      "end": 21.62,
+      "speaker": "A",
+      "overlap": true,
+      "text": "Ah, no sabía.",
+      "text_silver": "Ah, no sabía.",
+      "verified": false
+    },
+    {
+      "id": "u010",
+      "start": 21.55,
+      "end": 26.22,
+      "speaker": "B",
+      "overlap": true,
+      "text": "Sí, entonces se han casado por lo civil, pero una boda estrictamente familiar, ¿no?",
+      "text_silver": "Sí, entonces se han casado por lo civil, pero una boda estrictamente familiar, ¿no?",
+      "verified": false
+    },
+    {
+      "id": "u011",
+      "start": 26.01,
+      "end": 27.41,
+      "speaker": "A",
+      "overlap": true,
+      "text": "Imagínate",
+      "text_silver": "Imagínate",
+      "verified": false
+    },
+    {
+      "id": "u012",
+      "start": 26.93,
+      "end": 37.4,
+      "speaker": "B",
+      "overlap": true,
+      "text": "Sí, y se casó el martes. Y entonces ha venido Begochu, su marido, y Pili. Y hoy se han ido Begochu y su marido y se ha quedado Pili hasta el domingo.",
+      "text_silver": "Sí, y se casó el martes. Y entonces ha venido Begochu, su marido, y Pili. Y hoy se han ido Begochu y su marido y se ha quedado Pili hasta el domingo.",
+      "verified": false
+    },
+    {
+      "id": "u013",
+      "start": 37.54,
+      "end": 38.25,
+      "speaker": "A",
+      "overlap": true,
+      "text": "Está bien.",
+      "text_silver": "Está bien.",
+      "verified": false
+    },
+    {
+      "id": "u014",
+      "start": 37.92,
+      "end": 44.89,
+      "speaker": "B",
+      "overlap": true,
+      "text": "Entonces nos estaba diciendo que hay un tren de París a Vendaya.",
+      "text_silver": "Entonces nos estaba diciendo que hay un tren de París a Vendaya.",
+      "verified": false
+    },
+    {
+      "id": "u015",
+      "start": 43.55,
+      "end": 44.3,
+      "speaker": "A",
+      "overlap": true,
+      "text": "En Daya.",
+      "text_silver": "En Daya.",
+      "verified": false
+    },
+    {
+      "id": "u016",
+      "start": 45.2,
+      "end": 46.7,
+      "speaker": "B",
+      "overlap": true,
+      "text": "Que es una maravilla, ¿vale?",
+      "text_silver": "Que es una maravilla, ¿vale?",
+      "verified": false
+    },
+    {
+      "id": "u017",
+      "start": 46.62,
+      "end": 48.54,
+      "speaker": "A",
+      "overlap": true,
+      "text": "No, sí, nosotros...",
+      "text_silver": "No, sí, nosotros...",
+      "verified": false
+    },
+    {
+      "id": "u018",
+      "start": 47.08,
+      "end": 49.91,
+      "speaker": "B",
+      "overlap": true,
+      "text": "3 o 4 horas",
+      "text_silver": "3 o 4 horas",
+      "verified": false
+    },
+    {
+      "id": "u019",
+      "start": 49.85,
+      "end": 52.71,
+      "speaker": "A",
+      "overlap": true,
+      "text": "Sí, bueno, no, no, no tanto, no tanto.",
+      "text_silver": "Sí, bueno, no, no, no tanto, no tanto.",
+      "verified": false
+    },
+    {
+      "id": "u020",
+      "start": 52.23,
+      "end": 53.62,
+      "speaker": "B",
+      "overlap": true,
+      "text": "Cuatro horas, ha dicho.",
+      "text_silver": "Cuatro horas, ha dicho.",
+      "verified": false
+    },
+    {
+      "id": "u021",
+      "start": 53.92,
+      "end": 59.18,
+      "speaker": "A",
+      "overlap": true,
+      "text": "Bueno, ya es un poco más. Ese es el mismo tren que nosotros agarramos cuando fuimos ama.",
+      "text_silver": "Bueno, ya es un poco más. Ese es el mismo tren que nosotros agarramos cuando fuimos.",
+      "verified": false
+    },
+    {
+      "id": "u022",
+      "start": 58.24,
+      "end": 60.41,
+      "speaker": "B",
+      "overlap": true,
+      "text": "Si, ¿Cuál es el Tafo eso?",
+      "text_silver": "¿Cuál es el Tafo eso?",
+      "verified": false
+    },
+    {
+      "id": "u023",
+      "start": 60.28,
+      "end": 61.34,
+      "speaker": "A",
+      "overlap": true,
+      "text": "El TDB",
+      "text_silver": "El TDB",
+      "verified": false
+    },
+    {
+      "id": "u024",
+      "start": 61.89,
+      "end": 62.74,
+      "speaker": "B",
+      "overlap": false,
+      "text": "¿TDB?",
+      "text_silver": "¿TDB?",
+      "verified": false
+    },
+    {
+      "id": "u025",
+      "start": 62.78,
+      "end": 65.66,
+      "speaker": "A",
+      "overlap": true,
+      "text": "TDB, TGV, TREN.",
+      "text_silver": "TDB, TGV, TREN.",
+      "verified": false
+    },
+    {
+      "id": "u026",
+      "start": 65.16,
+      "end": 65.93,
+      "speaker": "B",
+      "overlap": true,
+      "text": "TGV",
+      "text_silver": "TGV",
+      "verified": false
+    },
+    {
+      "id": "u027",
+      "start": 65.68,
+      "end": 67.5,
+      "speaker": "A",
+      "overlap": true,
+      "text": "Tren de gran velocidad.",
+      "text_silver": "Tren de gran velocidad.",
+      "verified": false
+    },
+    {
+      "id": "u028",
+      "start": 67.23,
+      "end": 71.38,
+      "speaker": "B",
+      "overlap": true,
+      "text": "¡Ah, el tac sí, sí, sí! ¡Tec, tec, ya, ya!",
+      "text_silver": "¡Ah, sí, sí, sí! ¡Tec, tec, ya, ya!",
+      "verified": false
+    },
+    {
+      "id": "u029",
+      "start": 69.0,
+      "end": 72.56,
+      "speaker": "A",
+      "overlap": true,
+      "text": "Tec.",
+      "text_silver": "Tec, tec, ya, ya. TCB, TCB, TCB.",
+      "verified": false
+    },
+    {
+      "id": "u030",
+      "start": 72.06,
+      "end": 73.5,
+      "speaker": "B",
+      "overlap": true,
+      "text": "Tec Tec",
+      "text_silver": "Ya, ya, ya.",
+      "verified": false
+    },
+    {
+      "id": "u031",
+      "start": 73.42,
+      "end": 75.59,
+      "speaker": "A",
+      "overlap": true,
+      "text": "T-G-B",
+      "text_silver": "T-G-B",
+      "verified": false
+    },
+    {
+      "id": "u032",
+      "start": 75.59,
+      "end": 78.05,
+      "speaker": "B",
+      "overlap": true,
+      "text": "TGB, ajá, ya.",
+      "text_silver": "TGB, ajá, ya.",
+      "verified": false
+    },
+    {
+      "id": "u033",
+      "start": 76.59,
+      "end": 79.76,
+      "speaker": "A",
+      "overlap": true,
+      "text": "El tren de gran vitez",
+      "text_silver": "El tren de gran vitez",
+      "verified": false
+    },
+    {
+      "id": "u034",
+      "start": 79.66,
+      "end": 81.57,
+      "speaker": "B",
+      "overlap": true,
+      "text": "¡Gracias!",
+      "text_silver": "¡Gracias!",
+      "verified": false
+    },
+    {
+      "id": "u035",
+      "start": 81.16,
+      "end": 82.85,
+      "speaker": "A",
+      "overlap": true,
+      "text": "Eso es.",
+      "text_silver": "Eso es.",
+      "verified": false
+    },
+    {
+      "id": "u036",
+      "start": 82.14,
+      "end": 83.41,
+      "speaker": "B",
+      "overlap": true,
+      "text": "Ya, ya, ya. ¿Y?",
+      "text_silver": "Ya, ya, ya. ¿Y?",
+      "verified": false
+    },
+    {
+      "id": "u037",
+      "start": 83.72,
+      "end": 86.02,
+      "speaker": "A",
+      "overlap": false,
+      "text": "No, pero ese dura como cinco horas.",
+      "text_silver": "No, pero ese dura como cinco horas.",
+      "verified": false
+    },
+    {
+      "id": "u038",
+      "start": 86.29,
+      "end": 86.93,
+      "speaker": "B",
+      "overlap": false,
+      "text": "a sí?.",
+      "text_silver": "a sí?.",
+      "verified": false
+    },
+    {
+      "id": "u039",
+      "start": 87.08,
+      "end": 88.46,
+      "speaker": "A",
+      "overlap": true,
+      "text": "Sí, pero bueno, claro.",
+      "text_silver": "Sí, pero bueno, claro.",
+      "verified": false
+    },
+    {
+      "id": "u040",
+      "start": 87.89,
+      "end": 90.9,
+      "speaker": "B",
+      "overlap": true,
+      "text": "Pero vale la pena.",
+      "text_silver": "Pero vale la pena. No, por supuesto que vale la pena.",
+      "verified": false
+    },
+    {
+      "id": "u041",
+      "start": 89.21,
+      "end": 92.74,
+      "speaker": "A",
+      "overlap": true,
+      "text": "No, por supuesto que vale la pena, por supuesto que vale la pena.",
+      "text_silver": "No, por supuesto que vale la pena, por supuesto que vale la pena.",
+      "verified": false
+    },
+    {
+      "id": "u042",
+      "start": 92.92,
+      "end": 93.4,
+      "speaker": "B",
+      "overlap": true,
+      "text": "pero",
+      "text_silver": "pero",
+      "verified": false
+    },
+    {
+      "id": "u043",
+      "start": 93.24,
+      "end": 107.33,
+      "speaker": "A",
+      "overlap": true,
+      "text": "Pero claro, hay que ver, ¿no? Hay que ver, o sea, yo por supuesto que si yo veo que los días que vamos a estar en París, porque ahora el problema que se me pudiera presentar es que del 24 al 31,",
+      "text_silver": "Pero claro, hay que ver, ¿no? Hay que ver, o sea, yo por supuesto que si yo veo que los días que vamos a estar en París, porque ahora el problema que se me pudiera presentar es que del 24 al 31,",
+      "verified": false
+    },
+    {
+      "id": "u044",
+      "start": 107.38,
+      "end": 108.02,
+      "speaker": "B",
+      "overlap": true,
+      "text": "hmm",
+      "text_silver": "hmm",
+      "verified": false
+    },
+    {
+      "id": "u045",
+      "start": 107.73,
+      "end": 111.59,
+      "speaker": "A",
+      "overlap": true,
+      "text": "En París no sé cómo estará el movimiento de trabajo.",
+      "text_silver": "En París no sé cómo estará el movimiento de trabajo.",
+      "verified": false
+    },
+    {
+      "id": "u046",
+      "start": 110.84,
+      "end": 112.26,
+      "speaker": "B",
+      "overlap": true,
+      "text": "De apartamentos ya.",
+      "text_silver": "De apartamentos ya.",
+      "verified": false
+    },
+    {
+      "id": "u047",
+      "start": 112.4,
+      "end": 115.57,
+      "speaker": "A",
+      "overlap": true,
+      "text": "Yo supongo que un inmobiliario debe trabajar, ¿no?",
+      "text_silver": "Yo supongo que un inmobiliario debe trabajar, ¿no?",
+      "verified": false
+    },
+    {
+      "id": "u048",
+      "start": 115.12,
+      "end": 116.95,
+      "speaker": "B",
+      "overlap": true,
+      "text": "Sí, sí, sí.",
+      "text_silver": "Sí, sí, sí.",
+      "verified": false
+    },
+    {
+      "id": "u049",
+      "start": 116.45,
+      "end": 117.64,
+      "speaker": "A",
+      "overlap": true,
+      "text": "Así que...",
+      "text_silver": "Así que...",
+      "verified": false
+    },
+    {
+      "id": "u050",
+      "start": 117.49,
+      "end": 120.0,
+      "speaker": "B",
+      "overlap": true,
+      "text": "Le voy a decir una cosa, París, ¿qué es el lugar?",
+      "text_silver": "Le voy a decir una cosa, París, ¿qué es el lugar?",
+      "verified": false
+    }
+  ]
+}

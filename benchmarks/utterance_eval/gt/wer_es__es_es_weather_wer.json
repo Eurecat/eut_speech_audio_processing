@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "audio": "wer_es__es_es_weather_wer.wav",
+  "duration_sec": 35.19,
+  "language": "es",
+  "speakers": [
+    "A",
+    "B",
+    "C"
+  ],
+  "turn_source": "vad+speaker_order",
+  "text_source": "silver: faster-whisper models--mobiuslabsgmbh--faster-whisper-large-v3-turbo per GT turn, beam 5",
+  "review_note": "text is machine-made; edit 'text', keep 'text_silver', set verified=true when checked",
+  "utterances": [
+    {
+      "id": "u000",
+      "start": 0.336,
+      "end": 3.12,
+      "speaker": "A",
+      "overlap": false,
+      "text": "Hay 17 grados con sol.",
+      "text_silver": "Hay 17 grados con sol.",
+      "verified": false
+    },
+    {
+      "id": "u001",
+      "start": 4.368,
+      "end": 6.992,
+      "speaker": "B",
+      "overlap": false,
+      "text": "Hay 14 grados y está nublado.",
+      "text_silver": "Hay 14 grados y está nublado.",
+      "verified": false
+    },
+    {
+      "id": "u002",
+      "start": 7.952,
+      "end": 10.064,
+      "speaker": "B",
+      "overlap": false,
+      "text": "Hay 15 grados y llueve.",
+      "text_silver": "Hay 15 grados y llueve.",
+      "verified": false
+    },
+    {
+      "id": "u003",
+      "start": 10.928,
+      "end": 13.136,
+      "speaker": "C",
+      "overlap": false,
+      "text": "Hay 21 grados con sol.",
+      "text_silver": "Hay 21 grados con sol.",
+      "verified": false
+    },
+    {
+      "id": "u004",
+      "start": 14.096,
+      "end": 16.08,
+      "speaker": "C",
+      "overlap": false,
+      "text": "Hay 11 grados con sol.",
+      "text_silver": "Hay 11 grados con sol.",
+      "verified": false
+    },
+    {
+      "id": "u005",
+      "start": 17.104,
+      "end": 19.28,
+      "speaker": "B",
+      "overlap": false,
+      "text": "Hay quince grados con sol",
+      "text_silver": "Hay quince grados con sol",
+      "verified": false
+    },
+    {
+      "id": "u006",
+      "start": 20.272,
+      "end": 23.28,
+      "speaker": "A",
+      "overlap": false,
+      "text": "Hay 19 grados y está nublado.",
+      "text_silver": "Hay 19 grados y está nublado.",
+      "verified": false
+    },
+    {
+      "id": "u007",
+      "start": 25.008,
+      "end": 27.024,
+      "speaker": "C",
+      "overlap": false,
+      "text": "Hay 20 grados con sol.",
+      "text_silver": "Hay 20 grados con sol.",
+      "verified": false
+    },
+    {
+      "id": "u008",
+      "start": 28.144,
+      "end": 30.576,
+      "speaker": "B",
+      "overlap": false,
+      "text": "Hay 11 grados y está nublado.",
+      "text_silver": "Hay 11 grados y está nublado.",
+      "verified": false
+    },
+    {
+      "id": "u009",
+      "start": 31.568,
+      "end": 34.608,
+      "speaker": "A",
+      "overlap": false,
+      "text": "Hay 18 grados y está nublado.",
+      "text_silver": "Hay 18 grados y está nublado.",
+      "verified": false
+    }
+  ]
+}

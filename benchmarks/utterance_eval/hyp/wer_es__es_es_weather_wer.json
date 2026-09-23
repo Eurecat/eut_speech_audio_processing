@@ -1,0 +1,1009 @@
+{
+  "schema_version": 1,
+  "device": "file:wer_es__es_es_weather_wer.wav",
+  "captured_unix": 1790170695,
+  "results": [
+    {
+      "t_pub": 3.15,
+      "text": "Hay diecisiete grados con sol.",
+      "speaker": "speaker1",
+      "speaker_conf": -1.0,
+      "language": "es",
+      "audio_ms": 2000,
+      "proc_ms": 143
+    },
+    {
+      "t_pub": 7.03,
+      "text": "Hay catorce grados y está nublado.",
+      "speaker": "speaker2",
+      "speaker_conf": -1.0,
+      "language": "es",
+      "audio_ms": 2080,
+      "proc_ms": 119
+    },
+    {
+      "t_pub": 10.101,
+      "text": "Hay quince grados y llueve.",
+      "speaker": "speaker2",
+      "speaker_conf": 0.413,
+      "language": "es",
+      "audio_ms": 1680,
+      "proc_ms": 118
+    },
+    {
+      "t_pub": 13.62,
+      "text": "Hay veintiún grados con sol.",
+      "speaker": "unknown",
+      "speaker_conf": -1.0,
+      "language": "es",
+      "audio_ms": 1520,
+      "proc_ms": 125
+    },
+    {
+      "t_pub": 16.189,
+      "text": "Hay once grados con sol.",
+      "speaker": "speaker3",
+      "speaker_conf": -1.0,
+      "language": "es",
+      "audio_ms": 1360,
+      "proc_ms": 122
+    },
+    {
+      "t_pub": 19.287,
+      "text": "Hay quince grados con sol.",
+      "speaker": "speaker2",
+      "speaker_conf": 0.534,
+      "language": "es",
+      "audio_ms": 1440,
+      "proc_ms": 121
+    },
+    {
+      "t_pub": 23.286,
+      "text": "Hay diecinueve grados y está nublado.",
+      "speaker": "speaker1",
+      "speaker_conf": 0.48,
+      "language": "es",
+      "audio_ms": 2400,
+      "proc_ms": 120
+    },
+    {
+      "t_pub": 26.997,
+      "text": "Hay veinte grados con sol.",
+      "speaker": "speaker3",
+      "speaker_conf": 0.499,
+      "language": "es",
+      "audio_ms": 1360,
+      "proc_ms": 118
+    },
+    {
+      "t_pub": 30.577,
+      "text": "Hay 11 grados y está nublado.",
+      "speaker": "speaker2",
+      "speaker_conf": 0.386,
+      "language": "es",
+      "audio_ms": 1920,
+      "proc_ms": 113
+    },
+    {
+      "t_pub": 34.603,
+      "text": "Hay dieciocho grados y está nublado.",
+      "speaker": "speaker1",
+      "speaker_conf": 0.483,
+      "language": "es",
+      "audio_ms": 2480,
+      "proc_ms": 108
+    }
+  ],
+  "activity": [
+    {
+      "t": 0.737,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 2.627,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 2.658,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 2.692,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 2.723,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 2.723,
+      "speaker": "speaker1",
+      "active": false
+    },
+    {
+      "t": 4.769,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 6.627,
+      "speaker": "speaker2",
+      "active": false
+    },
+    {
+      "t": 8.32,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 9.186,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 9.218,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 9.25,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 9.282,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 9.314,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 9.347,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 9.378,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 9.41,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 9.442,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 9.475,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 9.507,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 9.539,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 9.571,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 9.602,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 9.634,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 9.667,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 9.699,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 9.699,
+      "speaker": "speaker2",
+      "active": false
+    },
+    {
+      "t": 14.465,
+      "speaker": "speaker3",
+      "active": true
+    },
+    {
+      "t": 15.682,
+      "speaker": "speaker3",
+      "active": false
+    },
+    {
+      "t": 17.473,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 18.339,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 18.37,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 18.403,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 18.434,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 18.467,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 18.499,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 18.531,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 18.562,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 18.594,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 18.627,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 18.659,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 18.691,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 18.723,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 18.754,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 18.786,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 18.819,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 18.851,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 18.882,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 18.882,
+      "speaker": "speaker2",
+      "active": false
+    },
+    {
+      "t": 20.673,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 21.539,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 21.57,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 21.603,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 21.634,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 21.667,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 21.699,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 21.731,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 21.762,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 21.794,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 21.827,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 21.858,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 21.891,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 21.922,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 21.955,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 21.987,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.019,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.05,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.082,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.114,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.147,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.179,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.211,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.243,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.274,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.307,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.339,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.371,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.403,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.434,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.466,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.499,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.531,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.564,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.594,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.627,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.659,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.69,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.722,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.754,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.787,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.818,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.851,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.883,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 22.883,
+      "speaker": "speaker1",
+      "active": false
+    },
+    {
+      "t": 25.377,
+      "speaker": "speaker3",
+      "active": true
+    },
+    {
+      "t": 26.243,
+      "speaker": "speaker3",
+      "active": true
+    },
+    {
+      "t": 26.275,
+      "speaker": "speaker3",
+      "active": true
+    },
+    {
+      "t": 26.307,
+      "speaker": "speaker3",
+      "active": true
+    },
+    {
+      "t": 26.339,
+      "speaker": "speaker3",
+      "active": true
+    },
+    {
+      "t": 26.371,
+      "speaker": "speaker3",
+      "active": true
+    },
+    {
+      "t": 26.403,
+      "speaker": "speaker3",
+      "active": true
+    },
+    {
+      "t": 26.435,
+      "speaker": "speaker3",
+      "active": true
+    },
+    {
+      "t": 26.467,
+      "speaker": "speaker3",
+      "active": true
+    },
+    {
+      "t": 26.499,
+      "speaker": "speaker3",
+      "active": true
+    },
+    {
+      "t": 26.531,
+      "speaker": "speaker3",
+      "active": true
+    },
+    {
+      "t": 26.562,
+      "speaker": "speaker3",
+      "active": true
+    },
+    {
+      "t": 26.594,
+      "speaker": "speaker3",
+      "active": true
+    },
+    {
+      "t": 26.594,
+      "speaker": "speaker3",
+      "active": false
+    },
+    {
+      "t": 28.544,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 29.411,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 29.443,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 29.475,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 29.507,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 29.539,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 29.571,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 29.602,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 29.635,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 29.667,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 29.699,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 29.731,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 29.762,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 29.795,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 29.827,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 29.859,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 29.892,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 29.923,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 29.955,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 29.987,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 30.019,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 30.05,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 30.082,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 30.114,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 30.147,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 30.178,
+      "speaker": "speaker2",
+      "active": true
+    },
+    {
+      "t": 30.178,
+      "speaker": "speaker2",
+      "active": false
+    },
+    {
+      "t": 31.937,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 32.802,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 32.834,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 32.867,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 32.899,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 32.931,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 32.963,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 32.995,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.026,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.06,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.09,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.122,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.155,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.187,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.218,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.25,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.282,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.314,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.347,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.379,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.41,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.443,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.475,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.507,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.539,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.571,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.603,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.635,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.667,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.699,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.731,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.763,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.795,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.827,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.859,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.891,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.923,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.955,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 33.988,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 34.019,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 34.051,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 34.084,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 34.115,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 34.147,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 34.179,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 34.211,
+      "speaker": "speaker1",
+      "active": true
+    },
+    {
+      "t": 34.211,
+      "speaker": "speaker1",
+      "active": false
+    }
+  ]
+}

@@ -1,0 +1,566 @@
+{
+  "stem": "wer_es__es_es_weather_wer",
+  "audio": "wer_es__es_es_weather_wer.wav",
+  "duration_sec": 35.19,
+  "gt_text_source": "silver: faster-whisper models--mobiuslabsgmbh--faster-whisper-large-v3-turbo per GT turn, beam 5",
+  "gt_verified": "0/10",
+  "gt_speakers": [
+    "A",
+    "B",
+    "C"
+  ],
+  "hyp_speakers": [
+    "speaker1",
+    "speaker2",
+    "speaker3",
+    "unknown"
+  ],
+  "speaker_mapping": {
+    "speaker1": "A",
+    "speaker2": "B",
+    "speaker3": "C"
+  },
+  "summary": {
+    "gt_utterances": 10,
+    "hyp_utterances": 10,
+    "wer": 0.0,
+    "ref_words": 54,
+    "sub": 0,
+    "del": 0,
+    "ins": 0,
+    "speaker_ok_utt": 9,
+    "speaker_wrong_utt": 0,
+    "speaker_unknown_utt": 1,
+    "missed_utt": 0,
+    "speaker_acc_utt": 0.9,
+    "speaker_acc_words": 1.0,
+    "der_activity": {
+      "der": 0.3062,
+      "missed": 0.3062,
+      "false_alarm": 0.0,
+      "confusion": 0.0,
+      "collar": 0.25
+    },
+    "der_asr_utterances": {
+      "der": 0.2371,
+      "missed": 0.1783,
+      "false_alarm": 0.0,
+      "confusion": 0.0588,
+      "collar": 0.25
+    }
+  },
+  "confusion": {
+    "A": {
+      "A": 3
+    },
+    "B": {
+      "B": 4
+    },
+    "C": {
+      "unknown": 1,
+      "C": 2
+    }
+  },
+  "utterances": [
+    {
+      "id": "u000",
+      "start": 0.336,
+      "end": 3.12,
+      "gt_speaker": "A",
+      "gt_text": "Hay 17 grados con sol.",
+      "overlap": false,
+      "verified": false,
+      "hyp_text": "hay diecisiete grados con sol",
+      "hyp_speaker_raw": "speaker1",
+      "hyp_speaker": "A",
+      "speaker_status": "ok",
+      "hyp_result_ids": [
+        0
+      ],
+      "words_ref": 5,
+      "sub": 0,
+      "del": 0,
+      "ins": 0,
+      "wer": 0.0,
+      "diff": [
+        [
+          "ok",
+          "hay",
+          "hay"
+        ],
+        [
+          "ok",
+          "diecisiete",
+          "diecisiete"
+        ],
+        [
+          "ok",
+          "grados",
+          "grados"
+        ],
+        [
+          "ok",
+          "con",
+          "con"
+        ],
+        [
+          "ok",
+          "sol",
+          "sol"
+        ]
+      ]
+    },
+    {
+      "id": "u001",
+      "start": 4.368,
+      "end": 6.992,
+      "gt_speaker": "B",
+      "gt_text": "Hay 14 grados y está nublado.",
+      "overlap": false,
+      "verified": false,
+      "hyp_text": "hay catorce grados y esta nublado",
+      "hyp_speaker_raw": "speaker2",
+      "hyp_speaker": "B",
+      "speaker_status": "ok",
+      "hyp_result_ids": [
+        1
+      ],
+      "words_ref": 6,
+      "sub": 0,
+      "del": 0,
+      "ins": 0,
+      "wer": 0.0,
+      "diff": [
+        [
+          "ok",
+          "hay",
+          "hay"
+        ],
+        [
+          "ok",
+          "catorce",
+          "catorce"
+        ],
+        [
+          "ok",
+          "grados",
+          "grados"
+        ],
+        [
+          "ok",
+          "y",
+          "y"
+        ],
+        [
+          "ok",
+          "esta",
+          "esta"
+        ],
+        [
+          "ok",
+          "nublado",
+          "nublado"
+        ]
+      ]
+    },
+    {
+      "id": "u002",
+      "start": 7.952,
+      "end": 10.064,
+      "gt_speaker": "B",
+      "gt_text": "Hay 15 grados y llueve.",
+      "overlap": false,
+      "verified": false,
+      "hyp_text": "hay quince grados y llueve",
+      "hyp_speaker_raw": "speaker2",
+      "hyp_speaker": "B",
+      "speaker_status": "ok",
+      "hyp_result_ids": [
+        2
+      ],
+      "words_ref": 5,
+      "sub": 0,
+      "del": 0,
+      "ins": 0,
+      "wer": 0.0,
+      "diff": [
+        [
+          "ok",
+          "hay",
+          "hay"
+        ],
+        [
+          "ok",
+          "quince",
+          "quince"
+        ],
+        [
+          "ok",
+          "grados",
+          "grados"
+        ],
+        [
+          "ok",
+          "y",
+          "y"
+        ],
+        [
+          "ok",
+          "llueve",
+          "llueve"
+        ]
+      ]
+    },
+    {
+      "id": "u003",
+      "start": 10.928,
+      "end": 13.136,
+      "gt_speaker": "C",
+      "gt_text": "Hay 21 grados con sol.",
+      "overlap": false,
+      "verified": false,
+      "hyp_text": "hay veintiun grados con sol",
+      "hyp_speaker_raw": "unknown",
+      "hyp_speaker": "unknown",
+      "speaker_status": "unknown",
+      "hyp_result_ids": [
+        3
+      ],
+      "words_ref": 5,
+      "sub": 0,
+      "del": 0,
+      "ins": 0,
+      "wer": 0.0,
+      "diff": [
+        [
+          "ok",
+          "hay",
+          "hay"
+        ],
+        [
+          "ok",
+          "veintiun",
+          "veintiun"
+        ],
+        [
+          "ok",
+          "grados",
+          "grados"
+        ],
+        [
+          "ok",
+          "con",
+          "con"
+        ],
+        [
+          "ok",
+          "sol",
+          "sol"
+        ]
+      ]
+    },
+    {
+      "id": "u004",
+      "start": 14.096,
+      "end": 16.08,
+      "gt_speaker": "C",
+      "gt_text": "Hay 11 grados con sol.",
+      "overlap": false,
+      "verified": false,
+      "hyp_text": "hay once grados con sol",
+      "hyp_speaker_raw": "speaker3",
+      "hyp_speaker": "C",
+      "speaker_status": "ok",
+      "hyp_result_ids": [
+        4
+      ],
+      "words_ref": 5,
+      "sub": 0,
+      "del": 0,
+      "ins": 0,
+      "wer": 0.0,
+      "diff": [
+        [
+          "ok",
+          "hay",
+          "hay"
+        ],
+        [
+          "ok",
+          "once",
+          "once"
+        ],
+        [
+          "ok",
+          "grados",
+          "grados"
+        ],
+        [
+          "ok",
+          "con",
+          "con"
+        ],
+        [
+          "ok",
+          "sol",
+          "sol"
+        ]
+      ]
+    },
+    {
+      "id": "u005",
+      "start": 17.104,
+      "end": 19.28,
+      "gt_speaker": "B",
+      "gt_text": "Hay quince grados con sol",
+      "overlap": false,
+      "verified": false,
+      "hyp_text": "hay quince grados con sol",
+      "hyp_speaker_raw": "speaker2",
+      "hyp_speaker": "B",
+      "speaker_status": "ok",
+      "hyp_result_ids": [
+        5
+      ],
+      "words_ref": 5,
+      "sub": 0,
+      "del": 0,
+      "ins": 0,
+      "wer": 0.0,
+      "diff": [
+        [
+          "ok",
+          "hay",
+          "hay"
+        ],
+        [
+          "ok",
+          "quince",
+          "quince"
+        ],
+        [
+          "ok",
+          "grados",
+          "grados"
+        ],
+        [
+          "ok",
+          "con",
+          "con"
+        ],
+        [
+          "ok",
+          "sol",
+          "sol"
+        ]
+      ]
+    },
+    {
+      "id": "u006",
+      "start": 20.272,
+      "end": 23.28,
+      "gt_speaker": "A",
+      "gt_text": "Hay 19 grados y está nublado.",
+      "overlap": false,
+      "verified": false,
+      "hyp_text": "hay diecinueve grados y esta nublado",
+      "hyp_speaker_raw": "speaker1",
+      "hyp_speaker": "A",
+      "speaker_status": "ok",
+      "hyp_result_ids": [
+        6
+      ],
+      "words_ref": 6,
+      "sub": 0,
+      "del": 0,
+      "ins": 0,
+      "wer": 0.0,
+      "diff": [
+        [
+          "ok",
+          "hay",
+          "hay"
+        ],
+        [
+          "ok",
+          "diecinueve",
+          "diecinueve"
+        ],
+        [
+          "ok",
+          "grados",
+          "grados"
+        ],
+        [
+          "ok",
+          "y",
+          "y"
+        ],
+        [
+          "ok",
+          "esta",
+          "esta"
+        ],
+        [
+          "ok",
+          "nublado",
+          "nublado"
+        ]
+      ]
+    },
+    {
+      "id": "u007",
+      "start": 25.008,
+      "end": 27.024,
+      "gt_speaker": "C",
+      "gt_text": "Hay 20 grados con sol.",
+      "overlap": false,
+      "verified": false,
+      "hyp_text": "hay veinte grados con sol",
+      "hyp_speaker_raw": "speaker3",
+      "hyp_speaker": "C",
+      "speaker_status": "ok",
+      "hyp_result_ids": [
+        7
+      ],
+      "words_ref": 5,
+      "sub": 0,
+      "del": 0,
+      "ins": 0,
+      "wer": 0.0,
+      "diff": [
+        [
+          "ok",
+          "hay",
+          "hay"
+        ],
+        [
+          "ok",
+          "veinte",
+          "veinte"
+        ],
+        [
+          "ok",
+          "grados",
+          "grados"
+        ],
+        [
+          "ok",
+          "con",
+          "con"
+        ],
+        [
+          "ok",
+          "sol",
+          "sol"
+        ]
+      ]
+    },
+    {
+      "id": "u008",
+      "start": 28.144,
+      "end": 30.576,
+      "gt_speaker": "B",
+      "gt_text": "Hay 11 grados y está nublado.",
+      "overlap": false,
+      "verified": false,
+      "hyp_text": "hay once grados y esta nublado",
+      "hyp_speaker_raw": "speaker2",
+      "hyp_speaker": "B",
+      "speaker_status": "ok",
+      "hyp_result_ids": [
+        8
+      ],
+      "words_ref": 6,
+      "sub": 0,
+      "del": 0,
+      "ins": 0,
+      "wer": 0.0,
+      "diff": [
+        [
+          "ok",
+          "hay",
+          "hay"
+        ],
+        [
+          "ok",
+          "once",
+          "once"
+        ],
+        [
+          "ok",
+          "grados",
+          "grados"
+        ],
+        [
+          "ok",
+          "y",
+          "y"
+        ],
+        [
+          "ok",
+          "esta",
+          "esta"
+        ],
+        [
+          "ok",
+          "nublado",
+          "nublado"
+        ]
+      ]
+    },
+    {
+      "id": "u009",
+      "start": 31.568,
+      "end": 34.608,
+      "gt_speaker": "A",
+      "gt_text": "Hay 18 grados y está nublado.",
+      "overlap": false,
+      "verified": false,
+      "hyp_text": "hay dieciocho grados y esta nublado",
+      "hyp_speaker_raw": "speaker1",
+      "hyp_speaker": "A",
+      "speaker_status": "ok",
+      "hyp_result_ids": [
+        9
+      ],
+      "words_ref": 6,
+      "sub": 0,
+      "del": 0,
+      "ins": 0,
+      "wer": 0.0,
+      "diff": [
+        [
+          "ok",
+          "hay",
+          "hay"
+        ],
+        [
+          "ok",
+          "dieciocho",
+          "dieciocho"
+        ],
+        [
+          "ok",
+          "grados",
+          "grados"
+        ],
+        [
+          "ok",
+          "y",
+          "y"
+        ],
+        [
+          "ok",
+          "esta",
+          "esta"
+        ],
+        [
+          "ok",
+          "nublado",
+          "nublado"
+        ]
+      ]
+    }
+  ]
+}
