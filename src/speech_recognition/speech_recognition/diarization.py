@@ -318,8 +318,21 @@ class DiarizationNode(Node):
     # ------------------------------------------------------------------
 
     def _on_eut_speaker_changed(self, eut_speaker_id: Optional[str]) -> None:
-        """Called by the engine when the active EUT speaker changes."""
+        """Called by the engine (on its own worker thread) when the active
+        EUT speaker changes.
+
+        Publish the change immediately instead of waiting for the next VAD
+        tick to opportunistically republish it. VAD ticks arrive at the audio
+        chunk cadence, up to ~1s apart; without an immediate publish here, ASR
+        can already have resolved and published a segment using the stale
+        speaker before the actual change ever reaches it. Publisher.publish()
+        is safe to call off the executor thread.
+        """
+        previous = self._eut_speaker_id
         self._eut_speaker_id = eut_speaker_id
+        if eut_speaker_id is not None and eut_speaker_id != previous:
+            self._publish_speech_activity(eut_speaker_id, active=True)
+            self._speaker_activated = True
 
     def _on_voice_update(
         self,

@@ -26,8 +26,10 @@ from typing import Callable, Deque, List, Optional, Set
 import numpy as np
 
 from speech_recognition.voice_identity_manager import (
+    NO_MATCH_SCORE,
     MongoVoiceIdentityStore,
     VoiceIdentityManager,
+    normalize_embedding,
 )
 
 
@@ -230,6 +232,13 @@ class RediVoiceEngine:
         self._sample_rate = 16000
         self._turns: dict = {}
         self._retired_tracks: Deque[str] = deque(maxlen=64)
+        # A turn that ends too short to CREATE a speaker on its own (see
+        # _min_create_seconds) is kept here instead of just discarded. If the
+        # *next* such orphan sounds like the same voice, that is much stronger
+        # evidence than either turn alone, and the pair creates the identity
+        # together. Cleared the moment any turn resolves normally, so it only
+        # ever bridges two consecutive, otherwise-unidentified turns.
+        self._pending_orphan: Optional[tuple[np.ndarray, float]] = None
 
     # ------------------------------------------------------------------
     # Node contract
@@ -388,6 +397,13 @@ class RediVoiceEngine:
         if observation.turn_id not in results:
             if observation.final:
                 self._turns.pop(observation.turn_id, None)
+                confirmed = self._try_confirm_orphan(observation.turn_id, embedding, window_seconds)
+                if confirmed is not None:
+                    speaker, note = confirmed
+                    state["label"], state["seeded"], state["seed_seconds"] = speaker, speaker, window_seconds
+                    state["learned_at"] = observation.turn_speech_seconds
+                    self._publish(observation, state, speaker, NO_MATCH_SCORE, window_seconds, note)
+                    return
             kind = "final" if observation.final else "provisional"
             self._logger.info(
                 f"REDI turn {observation.turn_id} ({kind}, {window_seconds:.2f}s) -> "
@@ -395,6 +411,7 @@ class RediVoiceEngine:
             )
             return
 
+        self._pending_orphan = None
         speaker, confidence = results[observation.turn_id]
         created = speaker not in known
         learned = learn_as is not None and speaker == learn_as
@@ -410,6 +427,54 @@ class RediVoiceEngine:
         if learned or speaker != state["seeded"]:
             state["seeded"] = None
         self._publish(observation, state, speaker, confidence, window_seconds, note)
+
+    def _try_confirm_orphan(
+        self, turn_id: str, embedding: np.ndarray, window_seconds: float
+    ) -> Optional[tuple[str, str]]:
+        """A turn just ended too short to create a speaker on its own (see
+        ``_min_create_seconds``). Compare it against the last such orphan, if one
+        is still pending: two independent turns that both match nobody known and
+        sound like each other are much stronger evidence than either alone, so
+        the pair creates the identity together, seeded from their combined
+        audio instead of either turn's noisy-on-its-own embedding.
+
+        Returns ``(speaker, log note)`` once confirmed, else stashes this turn
+        as the new pending orphan (replacing any older one) and returns None.
+        """
+        try:
+            vector = normalize_embedding(embedding)
+        except ValueError:
+            return None
+
+        pending = self._pending_orphan
+        self._pending_orphan = (embedding, window_seconds)
+        if pending is None:
+            return None
+
+        prev_embedding, prev_seconds = pending
+        similarity = float(normalize_embedding(prev_embedding) @ vector)
+        if similarity < self._manager.merge_threshold:
+            return None
+
+        combined_seconds = prev_seconds + window_seconds
+        combined_embedding = (
+            prev_embedding * prev_seconds + embedding * window_seconds
+        ) / combined_seconds
+        results = self._manager.process_new_embedding_batch(
+            {turn_id: combined_embedding},
+            speech_seconds=combined_seconds,
+            learn=True,
+            allow_create=True,
+        )
+        self._pending_orphan = None
+        if turn_id not in results:
+            return None
+        speaker, _ = results[turn_id]
+        self._logger.info(
+            f"Two unidentified turns matched each other (similarity={similarity:.3f}) -> "
+            f"{speaker} from their combined {combined_seconds:.2f}s"
+        )
+        return speaker, " confirmed from prior orphan"
 
     def _handle_change(
         self,
