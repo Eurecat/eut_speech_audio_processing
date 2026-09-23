@@ -63,13 +63,27 @@ asr_node:
     silence_detection_threshold: 0.00001     # RMS threshold for silence detection
     
     # Timing Parameters
-    min_silence_duration: 0.15               # Minimum silence duration (seconds) before processing speech
+    min_silence_duration: 0.25               # Minimum silence duration (seconds) before processing speech
+                                             # Was 0.45, then accidentally dropped to 0.15 in an unrelated
+                                             # commit (a9924a4, "weights not integrated in docker image
+                                             # rather as volume!"), regressing the mid-sentence-pause split
+                                             # bug 725aae7 fixed. 0.25 trades some of that margin back for
+                                             # lower ASR latency; still below redi_turn_silence_seconds
+                                             # (0.35), so a fast pause can still outrace diarization's turn
+                                             # close on rare occasions.
     max_chunk_duration: 30.0                 # Maximum duration (seconds) of a single speech chunk
     pre_buffer_duration: 0.5                 # Duration (seconds) of audio to prepend to speech chunks
     diarization_offset: -1.0                  # Signed correction (seconds) applied to diarization speaker
                                              # change events so they line up with the audio they describe.
                                              # Positive shifts events later. Tune by watching where a
                                              # multi-speaker chunk gets split.
+                                             # Only used for events stamped "now" (the diart backend). REDI
+                                             # stamps each label with the start of the speech it describes,
+                                             # which needs no correction.
+    unknown_speaker_grace: 0.5               # Max seconds a finished utterance waits for its speaker label
+                                             # before publishing as "unknown". Only spent when diarization
+                                             # has not named the speech yet (e.g. a new voice, which needs
+                                             # ~1.5-2s); labelled utterances publish immediately.
     min_speaker_run_tokens: 2                # A speaker run shorter than this many words is treated as
                                              # word-timestamp flicker and merged into the previous run
                                              # (only used when snap_splits_to_sentences is false)

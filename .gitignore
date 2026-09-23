@@ -232,3 +232,5 @@ log/
 
 # .mp3 files
 *.mp3
+
+src/audio_stream_manager/recordings

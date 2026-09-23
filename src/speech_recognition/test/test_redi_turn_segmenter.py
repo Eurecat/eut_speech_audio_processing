@@ -340,3 +340,42 @@ def test_probe_disabled_keeps_the_previous_behaviour():
     assert engine._segmenter._observe(final=False).probe is None
     assert engine._segmenter.current_turn_id == "turn1", "split without a probe"
     assert engine._last_speaker != a_id  # the full window still switches, only later
+
+
+# ---------------------------------------------------------------------------
+# Wall-clock times: a label must say which audio it describes
+# ---------------------------------------------------------------------------
+
+
+def _run_clocked(segmenter, pattern, t0=1000.0):
+    """Like _run, but each chunk arrives CHUNK/SR after the previous one, from t0."""
+    out, clock = [], t0
+    for seconds, speech in pattern:
+        for _ in range(int(round(seconds * SR / CHUNK))):
+            clock += CHUNK / SR
+            chunk = np.full(CHUNK, 0.1 if speech else 0.0, dtype=np.float32)
+            out.extend(segmenter.push(chunk, 0.9 if speech else 0.05, clock))
+    return out
+
+
+def test_observation_carries_when_its_speech_began():
+    obs = _run_clocked(_segmenter(), [(1.0, False), (2.0, True), (1.0, False)])
+    assert obs, "a 2s turn must be observed"
+    for observation in obs:
+        assert abs(observation.start_time - 1001.0) < CHUNK / SR
+
+
+def test_second_turn_starts_at_its_own_speech_not_the_first_turns():
+    obs = _run_clocked(_segmenter(), [(1.5, True), (1.0, False), (1.5, True), (1.0, False)])
+    second = [o for o in obs if o.turn_id == "turn2"]
+    assert second and abs(second[0].start_time - 1002.5) < CHUNK / SR
+
+
+def test_probe_start_is_where_the_probe_speech_began():
+    segmenter = _segmenter(probe_seconds=1.0, embed_interval_seconds=0.5)
+    obs = _run_clocked(segmenter, [(3.0, True)])
+    with_probe = [o for o in obs if o.probe is not None]
+    assert with_probe
+    last = with_probe[-1]
+    heard_until = 1000.0 + last.end_sample / SR
+    assert abs(last.probe_start_time - (heard_until - 1.0)) < CHUNK / SR

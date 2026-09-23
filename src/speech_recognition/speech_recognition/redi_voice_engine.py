@@ -16,9 +16,11 @@ only learn from stretches where consecutive windows agree on the speaker.
 
 from __future__ import annotations
 
+import bisect
 import os
 import queue
 import threading
+import time
 from collections import deque
 from dataclasses import dataclass
 from typing import Callable, Deque, List, Optional, Set
@@ -44,6 +46,8 @@ class TurnObservation:
     turn_speech_seconds: float = 0.0  # speech accumulated in the segment when observed
     probe: Optional[np.ndarray] = None  # most recent speech only, to detect a speaker change
     end_sample: int = 0  # speech samples in the whole turn when observed
+    start_time: Optional[float] = None  # wall-clock time the segment's speech began
+    probe_start_time: Optional[float] = None  # wall-clock time the probe's speech began
 
 
 class TurnSegmenter:
@@ -88,6 +92,11 @@ class TurnSegmenter:
         self._segment_start = 0
         self._chunks: List[np.ndarray] = []
         self._vad_values: List[float] = []
+        # Wall-clock start and turn-sample offset of every accumulated chunk, so
+        # a sample position can be mapped back to when it was heard (pauses are
+        # not accumulated, so samples alone do not give the time).
+        self._chunk_times: List[float] = []
+        self._chunk_offsets: List[int] = []
         self._speech_samples = 0
         self._next_emit_at = 0
         self._silence_seconds = 0.0
@@ -113,7 +122,10 @@ class TurnSegmenter:
         self._segment_number += 1
         return self.current_turn_id
 
-    def push(self, chunk: np.ndarray, vad_probability: float) -> List[TurnObservation]:
+    def push(
+        self, chunk: np.ndarray, vad_probability: float, now: Optional[float] = None
+    ) -> List[TurnObservation]:
+        """``now`` is the wall-clock time the chunk arrived, i.e. its end."""
         seconds = len(chunk) / float(self.sample_rate)
         observations: List[TurnObservation] = []
 
@@ -121,6 +133,9 @@ class TurnSegmenter:
             if not self._in_turn:
                 self._start_turn()
             self._silence_seconds = 0.0
+            arrived = time.time() if now is None else now
+            self._chunk_times.append(arrived - seconds)
+            self._chunk_offsets.append(self._speech_samples)
             self._chunks.append(np.asarray(chunk, dtype=np.float32))
             self._vad_values.append(float(vad_probability))
             self._speech_samples += len(chunk)
@@ -144,6 +159,8 @@ class TurnSegmenter:
         self._in_turn = False
         self._chunks = []
         self._vad_values = []
+        self._chunk_times = []
+        self._chunk_offsets = []
         self._speech_samples = 0
         return final
 
@@ -154,8 +171,18 @@ class TurnSegmenter:
         self._in_turn = True
         self._chunks = []
         self._vad_values = []
+        self._chunk_times = []
+        self._chunk_offsets = []
         self._speech_samples = 0
         self._next_emit_at = self.min_embed_samples
+
+    def _time_at(self, sample: int) -> Optional[float]:
+        """Wall-clock time at which turn speech sample ``sample`` was heard."""
+        index = bisect.bisect_right(self._chunk_offsets, sample) - 1
+        if index < 0:
+            return None
+        offset = sample - self._chunk_offsets[index]
+        return self._chunk_times[index] + offset / float(self.sample_rate)
 
     def _observe(self, *, final: bool) -> TurnObservation:
         segment = np.concatenate(self._chunks)[self._segment_start :]
@@ -163,8 +190,10 @@ class TurnSegmenter:
         # different speaker who takes over without pausing eventually dominate.
         audio = segment[-self.max_embed_samples :]
         probe = None
+        probe_start_time = None
         if self.probe_samples and len(segment) >= self.probe_samples + self.embed_interval_samples:
             probe = segment[-self.probe_samples :]
+            probe_start_time = self._time_at(self._speech_samples - self.probe_samples)
         return TurnObservation(
             turn_id=self.current_turn_id,
             audio=audio,
@@ -173,6 +202,8 @@ class TurnSegmenter:
             turn_speech_seconds=len(segment) / float(self.sample_rate),
             probe=probe,
             end_sample=self._speech_samples,
+            start_time=self._time_at(self._segment_start),
+            probe_start_time=probe_start_time,
         )
 
 
@@ -229,6 +260,7 @@ class RediVoiceEngine:
         self._lock = threading.Lock()
         self._last_speaker: Optional[str] = None
         self._last_confidence = 0.0
+        self._last_since: Optional[float] = None
         self._sample_rate = 16000
         self._turns: dict = {}
         self._retired_tracks: Deque[str] = deque(maxlen=64)
@@ -247,6 +279,11 @@ class RediVoiceEngine:
     @property
     def speaker_confidence(self) -> float:
         return self._last_confidence
+
+    @property
+    def speaker_since(self) -> Optional[float]:
+        """Wall-clock time from which the current label applies (its segment's start)."""
+        return self._last_since
 
     def update_vad_probability(self, probability: float) -> None:
         self._vad_probability = float(probability)
@@ -309,7 +346,7 @@ class RediVoiceEngine:
         if not self._initialized or self._segmenter is None:
             return
         with self._lock:
-            observations = self._segmenter.push(audio_data, self._vad_probability)
+            observations = self._segmenter.push(audio_data, self._vad_probability, time.time())
         for observation in observations:
             self._enqueue(observation)
 
@@ -529,7 +566,14 @@ class RediVoiceEngine:
             observation = TurnObservation(**{**observation.__dict__, "final": True})
         else:
             self._turns[track_id] = new_state
-        observation = TurnObservation(**{**observation.__dict__, "turn_id": track_id})
+        # The new segment, and so its label, starts where the probe starts.
+        observation = TurnObservation(
+            **{
+                **observation.__dict__,
+                "turn_id": track_id,
+                "start_time": observation.probe_start_time,
+            }
+        )
         self._publish(observation, new_state, speaker, confidence, probe_seconds, " probe")
 
     def _publish(
@@ -543,6 +587,9 @@ class RediVoiceEngine:
     ) -> None:
         state["label"] = speaker
         self._last_confidence = confidence
+        # Read by the node through speaker_since, before the callback fires, so
+        # the label it publishes covers the whole segment, not only from now on.
+        self._last_since = observation.start_time
         if observation.final:
             self._turns.pop(observation.turn_id, None)
 

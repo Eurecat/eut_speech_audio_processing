@@ -52,6 +52,7 @@ class ASRNode(Node):
         self.declare_parameter("snap_splits_to_sentences", True)
         self.declare_parameter("speaker_interval_tolerance", 3.0)
         self.declare_parameter("min_speaker_chunk_duration", 0.3)
+        self.declare_parameter("unknown_speaker_grace", 0.5)
         self.declare_parameter("asr_backend", "whisper")
         self.declare_parameter("parakeet_model_name", "nvidia/parakeet-tdt-0.6b-v3")
         self.declare_parameter("parakeet_language_id_model", "langid_ambernet")
@@ -148,6 +149,9 @@ class ASRNode(Node):
             min_speaker_chunk_duration=self.get_parameter("min_speaker_chunk_duration")
             .get_parameter_value()
             .double_value,
+            unknown_speaker_grace=self.get_parameter("unknown_speaker_grace")
+            .get_parameter_value()
+            .double_value,
             weights_dir=weights_dir(),
             on_transcript_ready=self._publish_transcript,
             logger=self.get_logger(),
@@ -210,8 +214,12 @@ class ASRNode(Node):
         self.engine.update_vad(msg.vad_probability)
 
     def _speech_activity_callback(self, msg: SpeechActivityDetection) -> None:
+        stamp = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
         self.engine.update_speaker(
-            msg.speaker_id, bool(msg.active), float(msg.speaker_id_confidence)
+            msg.speaker_id,
+            bool(msg.active),
+            float(msg.speaker_id_confidence),
+            stamp=stamp if stamp > 0 else None,
         )
 
         # Create ROS4HRI speech publisher for this speaker if needed

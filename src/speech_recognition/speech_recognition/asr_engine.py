@@ -90,6 +90,7 @@ class ASREngine:
         snap_splits_to_sentences: bool = True,
         speaker_interval_tolerance: float = 3.0,
         min_speaker_chunk_duration: float = 0.3,
+        unknown_speaker_grace: float = 0.5,
         weights_dir: str,
         on_transcript_ready: Callable[[str, str, str, int, int, int, float, float], None],
         logger,
@@ -109,6 +110,7 @@ class ASREngine:
         self.snap_splits_to_sentences = snap_splits_to_sentences
         self.speaker_interval_tolerance = speaker_interval_tolerance
         self.min_speaker_chunk_duration = min_speaker_chunk_duration
+        self.unknown_speaker_grace = unknown_speaker_grace
         self._on_transcript_ready = on_transcript_ready
 
         self.sample_rate: Optional[int] = None
@@ -148,6 +150,9 @@ class ASREngine:
         # Whisper calls are serialised: a speaker-change split and the silence
         # timer can both want to transcribe at the same moment.
         self._transcribe_lock = threading.Lock()
+        # Held while a chunk waits for its speaker label and publishes, so a
+        # later chunk can never overtake one that is still waiting.
+        self._publish_lock = threading.Lock()
 
         # Load model
         self.model_size = model_size
@@ -302,8 +307,17 @@ class ASREngine:
                 )
                 self._force_chunk_split()
 
+    # A message stamped at least this far before its arrival carries the time it
+    # describes (REDI stamps a label with its segment's start and "speech ended"
+    # with the last voiced moment). Anything newer is a plain "now" stamp.
+    _EXPLICIT_STAMP_MARGIN = 0.05
+
     def update_speaker(
-        self, speaker_id: Optional[str], active: bool = True, confidence: float = -1.0
+        self,
+        speaker_id: Optional[str],
+        active: bool = True,
+        confidence: float = -1.0,
+        stamp: Optional[float] = None,
     ) -> None:
         """Called on every SpeechActivityDetection message.
 
@@ -311,45 +325,73 @@ class ASREngine:
         carried through so the published ``SpeechResult`` can say how much the
         attribution is worth instead of always claiming 0.0.
 
-        Keeps a hold timeline (a speaker stays current until a different id is
-        reported) and, importantly, when the speaker changes *while speech is
-        still going* it flushes the audio accumulated so far. Without that the
-        whole exchange would only be published once silence finally arrives.
+        Keeps a hold timeline: a speaker stays current until a different id is
+        reported or diarization says they stopped (``active=False``). A stopped
+        speaker is never held over the next speech, which stays unknown until
+        diarization labels it. When the speaker changes *while speech is still
+        going* the audio accumulated so far is flushed at the change point.
         """
+        arrival = time.time()
+        explicit = stamp is not None and stamp < arrival - self._EXPLICIT_STAMP_MARGIN
+        # Without an explicit stamp, correct the arrival time by the configured
+        # diarization lag so the event lines up with the audio it describes.
+        at = stamp if explicit else arrival + self.diarization_offset
+
+        if not active:
+            with self._speaker_lock:
+                if self.speaker_timeline:
+                    last = self.speaker_timeline[-1]
+                    if last["speaker"] == speaker_id and not last.get("closed"):
+                        if explicit:
+                            last["end"] = max(last["start"], at)
+                        last["closed"] = True
+            self.speaker_id = None
+            return
+
         self.speaker_id = speaker_id
         if not speaker_id:
             return
 
-        # Signed correction applied to diarization event arrival times so they
-        # line up with the audio they describe.
-        now = time.time() + self.diarization_offset
         previous_speaker: Optional[str] = None
         with self._speaker_lock:
-            if self.speaker_timeline:
-                last = self.speaker_timeline[-1]
-                if last["speaker"] == speaker_id:
-                    last["end"] = now
-                    last["confidence"] = float(confidence)
-                    return
+            last = self.speaker_timeline[-1] if self.speaker_timeline else None
+            if last is not None and last["speaker"] == speaker_id and not last.get("closed"):
+                last["end"] = max(last["end"], arrival if explicit else at)
+                last["confidence"] = float(confidence)
+                return
+            if last is not None and not last.get("closed"):
                 previous_speaker = last["speaker"]
-                last["end"] = now
+                if at <= last["start"]:
+                    # Diarization revised the label of that same stretch.
+                    self.speaker_timeline.pop()
+                else:
+                    last["end"] = at
 
             self.speaker_timeline.append(
                 {
-                    "start": now,
-                    "end": now,
+                    "start": at,
+                    # An explicitly stamped label says who spoke from its start
+                    # until the moment it was decided.
+                    "end": arrival if explicit else at,
                     "speaker": speaker_id,
-                    "active": bool(active),
+                    "active": True,
+                    "closed": False,
                     "confidence": float(confidence),
                 }
             )
 
-            cutoff = now - self._SPEAKER_TIMELINE_DURATION
+            cutoff = at - self._SPEAKER_TIMELINE_DURATION
             while self.speaker_timeline and self.speaker_timeline[0]["end"] < cutoff:
                 self.speaker_timeline.popleft()
 
-        if previous_speaker is not None and previous_speaker != speaker_id:
-            self._flush_chunk_on_speaker_change(now)
+        self._logger.debug(
+            f"Speaker {previous_speaker}->{speaker_id} from {at:.3f} "
+            f"(arrived {arrival - at:.2f}s later, explicit={explicit})"
+        )
+        # Only a switch while the previous speaker was still talking splits the
+        # utterance; a label for new speech after a stop has nothing to split.
+        if previous_speaker is not None:
+            self._flush_chunk_on_speaker_change(at)
 
     def _flush_chunk_on_speaker_change(self, change_time: float) -> None:
         """Publish the utterance built so far, then keep accumulating.
@@ -403,10 +445,14 @@ class ASREngine:
             return best_speaker
 
         # Nothing overlapped: hold the last speaker reported before the chunk
-        # instead of giving up (diarization lags the audio by ~1s).
+        # (diarization lags the audio), unless diarization said that speaker
+        # stopped. Speech after a stop belongs to whoever diarization labels
+        # next, and until it does, to nobody: guessing the previous speaker is
+        # how a newcomer's first words get attributed to someone else.
         candidates = [s for s in segments if s["start"] <= end_time]
         if candidates:
-            return candidates[-1]["speaker"]
+            last = max(candidates, key=lambda s: s["start"])
+            return "unknown" if last.get("closed") else last["speaker"]
 
         nearest = min(
             segments,
@@ -855,6 +901,82 @@ class ASREngine:
             group["start_offset"], group["end_offset"] = self._span_bounds(group)
         return [g for g in groups if g["text"]]
 
+    def _attribute_and_publish(
+        self,
+        collected: List[dict],
+        start_time: Optional[float],
+        end_time: Optional[float],
+        duration: float,
+        detected_language: str,
+        processing_ms: int,
+        silence_ms: int,
+        model_processing_ms: int,
+    ) -> None:
+        """Attribute the transcribed words to speakers and publish one result per run.
+
+        A single VAD chunk can contain several speakers (e.g. fast dialogue over
+        background music where no silence is detected), so every word is
+        attributed to the speaker active during it. Diarization needs ~1-2s of a
+        voice before it can name it, so a short utterance can be ready before
+        its label is: while any of it is still unknown, wait up to
+        ``unknown_speaker_grace`` for the label instead of publishing it
+        unattributed. Called with _publish_lock held, so waiting here keeps
+        results in order.
+        """
+        groups = self._group_segments_by_speaker(collected, start_time, end_time)
+        waited_from = time.time()
+        deadline = waited_from + self.unknown_speaker_grace
+        while (
+            start_time is not None
+            and any(group["speaker"] == "unknown" for group in groups)
+            and time.time() < deadline
+        ):
+            time.sleep(0.05)
+            groups = self._group_segments_by_speaker(collected, start_time, end_time)
+        waited_ms = int((time.time() - waited_from) * 1000)
+
+        self._logger.info(
+            f"Transcribed {duration:.2f}s -> {len(groups)} speaker group(s)"
+            + (f" (waited {waited_ms}ms for the speaker label)" if waited_ms >= 50 else "")
+        )
+        if len(groups) > 1 or duration >= 3.0:
+            self._logger.info(f"Speaker timeline: {self._timeline_summary(start_time, end_time)}")
+            self._logger.info(
+                "Sentence speakers (end, speaker): "
+                f"{getattr(self, '_last_sentence_labels', [])}"
+            )
+
+        for group in groups:
+            group_text = group["text"]
+            if not group_text:
+                continue
+            group_audio_ms = max(1, int((group["end_offset"] - group["start_offset"]) * 1000))
+            realtime_factor = (
+                float(processing_ms) / float(group_audio_ms) if group_audio_ms > 0 else 0.0
+            )
+            self._logger.info(
+                f"Transcript: '{group_text}' (lang: {detected_language}, "
+                f"speaker: {group['speaker']}, "
+                f"seg={group['start_offset']:.2f}-{group['end_offset']:.2f}s, "
+                f"proc={processing_ms}ms, silence={silence_ms}ms, model={model_processing_ms}ms, "
+                f"audio={group_audio_ms}ms, x{realtime_factor:.2f})"
+            )
+            speaker_confidence = self.speaker_confidence_for_interval(
+                None if start_time is None else start_time + group["start_offset"],
+                None if start_time is None else start_time + group["end_offset"],
+                group["speaker"],
+            )
+            self._on_transcript_ready(
+                group_text,
+                group["speaker"],
+                detected_language,
+                processing_ms,
+                silence_ms,
+                group_audio_ms,
+                realtime_factor,
+                speaker_confidence,
+            )
+
     def _transcribe_with_data(
         self,
         audio_data: np.ndarray,
@@ -901,56 +1023,16 @@ class ASREngine:
                     processing_ms = max(0, int((time.time() - self.last_silence_time) * 1000) - silence_ms)
                 else:
                     processing_ms = model_processing_ms
-                # A single VAD chunk can contain several speakers (e.g. fast
-                # dialogue over background music where no silence is detected).
-                # Attribute every Whisper segment with the speaker active during
-                # that segment and publish one result per speaker run.
-                groups = self._group_segments_by_speaker(collected, start_time, end_time)
-                self._logger.info(
-                    f"Transcribed {duration:.2f}s -> {len(groups)} speaker group(s)"
-                )
-                if len(groups) > 1 or duration >= 3.0:
-                    self._logger.info(
-                        f"Speaker timeline: {self._timeline_summary(start_time, end_time)}"
-                    )
-                    self._logger.info(
-                        "Sentence speakers (end, speaker): "
-                        f"{getattr(self, '_last_sentence_labels', [])}"
-                    )
-
-                for group in groups:
-                    group_text = group["text"]
-                    if not group_text:
-                        continue
-                    group_audio_ms = max(
-                        1, int((group["end_offset"] - group["start_offset"]) * 1000)
-                    )
-                    realtime_factor = (
-                        float(processing_ms) / float(group_audio_ms)
-                        if group_audio_ms > 0
-                        else 0.0
-                    )
-                    self._logger.info(
-                        f"Transcript: '{group_text}' (lang: {detected_language}, "
-                        f"speaker: {group['speaker']}, "
-                        f"seg={group['start_offset']:.2f}-{group['end_offset']:.2f}s, "
-                        f"proc={processing_ms}ms, silence={silence_ms}ms, model={model_processing_ms}ms, "
-                        f"audio={group_audio_ms}ms, x{realtime_factor:.2f})"
-                    )
-                    speaker_confidence = self.speaker_confidence_for_interval(
-                        None if start_time is None else start_time + group["start_offset"],
-                        None if start_time is None else start_time + group["end_offset"],
-                        group["speaker"],
-                    )
-                    self._on_transcript_ready(
-                        group_text,
-                        group["speaker"],
+                with self._publish_lock:
+                    self._attribute_and_publish(
+                        collected,
+                        start_time,
+                        end_time,
+                        duration,
                         detected_language,
                         processing_ms,
                         silence_ms,
-                        group_audio_ms,
-                        realtime_factor,
-                        speaker_confidence,
+                        model_processing_ms,
                     )
             else:
                 self._logger.info("Empty transcript — not publishing.")

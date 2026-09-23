@@ -8,6 +8,7 @@ import torch
 from audio_common_msgs.msg import AudioData
 from hri_msgs.msg import AudioAndDeviceInfo, IdsList, SpeechActivityDetection, Vad
 from rclpy.node import Node
+from rclpy.time import Time
 from std_msgs.msg import Bool
 
 from speech_recognition.diarization_engine import DiarizationEngine
@@ -201,6 +202,7 @@ class DiarizationNode(Node):
         self._init_attempts: int = 0
         self._eut_speaker_id: Optional[str] = None
         self._speaker_activated: bool = False
+        self._last_voiced_time: Optional[float] = None
 
         # VAD buffering — the node decides when to publish active/inactive
         self._vad_buffer: list = []
@@ -287,6 +289,8 @@ class DiarizationNode(Node):
 
         probability = msg.vad_probability
         self.engine.update_vad_probability(probability)
+        if probability > self.vad_threshold:
+            self._last_voiced_time = time.time()
 
         self._vad_buffer.append(probability)
         if len(self._vad_buffer) > self._vad_buffer_size:
@@ -302,7 +306,11 @@ class DiarizationNode(Node):
         )
 
         if sustained_silence and self._eut_speaker_id is not None and self._speaker_activated:
-            self._publish_speech_activity(self._eut_speaker_id, active=False)
+            # Stamped with when the voice actually stopped, not with now: the
+            # sustained-silence check itself needs about a second to decide.
+            self._publish_speech_activity(
+                self._eut_speaker_id, active=False, stamp=self._last_voiced_time
+            )
             self.get_logger().info(
                 f"Speech ended: speaker={self._eut_speaker_id.replace('EUT_', '')}"
             )
@@ -331,7 +339,11 @@ class DiarizationNode(Node):
         previous = self._eut_speaker_id
         self._eut_speaker_id = eut_speaker_id
         if eut_speaker_id is not None and eut_speaker_id != previous:
-            self._publish_speech_activity(eut_speaker_id, active=True)
+            # A label is only decided after ~1-2s of speech, but it describes the
+            # whole segment: stamp it with the segment's start (REDI) so ASR can
+            # attribute that speech retroactively. Engines without it stamp now.
+            since = getattr(self.engine, "speaker_since", None)
+            self._publish_speech_activity(eut_speaker_id, active=True, stamp=since)
             self._speaker_activated = True
 
     def _on_voice_update(
@@ -381,9 +393,15 @@ class DiarizationNode(Node):
     # Speech activity publishing
     # ------------------------------------------------------------------
 
-    def _publish_speech_activity(self, eut_speaker_id: str, active: bool) -> None:
+    def _publish_speech_activity(
+        self, eut_speaker_id: str, active: bool, stamp: Optional[float] = None
+    ) -> None:
+        """``stamp`` is the wall-clock time the message describes; defaults to now."""
         msg = SpeechActivityDetection()
-        msg.header.stamp = self.get_clock().now().to_msg()
+        if stamp is None:
+            msg.header.stamp = self.get_clock().now().to_msg()
+        else:
+            msg.header.stamp = Time(nanoseconds=int(stamp * 1e9)).to_msg()
         msg.speaker_id = eut_speaker_id.replace("EUT_", "")
         msg.speaker_id_confidence = float(self.engine.speaker_confidence)
         msg.active = active
