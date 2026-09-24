@@ -1,7 +1,7 @@
 {
-  "stem": "callhome_spa_snr20__spa_0019_4spk_snr20",
-  "hyp_source": "file:callhome_spa_snr20__spa_0019_4spk_snr20.wav",
-  "audio": "callhome_spa_snr20__spa_0019_4spk_snr20.wav",
+  "stem": "callhome_spa_clean__spa_0019_4spk_clean",
+  "hyp_source": "file:callhome_spa_clean__spa_0019_4spk_clean.wav",
+  "audio": "callhome_spa_clean__spa_0019_4spk_clean.wav",
   "duration_sec": 120.0,
   "gt_text_source": "silver: faster-whisper models--mobiuslabsgmbh--faster-whisper-large-v3-turbo per GT turn, beam 5",
   "gt_verified": "0/76",
@@ -14,65 +14,65 @@
   "hyp_speakers": [
     "speaker1",
     "speaker2",
-    "speaker4",
+    "speaker5",
     "unknown"
   ],
   "speaker_mapping": {
-    "speaker4": "A",
+    "speaker5": "A",
     "speaker1": "A1",
-    "speaker2": "B2"
+    "speaker2": "A2"
   },
   "summary": {
     "gt_utterances": 76,
-    "hyp_utterances": 47,
-    "wer": 0.3949,
+    "hyp_utterances": 41,
+    "wer": 0.4928,
     "ref_words": 276,
-    "sub": 41,
-    "del": 63,
+    "sub": 31,
+    "del": 100,
     "ins": 5,
-    "wer_long": 0.2057,
+    "wer_long": 0.3901,
     "long_utterances": 12,
     "long_ref_words": 141,
-    "long_errors": 29,
-    "speaker_acc_long": 0.5833,
-    "speaker_ok_utt": 28,
-    "speaker_wrong_utt": 22,
+    "long_errors": 55,
+    "speaker_acc_long": 0.7,
+    "speaker_ok_utt": 22,
+    "speaker_wrong_utt": 24,
     "speaker_unknown_utt": 5,
-    "missed_utt": 21,
-    "speaker_acc_utt": 0.5091,
-    "speaker_acc_words": 0.7194,
+    "missed_utt": 25,
+    "speaker_acc_utt": 0.4314,
+    "speaker_acc_words": 0.7063,
     "der_activity": {
       "fair": {
-        "der": 0.6215,
-        "missed": 0.263,
-        "false_alarm": 0.0396,
-        "confusion": 0.3189,
+        "der": 0.5797,
+        "missed": 0.2089,
+        "false_alarm": 0.0273,
+        "confusion": 0.3435,
         "collar": 0.25,
         "skip_overlap": true
       },
       "strict": {
-        "der": 0.6644,
-        "missed": 0.3381,
-        "false_alarm": 0.0625,
-        "confusion": 0.2637,
+        "der": 0.6412,
+        "missed": 0.2968,
+        "false_alarm": 0.0559,
+        "confusion": 0.2885,
         "collar": 0.0,
         "skip_overlap": false
       }
     },
     "der_asr_utterances": {
       "fair": {
-        "der": 0.6376,
-        "missed": 0.4027,
-        "false_alarm": 0.04,
-        "confusion": 0.1949,
+        "der": 0.6502,
+        "missed": 0.4552,
+        "false_alarm": 0.0314,
+        "confusion": 0.1636,
         "collar": 0.25,
         "skip_overlap": true
       },
       "strict": {
-        "der": 0.7166,
-        "missed": 0.4936,
-        "false_alarm": 0.0538,
-        "confusion": 0.1692,
+        "der": 0.7312,
+        "missed": 0.5514,
+        "false_alarm": 0.0467,
+        "confusion": 0.1331,
         "collar": 0.0,
         "skip_overlap": false
       }
@@ -80,26 +80,27 @@
   },
   "confusion": {
     "A": {
+      "A1": 1,
+      "A": 10,
       "missed": 5,
-      "A": 11,
-      "B2": 1
+      "A2": 1
     },
     "A1": {
       "A1": 3,
-      "B2": 3,
-      "missed": 2
+      "A2": 2,
+      "missed": 3
     },
     "A2": {
-      "B2": 9,
-      "missed": 3,
-      "unknown": 3
+      "A2": 9,
+      "missed": 5,
+      "unknown": 1
     },
     "B2": {
-      "missed": 11,
-      "A1": 1,
-      "B2": 14,
-      "A": 8,
-      "unknown": 2
+      "unknown": 4,
+      "A1": 3,
+      "A2": 11,
+      "missed": 12,
+      "A": 6
     }
   },
   "utterances": [
@@ -111,15 +112,17 @@
       "gt_text": "Gracias por ver el video.",
       "overlap": false,
       "verified": false,
-      "hyp_text": "",
-      "hyp_speaker_raw": "",
-      "hyp_speaker": "",
-      "speaker_status": "missed",
-      "hyp_result_ids": [],
+      "hyp_text": "estados unidos",
+      "hyp_speaker_raw": "unknown",
+      "hyp_speaker": "unknown",
+      "speaker_status": "unknown",
+      "hyp_result_ids": [
+        0
+      ],
       "words_ref": 5,
       "long": false,
-      "sub": 0,
-      "del": 5,
+      "sub": 2,
+      "del": 3,
       "ins": 0,
       "wer": 1.0,
       "diff": [
@@ -139,14 +142,14 @@
           ""
         ],
         [
-          "del",
+          "sub",
           "el",
-          ""
+          "estados"
         ],
         [
-          "del",
+          "sub",
           "video",
-          ""
+          "unidos"
         ]
       ]
     },
@@ -158,22 +161,24 @@
       "gt_text": "Sí.",
       "overlap": false,
       "verified": false,
-      "hyp_text": "",
-      "hyp_speaker_raw": "",
-      "hyp_speaker": "",
-      "speaker_status": "missed",
-      "hyp_result_ids": [],
+      "hyp_text": "si",
+      "hyp_speaker_raw": "speaker1",
+      "hyp_speaker": "A1",
+      "speaker_status": "wrong",
+      "hyp_result_ids": [
+        1
+      ],
       "words_ref": 1,
       "long": false,
       "sub": 0,
-      "del": 1,
+      "del": 0,
       "ins": 0,
-      "wer": 1.0,
+      "wer": 0.0,
       "diff": [
         [
-          "del",
+          "ok",
           "si",
-          ""
+          "si"
         ]
       ]
     },
@@ -185,43 +190,41 @@
       "gt_text": "Que hay mi hijito, yo no te pude llamar el día de tus cumpleaños, mi amor reciba una felicitación. No tenía el número del teléfono, no pude hacerlo, papito.",
       "overlap": true,
       "verified": false,
-      "hyp_text": "so new see yo no te pude llamar el dia de tus cumpleanos mi amor reciba una felicitacion no importa no tenia el numero del telefono no pude hacerlo",
+      "hyp_text": "que hay hijito yo no te pude llamar el dia de tus cumpleanos mi amor reciba una felicitacion no importa no tenia el numero del telefono no pude hacerlo",
       "hyp_speaker_raw": "speaker1",
       "hyp_speaker": "A1",
       "speaker_status": "ok",
       "hyp_result_ids": [
-        0,
         1,
         2,
-        3,
-        4
+        3
       ],
       "words_ref": 29,
       "long": true,
-      "sub": 3,
+      "sub": 0,
       "del": 2,
       "ins": 2,
-      "wer": 0.2414,
+      "wer": 0.1379,
       "diff": [
         [
-          "del",
+          "ok",
           "que",
+          "que"
+        ],
+        [
+          "ok",
+          "hay",
+          "hay"
+        ],
+        [
+          "del",
+          "mi",
           ""
         ],
         [
-          "sub",
-          "hay",
-          "so"
-        ],
-        [
-          "sub",
-          "mi",
-          "new"
-        ],
-        [
-          "sub",
+          "ok",
           "hijito",
-          "see"
+          "hijito"
         ],
         [
           "ok",
@@ -373,7 +376,7 @@
       "hyp_speaker": "A1",
       "speaker_status": "wrong",
       "hyp_result_ids": [
-        4
+        3
       ],
       "words_ref": 3,
       "long": false,
@@ -407,19 +410,19 @@
       "gt_text": "Bueno, no importa, tomo.",
       "overlap": true,
       "verified": false,
-      "hyp_text": "bueno no importa tomo",
+      "hyp_text": "bueno no importa todo",
       "hyp_speaker_raw": "speaker2",
-      "hyp_speaker": "B2",
-      "speaker_status": "ok",
+      "hyp_speaker": "A2",
+      "speaker_status": "wrong",
       "hyp_result_ids": [
-        5
+        4
       ],
       "words_ref": 4,
       "long": false,
-      "sub": 0,
+      "sub": 1,
       "del": 0,
       "ins": 0,
-      "wer": 0.0,
+      "wer": 0.25,
       "diff": [
         [
           "ok",
@@ -437,9 +440,9 @@
           "importa"
         ],
         [
-          "ok",
+          "sub",
           "tomo",
-          "tomo"
+          "todo"
         ]
       ]
     },
@@ -453,10 +456,10 @@
       "verified": false,
       "hyp_text": "bueno mi amor como estas bien",
       "hyp_speaker_raw": "speaker2",
-      "hyp_speaker": "B2",
+      "hyp_speaker": "A2",
       "speaker_status": "wrong",
       "hyp_result_ids": [
-        6
+        5
       ],
       "words_ref": 7,
       "long": true,
@@ -512,10 +515,10 @@
       "verified": false,
       "hyp_text": "si",
       "hyp_speaker_raw": "speaker2",
-      "hyp_speaker": "B2",
-      "speaker_status": "ok",
+      "hyp_speaker": "A2",
+      "speaker_status": "wrong",
       "hyp_result_ids": [
-        7
+        6
       ],
       "words_ref": 1,
       "long": false,
@@ -539,9 +542,9 @@
       "gt_text": "¿Y ya vas a entrar al colegio?",
       "overlap": true,
       "verified": false,
-      "hyp_text": "y ya vas a entrar al colegio",
+      "hyp_text": "y",
       "hyp_speaker_raw": "speaker2",
-      "hyp_speaker": "B2",
+      "hyp_speaker": "A2",
       "speaker_status": "wrong",
       "hyp_result_ids": [
         7
@@ -549,9 +552,9 @@
       "words_ref": 7,
       "long": true,
       "sub": 0,
-      "del": 0,
+      "del": 6,
       "ins": 0,
-      "wer": 0.0,
+      "wer": 0.8571,
       "diff": [
         [
           "ok",
@@ -559,34 +562,34 @@
           "y"
         ],
         [
-          "ok",
+          "del",
           "ya",
-          "ya"
+          ""
         ],
         [
-          "ok",
+          "del",
           "vas",
-          "vas"
+          ""
         ],
         [
-          "ok",
+          "del",
           "a",
-          "a"
+          ""
         ],
         [
-          "ok",
+          "del",
           "entrar",
-          "entrar"
+          ""
         ],
         [
-          "ok",
+          "del",
           "al",
-          "al"
+          ""
         ],
         [
-          "ok",
+          "del",
           "colegio",
-          "colegio"
+          ""
         ]
       ]
     },
@@ -598,24 +601,24 @@
       "gt_text": "¡Ya entré! ¡Uh!",
       "overlap": true,
       "verified": false,
-      "hyp_text": "ya entre uh",
+      "hyp_text": "entre",
       "hyp_speaker_raw": "speaker2",
-      "hyp_speaker": "B2",
-      "speaker_status": "ok",
+      "hyp_speaker": "A2",
+      "speaker_status": "wrong",
       "hyp_result_ids": [
         7
       ],
       "words_ref": 3,
       "long": false,
       "sub": 0,
-      "del": 0,
+      "del": 2,
       "ins": 0,
-      "wer": 0.0,
+      "wer": 0.6667,
       "diff": [
         [
-          "ok",
+          "del",
           "ya",
-          "ya"
+          ""
         ],
         [
           "ok",
@@ -623,9 +626,9 @@
           "entre"
         ],
         [
-          "ok",
+          "del",
           "uh",
-          "uh"
+          ""
         ]
       ]
     },
@@ -728,22 +731,24 @@
       "gt_text": "¿Eh?",
       "overlap": true,
       "verified": false,
-      "hyp_text": "",
-      "hyp_speaker_raw": "",
-      "hyp_speaker": "",
-      "speaker_status": "missed",
-      "hyp_result_ids": [],
+      "hyp_text": "u",
+      "hyp_speaker_raw": "speaker2",
+      "hyp_speaker": "A2",
+      "speaker_status": "wrong",
+      "hyp_result_ids": [
+        7
+      ],
       "words_ref": 1,
       "long": false,
-      "sub": 0,
-      "del": 1,
+      "sub": 1,
+      "del": 0,
       "ins": 0,
       "wer": 1.0,
       "diff": [
         [
-          "del",
+          "sub",
           "eh",
-          ""
+          "u"
         ]
       ]
     },
@@ -755,39 +760,40 @@
       "gt_text": "Ajá. Y muy juicioso, papá.",
       "overlap": true,
       "verified": false,
-      "hyp_text": "e voce wash o papa",
+      "hyp_text": "aja y mas juiciosos papa",
       "hyp_speaker_raw": "speaker1",
       "hyp_speaker": "A1",
       "speaker_status": "ok",
       "hyp_result_ids": [
-        8
+        8,
+        9
       ],
       "words_ref": 5,
       "long": false,
-      "sub": 4,
+      "sub": 2,
       "del": 0,
       "ins": 0,
-      "wer": 0.8,
+      "wer": 0.4,
       "diff": [
         [
-          "sub",
+          "ok",
           "aja",
-          "e"
+          "aja"
         ],
         [
-          "sub",
+          "ok",
           "y",
-          "voce"
+          "y"
         ],
         [
           "sub",
           "muy",
-          "wash"
+          "mas"
         ],
         [
           "sub",
           "juicioso",
-          "o"
+          "juiciosos"
         ],
         [
           "ok",
@@ -804,22 +810,24 @@
       "gt_text": "Sí.",
       "overlap": true,
       "verified": false,
-      "hyp_text": "",
-      "hyp_speaker_raw": "",
-      "hyp_speaker": "",
-      "speaker_status": "missed",
-      "hyp_result_ids": [],
+      "hyp_text": "si",
+      "hyp_speaker_raw": "speaker1",
+      "hyp_speaker": "A1",
+      "speaker_status": "wrong",
+      "hyp_result_ids": [
+        9
+      ],
       "words_ref": 1,
       "long": false,
       "sub": 0,
-      "del": 1,
+      "del": 0,
       "ins": 0,
-      "wer": 1.0,
+      "wer": 0.0,
       "diff": [
         [
-          "del",
+          "ok",
           "si",
-          ""
+          "si"
         ]
       ]
     },
@@ -881,7 +889,7 @@
       "overlap": true,
       "verified": false,
       "hyp_text": "mira samuel",
-      "hyp_speaker_raw": "speaker4",
+      "hyp_speaker_raw": "speaker5",
       "hyp_speaker": "A",
       "speaker_status": "ok",
       "hyp_result_ids": [
@@ -941,104 +949,102 @@
       "gt_text": "Le tienes que decir a tu mamá que te mande para acá, para donde tu tía Diana.",
       "overlap": true,
       "verified": false,
-      "hyp_text": "le tienes que decir a tu mama que te mande para aca para donde tu tia vive",
-      "hyp_speaker_raw": "speaker4",
-      "hyp_speaker": "A",
-      "speaker_status": "ok",
-      "hyp_result_ids": [
-        10
-      ],
+      "hyp_text": "",
+      "hyp_speaker_raw": "",
+      "hyp_speaker": "",
+      "speaker_status": "missed",
+      "hyp_result_ids": [],
       "words_ref": 17,
       "long": true,
-      "sub": 1,
-      "del": 0,
+      "sub": 0,
+      "del": 17,
       "ins": 0,
-      "wer": 0.0588,
+      "wer": 1.0,
       "diff": [
         [
-          "ok",
+          "del",
           "le",
-          "le"
+          ""
         ],
         [
-          "ok",
+          "del",
           "tienes",
-          "tienes"
+          ""
         ],
         [
-          "ok",
+          "del",
           "que",
-          "que"
+          ""
         ],
         [
-          "ok",
+          "del",
           "decir",
-          "decir"
+          ""
         ],
         [
-          "ok",
+          "del",
           "a",
-          "a"
+          ""
         ],
         [
-          "ok",
+          "del",
           "tu",
-          "tu"
+          ""
         ],
         [
-          "ok",
+          "del",
           "mama",
-          "mama"
+          ""
         ],
         [
-          "ok",
+          "del",
           "que",
-          "que"
+          ""
         ],
         [
-          "ok",
+          "del",
           "te",
-          "te"
+          ""
         ],
         [
-          "ok",
+          "del",
           "mande",
-          "mande"
+          ""
         ],
         [
-          "ok",
+          "del",
           "para",
-          "para"
+          ""
         ],
         [
-          "ok",
+          "del",
           "aca",
-          "aca"
+          ""
         ],
         [
-          "ok",
+          "del",
           "para",
-          "para"
+          ""
         ],
         [
-          "ok",
+          "del",
           "donde",
-          "donde"
+          ""
         ],
         [
-          "ok",
+          "del",
           "tu",
-          "tu"
+          ""
         ],
         [
-          "ok",
+          "del",
           "tia",
-          "tia"
+          ""
         ],
         [
-          "sub",
+          "del",
           "diana",
-          "vive"
+          ""
         ]
       ]
     },
@@ -1051,7 +1057,7 @@
       "overlap": true,
       "verified": false,
       "hyp_text": "bueno",
-      "hyp_speaker_raw": "speaker4",
+      "hyp_speaker_raw": "speaker5",
       "hyp_speaker": "A",
       "speaker_status": "wrong",
       "hyp_result_ids": [
@@ -1080,7 +1086,7 @@
       "overlap": true,
       "verified": false,
       "hyp_text": "oiste",
-      "hyp_speaker_raw": "speaker4",
+      "hyp_speaker_raw": "speaker5",
       "hyp_speaker": "A",
       "speaker_status": "ok",
       "hyp_result_ids": [
@@ -1135,8 +1141,8 @@
       "gt_text": "con Alex.",
       "overlap": true,
       "verified": false,
-      "hyp_text": "con alex",
-      "hyp_speaker_raw": "speaker4",
+      "hyp_text": "con",
+      "hyp_speaker_raw": "speaker5",
       "hyp_speaker": "A",
       "speaker_status": "ok",
       "hyp_result_ids": [
@@ -1145,9 +1151,9 @@
       "words_ref": 2,
       "long": false,
       "sub": 0,
-      "del": 0,
+      "del": 1,
       "ins": 0,
-      "wer": 0.0,
+      "wer": 0.5,
       "diff": [
         [
           "ok",
@@ -1155,9 +1161,9 @@
           "con"
         ],
         [
-          "ok",
+          "del",
           "alex",
-          "alex"
+          ""
         ]
       ]
     },
@@ -1223,24 +1229,22 @@
       "gt_text": "Bueno.",
       "overlap": false,
       "verified": false,
-      "hyp_text": "bueno",
-      "hyp_speaker_raw": "speaker4",
-      "hyp_speaker": "A",
-      "speaker_status": "wrong",
-      "hyp_result_ids": [
-        11
-      ],
+      "hyp_text": "",
+      "hyp_speaker_raw": "",
+      "hyp_speaker": "",
+      "speaker_status": "missed",
+      "hyp_result_ids": [],
       "words_ref": 1,
       "long": false,
       "sub": 0,
-      "del": 0,
+      "del": 1,
       "ins": 0,
-      "wer": 0.0,
+      "wer": 1.0,
       "diff": [
         [
-          "ok",
+          "del",
           "bueno",
-          "bueno"
+          ""
         ]
       ]
     },
@@ -1252,15 +1256,17 @@
       "gt_text": "Mira cómo está el colegio.",
       "overlap": false,
       "verified": false,
-      "hyp_text": "",
-      "hyp_speaker_raw": "",
-      "hyp_speaker": "",
-      "speaker_status": "missed",
-      "hyp_result_ids": [],
+      "hyp_text": "alexio",
+      "hyp_speaker_raw": "speaker5",
+      "hyp_speaker": "A",
+      "speaker_status": "ok",
+      "hyp_result_ids": [
+        11
+      ],
       "words_ref": 5,
       "long": false,
-      "sub": 0,
-      "del": 5,
+      "sub": 1,
+      "del": 4,
       "ins": 0,
       "wer": 1.0,
       "diff": [
@@ -1285,9 +1291,9 @@
           ""
         ],
         [
-          "del",
+          "sub",
           "colegio",
-          ""
+          "alexio"
         ]
       ]
     },
@@ -1300,7 +1306,7 @@
       "overlap": true,
       "verified": false,
       "hyp_text": "bien",
-      "hyp_speaker_raw": "speaker4",
+      "hyp_speaker_raw": "speaker5",
       "hyp_speaker": "A",
       "speaker_status": "wrong",
       "hyp_result_ids": [
@@ -1328,8 +1334,8 @@
       "gt_text": "Bien, ¿en qué año que estás, mi amor?",
       "overlap": true,
       "verified": false,
-      "hyp_text": "bien en que ano que estas mi amor",
-      "hyp_speaker_raw": "speaker4",
+      "hyp_text": "bien en que ano",
+      "hyp_speaker_raw": "speaker5",
       "hyp_speaker": "A",
       "speaker_status": "ok",
       "hyp_result_ids": [
@@ -1338,9 +1344,9 @@
       "words_ref": 8,
       "long": true,
       "sub": 0,
-      "del": 0,
+      "del": 4,
       "ins": 0,
-      "wer": 0.0,
+      "wer": 0.5,
       "diff": [
         [
           "ok",
@@ -1363,24 +1369,24 @@
           "ano"
         ],
         [
-          "ok",
+          "del",
           "que",
-          "que"
+          ""
         ],
         [
-          "ok",
+          "del",
           "estas",
-          "estas"
+          ""
         ],
         [
-          "ok",
+          "del",
           "mi",
-          "mi"
+          ""
         ],
         [
-          "ok",
+          "del",
           "amor",
-          "amor"
+          ""
         ]
       ]
     },
@@ -1392,8 +1398,8 @@
       "gt_text": "Sexto.",
       "overlap": true,
       "verified": false,
-      "hyp_text": "six",
-      "hyp_speaker_raw": "speaker4",
+      "hyp_text": "sexto",
+      "hyp_speaker_raw": "speaker5",
       "hyp_speaker": "A",
       "speaker_status": "wrong",
       "hyp_result_ids": [
@@ -1401,15 +1407,15 @@
       ],
       "words_ref": 1,
       "long": false,
-      "sub": 1,
+      "sub": 0,
       "del": 0,
       "ins": 0,
-      "wer": 1.0,
+      "wer": 0.0,
       "diff": [
         [
-          "sub",
+          "ok",
           "sexto",
-          "six"
+          "sexto"
         ]
       ]
     },
@@ -1423,7 +1429,7 @@
       "verified": false,
       "hyp_text": "sexto",
       "hyp_speaker_raw": "speaker2",
-      "hyp_speaker": "B2",
+      "hyp_speaker": "A2",
       "speaker_status": "wrong",
       "hyp_result_ids": [
         13
@@ -1450,24 +1456,22 @@
       "gt_text": "Sí.",
       "overlap": false,
       "verified": false,
-      "hyp_text": "si",
-      "hyp_speaker_raw": "speaker2",
-      "hyp_speaker": "B2",
-      "speaker_status": "ok",
-      "hyp_result_ids": [
-        13
-      ],
+      "hyp_text": "",
+      "hyp_speaker_raw": "",
+      "hyp_speaker": "",
+      "speaker_status": "missed",
+      "hyp_result_ids": [],
       "words_ref": 1,
       "long": false,
       "sub": 0,
-      "del": 0,
+      "del": 1,
       "ins": 0,
-      "wer": 0.0,
+      "wer": 1.0,
       "diff": [
         [
-          "ok",
+          "del",
           "si",
-          "si"
+          ""
         ]
       ]
     },
@@ -1506,19 +1510,19 @@
       "gt_text": "Primero de bachillerato.",
       "overlap": true,
       "verified": false,
-      "hyp_text": "primero de bachillerato",
+      "hyp_text": "primero de cualquiera",
       "hyp_speaker_raw": "speaker2",
-      "hyp_speaker": "B2",
-      "speaker_status": "ok",
+      "hyp_speaker": "A2",
+      "speaker_status": "wrong",
       "hyp_result_ids": [
         14
       ],
       "words_ref": 3,
       "long": false,
-      "sub": 0,
+      "sub": 1,
       "del": 0,
       "ins": 0,
-      "wer": 0.0,
+      "wer": 0.3333,
       "diff": [
         [
           "ok",
@@ -1531,9 +1535,9 @@
           "de"
         ],
         [
-          "ok",
+          "sub",
           "bachillerato",
-          "bachillerato"
+          "cualquiera"
         ]
       ]
     },
@@ -1545,8 +1549,8 @@
       "gt_text": "Primero de bachillerato..., no mijito, cuando vaya yo para allá te vas a estar graduando ya.",
       "overlap": false,
       "verified": false,
-      "hyp_text": "primero no mijito cuando vaya yo para alla te vas a estar graduando ya",
-      "hyp_speaker_raw": "speaker4",
+      "hyp_text": "primero no mijito cuando vayas yo para alla te vas a estar graduando ya",
+      "hyp_speaker_raw": "speaker5",
       "hyp_speaker": "A",
       "speaker_status": "ok",
       "hyp_result_ids": [
@@ -1554,10 +1558,10 @@
       ],
       "words_ref": 16,
       "long": true,
-      "sub": 0,
+      "sub": 1,
       "del": 2,
       "ins": 0,
-      "wer": 0.125,
+      "wer": 0.1875,
       "diff": [
         [
           "ok",
@@ -1590,9 +1594,9 @@
           "cuando"
         ],
         [
-          "ok",
+          "sub",
           "vaya",
-          "vaya"
+          "vayas"
         ],
         [
           "ok",
@@ -1650,7 +1654,7 @@
       "overlap": false,
       "verified": false,
       "hyp_text": "ah",
-      "hyp_speaker_raw": "speaker4",
+      "hyp_speaker_raw": "speaker5",
       "hyp_speaker": "A",
       "speaker_status": "wrong",
       "hyp_result_ids": [
@@ -1678,12 +1682,12 @@
       "gt_text": "Y mire, ¿qué quieres estudiar? Todavía no sabes.",
       "overlap": false,
       "verified": false,
-      "hyp_text": "y mira y que quieres estudiar todavia no sabes",
-      "hyp_speaker_raw": "speaker4",
+      "hyp_text": "y viene y que quieres estudiar todavia no sabes",
+      "hyp_speaker_raw": "speaker5",
       "hyp_speaker": "A",
       "speaker_status": "ok",
       "hyp_result_ids": [
-        17
+        16
       ],
       "words_ref": 8,
       "long": true,
@@ -1700,7 +1704,7 @@
         [
           "ins",
           "",
-          "mira"
+          "viene"
         ],
         [
           "sub",
@@ -1748,12 +1752,11 @@
       "overlap": true,
       "verified": false,
       "hyp_text": "no todavia no sabes",
-      "hyp_speaker_raw": "speaker4",
+      "hyp_speaker_raw": "speaker5",
       "hyp_speaker": "A",
       "speaker_status": "wrong",
       "hyp_result_ids": [
-        17,
-        18
+        16
       ],
       "words_ref": 4,
       "long": false,
@@ -1793,11 +1796,11 @@
       "overlap": true,
       "verified": false,
       "hyp_text": "todavia no sabes",
-      "hyp_speaker_raw": "speaker4",
+      "hyp_speaker_raw": "speaker5",
       "hyp_speaker": "A",
       "speaker_status": "ok",
       "hyp_result_ids": [
-        18
+        16
       ],
       "words_ref": 3,
       "long": false,
@@ -1858,19 +1861,19 @@
       "gt_text": "Ay, pero chévere. Ah, mira, aquí Gabriel te quiere saludar otra vez. Espera tu montico, ¿ok?",
       "overlap": true,
       "verified": false,
-      "hyp_text": "ay pero chevere te sales ah mira aqui gabriel te quiere saludar otra vez esperate un bontico",
-      "hyp_speaker_raw": "speaker4",
+      "hyp_text": "ay pero chevere te sales ah mira aqui gabriel te quiere saludar otra vez esperate un montico okay",
+      "hyp_speaker_raw": "speaker5",
       "hyp_speaker": "A",
       "speaker_status": "ok",
       "hyp_result_ids": [
-        19
+        17
       ],
       "words_ref": 16,
       "long": true,
       "sub": 3,
-      "del": 1,
+      "del": 0,
       "ins": 2,
-      "wer": 0.375,
+      "wer": 0.3125,
       "diff": [
         [
           "ok",
@@ -1943,24 +1946,24 @@
           "vez"
         ],
         [
-          "del",
-          "espera",
-          ""
-        ],
-        [
           "sub",
-          "tu",
+          "espera",
           "esperate"
         ],
         [
           "sub",
-          "montico",
+          "tu",
           "un"
+        ],
+        [
+          "ok",
+          "montico",
+          "montico"
         ],
         [
           "sub",
           "ok",
-          "bontico"
+          "okay"
         ]
       ]
     },
@@ -1972,12 +1975,12 @@
       "gt_text": "¿Ok?",
       "overlap": true,
       "verified": false,
-      "hyp_text": "okay",
-      "hyp_speaker_raw": "speaker4",
+      "hyp_text": "right",
+      "hyp_speaker_raw": "speaker5",
       "hyp_speaker": "A",
       "speaker_status": "wrong",
       "hyp_result_ids": [
-        19
+        18
       ],
       "words_ref": 1,
       "long": false,
@@ -1989,7 +1992,7 @@
         [
           "sub",
           "ok",
-          "okay"
+          "right"
         ]
       ]
     },
@@ -2003,10 +2006,10 @@
       "verified": false,
       "hyp_text": "hola samuel",
       "hyp_speaker_raw": "speaker2",
-      "hyp_speaker": "B2",
-      "speaker_status": "wrong",
+      "hyp_speaker": "A2",
+      "speaker_status": "ok",
       "hyp_result_ids": [
-        20
+        19
       ],
       "words_ref": 2,
       "long": false,
@@ -2091,10 +2094,10 @@
       "verified": false,
       "hyp_text": "hola",
       "hyp_speaker_raw": "speaker2",
-      "hyp_speaker": "B2",
-      "speaker_status": "wrong",
+      "hyp_speaker": "A2",
+      "speaker_status": "ok",
       "hyp_result_ids": [
-        20
+        19
       ],
       "words_ref": 3,
       "long": false,
@@ -2128,25 +2131,25 @@
       "gt_text": "Um, ¿yo puedo hablar con tu hermanita?",
       "overlap": true,
       "verified": false,
-      "hyp_text": "come yo puedo hablar con tu hermanita",
+      "hyp_text": "um yo puedo hablar con tu hermanita",
       "hyp_speaker_raw": "speaker2",
-      "hyp_speaker": "B2",
-      "speaker_status": "wrong",
+      "hyp_speaker": "A2",
+      "speaker_status": "ok",
       "hyp_result_ids": [
-        21,
-        22
+        20,
+        21
       ],
       "words_ref": 7,
       "long": true,
-      "sub": 1,
+      "sub": 0,
       "del": 0,
       "ins": 0,
-      "wer": 0.1429,
+      "wer": 0.0,
       "diff": [
         [
-          "sub",
+          "ok",
           "um",
-          "come"
+          "um"
         ],
         [
           "ok",
@@ -2188,24 +2191,22 @@
       "gt_text": "¿Qué?",
       "overlap": true,
       "verified": false,
-      "hyp_text": "que",
-      "hyp_speaker_raw": "speaker2",
-      "hyp_speaker": "B2",
-      "speaker_status": "ok",
-      "hyp_result_ids": [
-        22
-      ],
+      "hyp_text": "",
+      "hyp_speaker_raw": "",
+      "hyp_speaker": "",
+      "speaker_status": "missed",
+      "hyp_result_ids": [],
       "words_ref": 1,
       "long": false,
       "sub": 0,
-      "del": 0,
+      "del": 1,
       "ins": 0,
-      "wer": 0.0,
+      "wer": 1.0,
       "diff": [
         [
-          "ok",
+          "del",
           "que",
-          "que"
+          ""
         ]
       ]
     },
@@ -2286,17 +2287,15 @@
       "gt_text": "¿Dónde está su hermana?",
       "overlap": false,
       "verified": false,
-      "hyp_text": "que",
-      "hyp_speaker_raw": "speaker2",
-      "hyp_speaker": "B2",
-      "speaker_status": "wrong",
-      "hyp_result_ids": [
-        23
-      ],
+      "hyp_text": "",
+      "hyp_speaker_raw": "",
+      "hyp_speaker": "",
+      "speaker_status": "missed",
+      "hyp_result_ids": [],
       "words_ref": 4,
       "long": false,
-      "sub": 1,
-      "del": 3,
+      "sub": 0,
+      "del": 4,
       "ins": 0,
       "wer": 1.0,
       "diff": [
@@ -2316,9 +2315,9 @@
           ""
         ],
         [
-          "sub",
+          "del",
           "hermana",
-          "que"
+          ""
         ]
       ]
     },
@@ -2335,8 +2334,8 @@
       "hyp_speaker": "unknown",
       "speaker_status": "unknown",
       "hyp_result_ids": [
-        23,
-        24
+        22,
+        23
       ],
       "words_ref": 9,
       "long": true,
@@ -2402,10 +2401,10 @@
       "verified": false,
       "hyp_text": "esta aqui esta alla",
       "hyp_speaker_raw": "speaker2",
-      "hyp_speaker": "B2",
-      "speaker_status": "wrong",
+      "hyp_speaker": "A2",
+      "speaker_status": "ok",
       "hyp_result_ids": [
-        25
+        24
       ],
       "words_ref": 4,
       "long": false,
@@ -2446,10 +2445,10 @@
       "verified": false,
       "hyp_text": "si",
       "hyp_speaker_raw": "speaker2",
-      "hyp_speaker": "B2",
-      "speaker_status": "ok",
+      "hyp_speaker": "A2",
+      "speaker_status": "wrong",
       "hyp_result_ids": [
-        26
+        25
       ],
       "words_ref": 1,
       "long": false,
@@ -2515,27 +2514,29 @@
       "gt_text": "¡Oh, Felipe!",
       "overlap": false,
       "verified": false,
-      "hyp_text": "",
-      "hyp_speaker_raw": "",
-      "hyp_speaker": "",
-      "speaker_status": "missed",
-      "hyp_result_ids": [],
+      "hyp_text": "ah entonces",
+      "hyp_speaker_raw": "speaker2",
+      "hyp_speaker": "A2",
+      "speaker_status": "wrong",
+      "hyp_result_ids": [
+        26
+      ],
       "words_ref": 2,
       "long": false,
-      "sub": 0,
-      "del": 2,
+      "sub": 2,
+      "del": 0,
       "ins": 0,
       "wer": 1.0,
       "diff": [
         [
-          "del",
+          "sub",
           "oh",
-          ""
+          "ah"
         ],
         [
-          "del",
+          "sub",
           "felipe",
-          ""
+          "entonces"
         ]
       ]
     },
@@ -2547,22 +2548,24 @@
       "gt_text": "Ah",
       "overlap": true,
       "verified": false,
-      "hyp_text": "",
-      "hyp_speaker_raw": "",
-      "hyp_speaker": "",
-      "speaker_status": "missed",
-      "hyp_result_ids": [],
+      "hyp_text": "mm",
+      "hyp_speaker_raw": "speaker2",
+      "hyp_speaker": "A2",
+      "speaker_status": "ok",
+      "hyp_result_ids": [
+        26
+      ],
       "words_ref": 1,
       "long": false,
-      "sub": 0,
-      "del": 1,
+      "sub": 1,
+      "del": 0,
       "ins": 0,
       "wer": 1.0,
       "diff": [
         [
-          "del",
+          "sub",
           "ah",
-          ""
+          "mm"
         ]
       ]
     },
@@ -2574,34 +2577,35 @@
       "gt_text": "mas o menos",
       "overlap": true,
       "verified": false,
-      "hyp_text": "i'm",
-      "hyp_speaker_raw": "unknown",
-      "hyp_speaker": "unknown",
-      "speaker_status": "unknown",
+      "hyp_text": "vamos feliz no",
+      "hyp_speaker_raw": "speaker2",
+      "hyp_speaker": "A2",
+      "speaker_status": "wrong",
       "hyp_result_ids": [
-        27
+        27,
+        28
       ],
       "words_ref": 3,
       "long": false,
-      "sub": 1,
-      "del": 2,
+      "sub": 3,
+      "del": 0,
       "ins": 0,
       "wer": 1.0,
       "diff": [
         [
-          "del",
+          "sub",
           "mas",
-          ""
+          "vamos"
         ],
         [
-          "del",
+          "sub",
           "o",
-          ""
+          "feliz"
         ],
         [
           "sub",
           "menos",
-          "i'm"
+          "no"
         ]
       ]
     },
@@ -2613,30 +2617,29 @@
       "gt_text": "¿Qué sabes?",
       "overlap": false,
       "verified": false,
-      "hyp_text": "doctor no",
+      "hyp_text": "si sabes",
       "hyp_speaker_raw": "unknown",
       "hyp_speaker": "unknown",
       "speaker_status": "unknown",
       "hyp_result_ids": [
-        27,
-        28
+        29
       ],
       "words_ref": 2,
       "long": false,
-      "sub": 2,
+      "sub": 1,
       "del": 0,
       "ins": 0,
-      "wer": 1.0,
+      "wer": 0.5,
       "diff": [
         [
           "sub",
           "que",
-          "doctor"
+          "si"
         ],
         [
-          "sub",
+          "ok",
           "sabes",
-          "no"
+          "sabes"
         ]
       ]
     },
@@ -2648,36 +2651,34 @@
       "gt_text": "¿Qué si se?",
       "overlap": false,
       "verified": false,
-      "hyp_text": "feliz uh vo",
-      "hyp_speaker_raw": "speaker2",
-      "hyp_speaker": "B2",
-      "speaker_status": "ok",
+      "hyp_text": "que si se",
+      "hyp_speaker_raw": "unknown",
+      "hyp_speaker": "unknown",
+      "speaker_status": "unknown",
       "hyp_result_ids": [
-        28,
-        29,
         30
       ],
       "words_ref": 3,
       "long": false,
-      "sub": 3,
+      "sub": 0,
       "del": 0,
       "ins": 0,
-      "wer": 1.0,
+      "wer": 0.0,
       "diff": [
         [
-          "sub",
+          "ok",
           "que",
-          "feliz"
+          "que"
         ],
         [
-          "sub",
+          "ok",
           "si",
-          "uh"
+          "si"
         ],
         [
-          "sub",
+          "ok",
           "se",
-          "vo"
+          "se"
         ]
       ]
     },
@@ -2689,30 +2690,27 @@
       "gt_text": "¿Sí sabes?",
       "overlap": false,
       "verified": false,
-      "hyp_text": "quisise sisha",
-      "hyp_speaker_raw": "unknown",
-      "hyp_speaker": "unknown",
-      "speaker_status": "unknown",
-      "hyp_result_ids": [
-        31,
-        32
-      ],
+      "hyp_text": "",
+      "hyp_speaker_raw": "",
+      "hyp_speaker": "",
+      "speaker_status": "missed",
+      "hyp_result_ids": [],
       "words_ref": 2,
       "long": false,
-      "sub": 2,
-      "del": 0,
+      "sub": 0,
+      "del": 2,
       "ins": 0,
       "wer": 1.0,
       "diff": [
         [
-          "sub",
+          "del",
           "si",
-          "quisise"
+          ""
         ],
         [
-          "sub",
+          "del",
           "sabes",
-          "sisha"
+          ""
         ]
       ]
     },
@@ -2726,10 +2724,10 @@
       "verified": false,
       "hyp_text": "bueno dale",
       "hyp_speaker_raw": "speaker2",
-      "hyp_speaker": "B2",
-      "speaker_status": "ok",
+      "hyp_speaker": "A2",
+      "speaker_status": "wrong",
       "hyp_result_ids": [
-        33
+        31
       ],
       "words_ref": 3,
       "long": false,
@@ -2765,10 +2763,10 @@
       "verified": false,
       "hyp_text": "si",
       "hyp_speaker_raw": "speaker2",
-      "hyp_speaker": "B2",
-      "speaker_status": "wrong",
+      "hyp_speaker": "A2",
+      "speaker_status": "ok",
       "hyp_result_ids": [
-        33
+        31
       ],
       "words_ref": 3,
       "long": false,
@@ -2802,17 +2800,17 @@
       "gt_text": "Dale, háblame algo.",
       "overlap": false,
       "verified": false,
-      "hyp_text": "dale hablame",
+      "hyp_text": "dale hablame al",
       "hyp_speaker_raw": "speaker2",
-      "hyp_speaker": "B2",
-      "speaker_status": "ok",
+      "hyp_speaker": "A2",
+      "speaker_status": "wrong",
       "hyp_result_ids": [
-        34
+        32
       ],
       "words_ref": 3,
       "long": false,
-      "sub": 0,
-      "del": 1,
+      "sub": 1,
+      "del": 0,
       "ins": 0,
       "wer": 0.3333,
       "diff": [
@@ -2827,9 +2825,9 @@
           "hablame"
         ],
         [
-          "del",
+          "sub",
           "algo",
-          ""
+          "al"
         ]
       ]
     },
@@ -2841,77 +2839,14 @@
       "gt_text": "Si sabes?",
       "overlap": false,
       "verified": false,
-      "hyp_text": "al",
+      "hyp_text": "si sabes",
       "hyp_speaker_raw": "speaker2",
-      "hyp_speaker": "B2",
-      "speaker_status": "wrong",
-      "hyp_result_ids": [
-        34
-      ],
-      "words_ref": 2,
-      "long": false,
-      "sub": 1,
-      "del": 1,
-      "ins": 0,
-      "wer": 1.0,
-      "diff": [
-        [
-          "del",
-          "si",
-          ""
-        ],
-        [
-          "sub",
-          "sabes",
-          "al"
-        ]
-      ]
-    },
-    {
-      "id": "u065",
-      "start": 102.19,
-      "end": 102.6,
-      "gt_speaker": "B2",
-      "gt_text": "¿Qué?",
-      "overlap": true,
-      "verified": false,
-      "hyp_text": "tschuss",
-      "hyp_speaker_raw": "speaker2",
-      "hyp_speaker": "B2",
+      "hyp_speaker": "A2",
       "speaker_status": "ok",
       "hyp_result_ids": [
-        35
+        33
       ],
-      "words_ref": 1,
-      "long": false,
-      "sub": 1,
-      "del": 0,
-      "ins": 0,
-      "wer": 1.0,
-      "diff": [
-        [
-          "sub",
-          "que",
-          "tschuss"
-        ]
-      ]
-    },
-    {
-      "id": "u066",
-      "start": 102.48,
-      "end": 103.73,
-      "gt_speaker": "A1",
-      "gt_text": "Sí, sabe algo, papá.",
-      "overlap": true,
-      "verified": false,
-      "hyp_text": "si sabe algo papa",
-      "hyp_speaker_raw": "speaker2",
-      "hyp_speaker": "B2",
-      "speaker_status": "wrong",
-      "hyp_result_ids": [
-        36
-      ],
-      "words_ref": 4,
+      "words_ref": 2,
       "long": false,
       "sub": 0,
       "del": 0,
@@ -2925,18 +2860,77 @@
         ],
         [
           "ok",
+          "sabes",
+          "sabes"
+        ]
+      ]
+    },
+    {
+      "id": "u065",
+      "start": 102.19,
+      "end": 102.6,
+      "gt_speaker": "B2",
+      "gt_text": "¿Qué?",
+      "overlap": true,
+      "verified": false,
+      "hyp_text": "",
+      "hyp_speaker_raw": "",
+      "hyp_speaker": "",
+      "speaker_status": "missed",
+      "hyp_result_ids": [],
+      "words_ref": 1,
+      "long": false,
+      "sub": 0,
+      "del": 1,
+      "ins": 0,
+      "wer": 1.0,
+      "diff": [
+        [
+          "del",
+          "que",
+          ""
+        ]
+      ]
+    },
+    {
+      "id": "u066",
+      "start": 102.48,
+      "end": 103.73,
+      "gt_speaker": "A1",
+      "gt_text": "Sí, sabe algo, papá.",
+      "overlap": true,
+      "verified": false,
+      "hyp_text": "",
+      "hyp_speaker_raw": "",
+      "hyp_speaker": "",
+      "speaker_status": "missed",
+      "hyp_result_ids": [],
+      "words_ref": 4,
+      "long": false,
+      "sub": 0,
+      "del": 4,
+      "ins": 0,
+      "wer": 1.0,
+      "diff": [
+        [
+          "del",
+          "si",
+          ""
+        ],
+        [
+          "del",
           "sabe",
-          "sabe"
+          ""
         ],
         [
-          "ok",
+          "del",
           "algo",
-          "algo"
+          ""
         ],
         [
-          "ok",
+          "del",
           "papa",
-          "papa"
+          ""
         ]
       ]
     },
@@ -2949,11 +2943,11 @@
       "overlap": true,
       "verified": false,
       "hyp_text": "yo no",
-      "hyp_speaker_raw": "speaker2",
-      "hyp_speaker": "B2",
-      "speaker_status": "ok",
+      "hyp_speaker_raw": "speaker1",
+      "hyp_speaker": "A1",
+      "speaker_status": "wrong",
       "hyp_result_ids": [
-        37
+        34
       ],
       "words_ref": 3,
       "long": false,
@@ -2987,48 +2981,46 @@
       "gt_text": "Ah, ok. Cuando vaya a Colombia, yo te enseño, ¿ok?",
       "overlap": true,
       "verified": false,
-      "hyp_text": "tengo okay hmm con ella colombia you're just",
+      "hyp_text": "si con alla en colombia yo te enseno",
       "hyp_speaker_raw": "speaker2",
-      "hyp_speaker": "B2",
-      "speaker_status": "wrong",
+      "hyp_speaker": "A2",
+      "speaker_status": "ok",
       "hyp_result_ids": [
-        37,
-        38,
-        39,
-        40,
-        41
+        35,
+        36,
+        37
       ],
       "words_ref": 10,
       "long": true,
-      "sub": 7,
+      "sub": 4,
       "del": 2,
       "ins": 0,
-      "wer": 0.9,
+      "wer": 0.6,
       "diff": [
         [
-          "sub",
+          "del",
           "ah",
-          "tengo"
+          ""
         ],
         [
           "sub",
           "ok",
-          "okay"
+          "si"
         ],
         [
           "sub",
           "cuando",
-          "hmm"
-        ],
-        [
-          "sub",
-          "vaya",
           "con"
         ],
         [
           "sub",
+          "vaya",
+          "alla"
+        ],
+        [
+          "sub",
           "a",
-          "ella"
+          "en"
         ],
         [
           "ok",
@@ -3036,24 +3028,24 @@
           "colombia"
         ],
         [
-          "del",
-          "yo",
-          ""
-        ],
-        [
-          "del",
-          "te",
-          ""
-        ],
-        [
-          "sub",
-          "enseno",
-          "you're"
-        ],
-        [
-          "sub",
           "ok",
-          "just"
+          "yo",
+          "yo"
+        ],
+        [
+          "ok",
+          "te",
+          "te"
+        ],
+        [
+          "ok",
+          "enseno",
+          "enseno"
+        ],
+        [
+          "del",
+          "ok",
+          ""
         ]
       ]
     },
@@ -3065,12 +3057,12 @@
       "gt_text": "Ok.",
       "overlap": false,
       "verified": false,
-      "hyp_text": "saying",
+      "hyp_text": "okay",
       "hyp_speaker_raw": "speaker2",
-      "hyp_speaker": "B2",
-      "speaker_status": "ok",
+      "hyp_speaker": "A2",
+      "speaker_status": "wrong",
       "hyp_result_ids": [
-        41
+        37
       ],
       "words_ref": 1,
       "long": false,
@@ -3082,7 +3074,7 @@
         [
           "sub",
           "ok",
-          "saying"
+          "okay"
         ]
       ]
     },
@@ -3096,10 +3088,10 @@
       "verified": false,
       "hyp_text": "okay",
       "hyp_speaker_raw": "speaker2",
-      "hyp_speaker": "B2",
-      "speaker_status": "wrong",
+      "hyp_speaker": "A2",
+      "speaker_status": "ok",
       "hyp_result_ids": [
-        41
+        38
       ],
       "words_ref": 1,
       "long": false,
@@ -3123,30 +3115,29 @@
       "gt_text": "¿Ya? ¿Cómo?",
       "overlap": true,
       "verified": false,
-      "hyp_text": "okay yeah",
-      "hyp_speaker_raw": "speaker2",
-      "hyp_speaker": "B2",
-      "speaker_status": "ok",
+      "hyp_text": "ya",
+      "hyp_speaker_raw": "unknown",
+      "hyp_speaker": "unknown",
+      "speaker_status": "unknown",
       "hyp_result_ids": [
-        42,
-        43
+        39
       ],
       "words_ref": 2,
       "long": false,
-      "sub": 2,
-      "del": 0,
+      "sub": 0,
+      "del": 1,
       "ins": 0,
-      "wer": 1.0,
+      "wer": 0.5,
       "diff": [
         [
-          "sub",
+          "ok",
           "ya",
-          "okay"
+          "ya"
         ],
         [
-          "sub",
+          "del",
           "como",
-          "yeah"
+          ""
         ]
       ]
     },
@@ -3158,24 +3149,22 @@
       "gt_text": "Chao.",
       "overlap": true,
       "verified": false,
-      "hyp_text": "oh",
-      "hyp_speaker_raw": "unknown",
-      "hyp_speaker": "unknown",
-      "speaker_status": "unknown",
-      "hyp_result_ids": [
-        44
-      ],
+      "hyp_text": "",
+      "hyp_speaker_raw": "",
+      "hyp_speaker": "",
+      "speaker_status": "missed",
+      "hyp_result_ids": [],
       "words_ref": 1,
       "long": false,
-      "sub": 1,
-      "del": 0,
+      "sub": 0,
+      "del": 1,
       "ins": 0,
       "wer": 1.0,
       "diff": [
         [
-          "sub",
+          "del",
           "chao",
-          "oh"
+          ""
         ]
       ]
     },
@@ -3188,11 +3177,11 @@
       "overlap": false,
       "verified": false,
       "hyp_text": "bueno mi vida",
-      "hyp_speaker_raw": "speaker4",
+      "hyp_speaker_raw": "speaker5",
       "hyp_speaker": "A",
       "speaker_status": "ok",
       "hyp_result_ids": [
-        45
+        40
       ],
       "words_ref": 3,
       "long": false,
@@ -3226,24 +3215,22 @@
       "gt_text": "Bueno.",
       "overlap": false,
       "verified": false,
-      "hyp_text": "bueno",
-      "hyp_speaker_raw": "speaker4",
-      "hyp_speaker": "A",
-      "speaker_status": "wrong",
-      "hyp_result_ids": [
-        46
-      ],
+      "hyp_text": "",
+      "hyp_speaker_raw": "",
+      "hyp_speaker": "",
+      "speaker_status": "missed",
+      "hyp_result_ids": [],
       "words_ref": 1,
       "long": false,
       "sub": 0,
-      "del": 0,
+      "del": 1,
       "ins": 0,
-      "wer": 0.0,
+      "wer": 1.0,
       "diff": [
         [
-          "ok",
+          "del",
           "bueno",
-          "bueno"
+          ""
         ]
       ]
     },
@@ -3255,54 +3242,52 @@
       "gt_text": "Entonces me le mando un beso a...",
       "overlap": false,
       "verified": false,
-      "hyp_text": "entonces me le mando un beso a",
-      "hyp_speaker_raw": "speaker4",
-      "hyp_speaker": "A",
-      "speaker_status": "ok",
-      "hyp_result_ids": [
-        46
-      ],
+      "hyp_text": "",
+      "hyp_speaker_raw": "",
+      "hyp_speaker": "",
+      "speaker_status": "missed",
+      "hyp_result_ids": [],
       "words_ref": 7,
       "long": true,
       "sub": 0,
-      "del": 0,
+      "del": 7,
       "ins": 0,
-      "wer": 0.0,
+      "wer": 1.0,
       "diff": [
         [
-          "ok",
+          "del",
           "entonces",
-          "entonces"
+          ""
         ],
         [
-          "ok",
+          "del",
           "me",
-          "me"
+          ""
         ],
         [
-          "ok",
+          "del",
           "le",
-          "le"
+          ""
         ],
         [
-          "ok",
+          "del",
           "mando",
-          "mando"
+          ""
         ],
         [
-          "ok",
+          "del",
           "un",
-          "un"
+          ""
         ],
         [
-          "ok",
+          "del",
           "beso",
-          "beso"
+          ""
         ],
         [
-          "ok",
+          "del",
           "a",
-          "a"
+          ""
         ]
       ]
     }

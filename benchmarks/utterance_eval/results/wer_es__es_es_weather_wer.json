@@ -1,5 +1,6 @@
 {
   "stem": "wer_es__es_es_weather_wer",
+  "hyp_source": "file:wer_es__es_es_weather_wer.wav",
   "audio": "wer_es__es_es_weather_wer.wav",
   "duration_sec": 35.19,
   "gt_text_source": "silver: faster-whisper models--mobiuslabsgmbh--faster-whisper-large-v3-turbo per GT turn, beam 5",
@@ -28,6 +29,11 @@
     "sub": 0,
     "del": 0,
     "ins": 0,
+    "wer_long": null,
+    "long_utterances": 0,
+    "long_ref_words": 0,
+    "long_errors": 0,
+    "speaker_acc_long": null,
     "speaker_ok_utt": 9,
     "speaker_wrong_utt": 0,
     "speaker_unknown_utt": 1,
@@ -35,18 +41,40 @@
     "speaker_acc_utt": 0.9,
     "speaker_acc_words": 1.0,
     "der_activity": {
-      "der": 0.3062,
-      "missed": 0.3062,
-      "false_alarm": 0.0,
-      "confusion": 0.0,
-      "collar": 0.25
+      "fair": {
+        "der": 0.3697,
+        "missed": 0.2702,
+        "false_alarm": 0.0884,
+        "confusion": 0.0111,
+        "collar": 0.25,
+        "skip_overlap": true
+      },
+      "strict": {
+        "der": 0.4395,
+        "missed": 0.3296,
+        "false_alarm": 0.0947,
+        "confusion": 0.0151,
+        "collar": 0.0,
+        "skip_overlap": false
+      }
     },
     "der_asr_utterances": {
-      "der": 0.2371,
-      "missed": 0.1783,
-      "false_alarm": 0.0,
-      "confusion": 0.0588,
-      "collar": 0.25
+      "fair": {
+        "der": 0.2371,
+        "missed": 0.1783,
+        "false_alarm": 0.0,
+        "confusion": 0.0588,
+        "collar": 0.25,
+        "skip_overlap": true
+      },
+      "strict": {
+        "der": 0.3187,
+        "missed": 0.2564,
+        "false_alarm": 0.0044,
+        "confusion": 0.0579,
+        "collar": 0.0,
+        "skip_overlap": false
+      }
     }
   },
   "confusion": {
@@ -78,6 +106,7 @@
         0
       ],
       "words_ref": 5,
+      "long": false,
       "sub": 0,
       "del": 0,
       "ins": 0,
@@ -126,6 +155,7 @@
         1
       ],
       "words_ref": 6,
+      "long": false,
       "sub": 0,
       "del": 0,
       "ins": 0,
@@ -179,6 +209,7 @@
         2
       ],
       "words_ref": 5,
+      "long": false,
       "sub": 0,
       "del": 0,
       "ins": 0,
@@ -227,6 +258,7 @@
         3
       ],
       "words_ref": 5,
+      "long": false,
       "sub": 0,
       "del": 0,
       "ins": 0,
@@ -275,6 +307,7 @@
         4
       ],
       "words_ref": 5,
+      "long": false,
       "sub": 0,
       "del": 0,
       "ins": 0,
@@ -323,6 +356,7 @@
         5
       ],
       "words_ref": 5,
+      "long": false,
       "sub": 0,
       "del": 0,
       "ins": 0,
@@ -371,6 +405,7 @@
         6
       ],
       "words_ref": 6,
+      "long": false,
       "sub": 0,
       "del": 0,
       "ins": 0,
@@ -424,6 +459,7 @@
         7
       ],
       "words_ref": 5,
+      "long": false,
       "sub": 0,
       "del": 0,
       "ins": 0,
@@ -472,6 +508,7 @@
         8
       ],
       "words_ref": 6,
+      "long": false,
       "sub": 0,
       "del": 0,
       "ins": 0,
@@ -525,6 +562,7 @@
         9
       ],
       "words_ref": 6,
+      "long": false,
       "sub": 0,
       "del": 0,
       "ins": 0,

@@ -1,0 +1,777 @@
+{
+  "schema_version": 1,
+  "audio": "callhome_spa_snr20__spa_0019_4spk_snr20.wav",
+  "duration_sec": 120.0,
+  "language": "es",
+  "speakers": [
+    "A",
+    "A1",
+    "A2",
+    "B2"
+  ],
+  "turn_source": "rttm:callhome_spa_snr20__spa_0019_4spk_snr20.rttm",
+  "text_source": "silver: faster-whisper models--mobiuslabsgmbh--faster-whisper-large-v3-turbo per GT turn, beam 5",
+  "review_note": "text is machine-made; edit 'text', keep 'text_silver', set verified=true when checked",
+  "utterances": [
+    {
+      "id": "u000",
+      "start": 0.0,
+      "end": 0.92,
+      "speaker": "B2",
+      "overlap": false,
+      "text": "Gracias por ver el video.",
+      "text_silver": "Gracias por ver el video.",
+      "verified": false
+    },
+    {
+      "id": "u001",
+      "start": 1.15,
+      "end": 1.86,
+      "speaker": "A",
+      "overlap": false,
+      "text": "Sí.",
+      "text_silver": "Sí.",
+      "verified": false
+    },
+    {
+      "id": "u002",
+      "start": 1.96,
+      "end": 10.62,
+      "speaker": "A1",
+      "overlap": true,
+      "text": "Que hay mi hijito, yo no te pude llamar el día de tus cumpleaños, mi amor reciba una felicitación. No tenía el número del teléfono, no pude hacerlo, papito.",
+      "text_silver": "Que hay, viejito, yo no te pude llamar el día de tus cumpleaños, mi amor reciba una felicitación. No tenía el número del teléfono, no pude hacerlo, papito.",
+      "verified": false
+    },
+    {
+      "id": "u003",
+      "start": 6.49,
+      "end": 8.24,
+      "speaker": "B2",
+      "overlap": true,
+      "text": "No importa, abuelo.",
+      "text_silver": "No importa, abuelo.",
+      "verified": false
+    },
+    {
+      "id": "u004",
+      "start": 10.62,
+      "end": 12.45,
+      "speaker": "B2",
+      "overlap": true,
+      "text": "Bueno, no importa, tomo.",
+      "text_silver": "Bueno, no importa, tomo.",
+      "verified": false
+    },
+    {
+      "id": "u005",
+      "start": 13.0,
+      "end": 14.94,
+      "speaker": "A1",
+      "overlap": true,
+      "text": "Bueno, mi amor, ¿cómo que estás? ¿Bien?",
+      "text_silver": "Bueno, mi amor, ¿cómo que estás? ¿Bien?",
+      "verified": false
+    },
+    {
+      "id": "u006",
+      "start": 13.85,
+      "end": 15.69,
+      "speaker": "B2",
+      "overlap": true,
+      "text": "sí",
+      "text_silver": "sí",
+      "verified": false
+    },
+    {
+      "id": "u007",
+      "start": 15.73,
+      "end": 17.42,
+      "speaker": "A1",
+      "overlap": true,
+      "text": "¿Y ya vas a entrar al colegio?",
+      "text_silver": "¿Y ya vas a entrar al colegio?",
+      "verified": false
+    },
+    {
+      "id": "u008",
+      "start": 17.21,
+      "end": 19.23,
+      "speaker": "B2",
+      "overlap": true,
+      "text": "¡Ya entré! ¡Uh!",
+      "text_silver": "¡Ya entré! ¡Uh!",
+      "verified": false
+    },
+    {
+      "id": "u009",
+      "start": 20.4,
+      "end": 20.84,
+      "speaker": "A1",
+      "overlap": true,
+      "text": "Silencio.",
+      "text_silver": "Silencio.",
+      "verified": false
+    },
+    {
+      "id": "u010",
+      "start": 20.46,
+      "end": 21.19,
+      "speaker": "B2",
+      "overlap": true,
+      "text": "Silencio.",
+      "text_silver": "Silencio.",
+      "verified": false
+    },
+    {
+      "id": "u011",
+      "start": 20.84,
+      "end": 22.07,
+      "speaker": "A1",
+      "overlap": true,
+      "text": "Haces primero, ¿verdad?",
+      "text_silver": "Haces primero, ¿verdad?",
+      "verified": false
+    },
+    {
+      "id": "u012",
+      "start": 22.03,
+      "end": 22.44,
+      "speaker": "B2",
+      "overlap": true,
+      "text": "¿Eh?",
+      "text_silver": "¿Eh?",
+      "verified": false
+    },
+    {
+      "id": "u013",
+      "start": 22.76,
+      "end": 25.13,
+      "speaker": "A1",
+      "overlap": true,
+      "text": "Ajá. Y muy juicioso, papá.",
+      "text_silver": "Ajá. Y muy juicioso, papá.",
+      "verified": false
+    },
+    {
+      "id": "u014",
+      "start": 23.88,
+      "end": 26.39,
+      "speaker": "B2",
+      "overlap": true,
+      "text": "Sí.",
+      "text_silver": "Sí.",
+      "verified": false
+    },
+    {
+      "id": "u015",
+      "start": 25.97,
+      "end": 28.45,
+      "speaker": "A1",
+      "overlap": true,
+      "text": "Bueno, muy bien, mi amorcito.",
+      "text_silver": "Bueno, muy bien, mi amorcito.",
+      "verified": false
+    },
+    {
+      "id": "u016",
+      "start": 25.97,
+      "end": 28.45,
+      "speaker": "A",
+      "overlap": true,
+      "text": "Mira, Samuel.",
+      "text_silver": "Mira, Samuel.",
+      "verified": false
+    },
+    {
+      "id": "u017",
+      "start": 28.41,
+      "end": 28.89,
+      "speaker": "B2",
+      "overlap": true,
+      "text": "¿Qué?",
+      "text_silver": "¿Qué?",
+      "verified": false
+    },
+    {
+      "id": "u018",
+      "start": 28.72,
+      "end": 32.39,
+      "speaker": "A",
+      "overlap": true,
+      "text": "Le tienes que decir a tu mamá que te mande para acá, para donde tu tía Diana.",
+      "text_silver": "Le tienes que decir a tu mamá que te mande para acá, para donde tu tía Diana.",
+      "verified": false
+    },
+    {
+      "id": "u019",
+      "start": 32.35,
+      "end": 33.02,
+      "speaker": "B2",
+      "overlap": true,
+      "text": "Bueno.",
+      "text_silver": "Bueno.",
+      "verified": false
+    },
+    {
+      "id": "u020",
+      "start": 32.96,
+      "end": 33.6,
+      "speaker": "A",
+      "overlap": true,
+      "text": "Oíste.",
+      "text_silver": "Oíste.",
+      "verified": false
+    },
+    {
+      "id": "u021",
+      "start": 33.67,
+      "end": 34.33,
+      "speaker": "B2",
+      "overlap": true,
+      "text": "Bueno.",
+      "text_silver": "Bueno.",
+      "verified": false
+    },
+    {
+      "id": "u022",
+      "start": 34.23,
+      "end": 35.36,
+      "speaker": "A",
+      "overlap": true,
+      "text": "con Alex.",
+      "text_silver": "con Alex.",
+      "verified": false
+    },
+    {
+      "id": "u023",
+      "start": 35.46,
+      "end": 35.94,
+      "speaker": "B2",
+      "overlap": false,
+      "text": "Bueno.",
+      "text_silver": "Bueno.",
+      "verified": false
+    },
+    {
+      "id": "u024",
+      "start": 35.98,
+      "end": 36.52,
+      "speaker": "A",
+      "overlap": false,
+      "text": "¿Ok?",
+      "text_silver": "¿Ok?",
+      "verified": false
+    },
+    {
+      "id": "u025",
+      "start": 36.73,
+      "end": 37.15,
+      "speaker": "B2",
+      "overlap": false,
+      "text": "Bueno.",
+      "text_silver": "Bueno.",
+      "verified": false
+    },
+    {
+      "id": "u026",
+      "start": 37.15,
+      "end": 38.42,
+      "speaker": "A",
+      "overlap": false,
+      "text": "Mira cómo está el colegio.",
+      "text_silver": "Mira cómo está el colegio.",
+      "verified": false
+    },
+    {
+      "id": "u027",
+      "start": 38.53,
+      "end": 39.34,
+      "speaker": "B2",
+      "overlap": true,
+      "text": "Bien",
+      "text_silver": "Bien",
+      "verified": false
+    },
+    {
+      "id": "u028",
+      "start": 39.09,
+      "end": 40.9,
+      "speaker": "A",
+      "overlap": true,
+      "text": "Bien, ¿en qué año que estás, mi amor?",
+      "text_silver": "Bien, ¿en qué año que estás, mi amor?",
+      "verified": false
+    },
+    {
+      "id": "u029",
+      "start": 39.74,
+      "end": 41.78,
+      "speaker": "B2",
+      "overlap": true,
+      "text": "Sexto.",
+      "text_silver": "Sexto.",
+      "verified": false
+    },
+    {
+      "id": "u030",
+      "start": 42.07,
+      "end": 42.8,
+      "speaker": "A",
+      "overlap": false,
+      "text": "¡Sexto!",
+      "text_silver": "¡Sexto!",
+      "verified": false
+    },
+    {
+      "id": "u031",
+      "start": 42.89,
+      "end": 43.32,
+      "speaker": "B2",
+      "overlap": false,
+      "text": "Sí.",
+      "text_silver": "Sí.",
+      "verified": false
+    },
+    {
+      "id": "u032",
+      "start": 43.51,
+      "end": 44.39,
+      "speaker": "A",
+      "overlap": true,
+      "text": "iiii",
+      "text_silver": "iiii",
+      "verified": false
+    },
+    {
+      "id": "u033",
+      "start": 44.07,
+      "end": 45.28,
+      "speaker": "B2",
+      "overlap": true,
+      "text": "Primero de bachillerato.",
+      "text_silver": "Primero de bachillerato.",
+      "verified": false
+    },
+    {
+      "id": "u034",
+      "start": 45.6,
+      "end": 49.9,
+      "speaker": "A",
+      "overlap": false,
+      "text": "Primero de bachillerato..., no mijito, cuando vaya yo para allá te vas a estar graduando ya.",
+      "text_silver": "Primero de bachillerato..., no mijito, cuando vaya yo para allá te vas a estar graduando ya.",
+      "verified": false
+    },
+    {
+      "id": "u035",
+      "start": 50.04,
+      "end": 50.75,
+      "speaker": "B2",
+      "overlap": false,
+      "text": "Sí.",
+      "text_silver": "Sí.",
+      "verified": false
+    },
+    {
+      "id": "u036",
+      "start": 50.83,
+      "end": 53.69,
+      "speaker": "A",
+      "overlap": false,
+      "text": "Y mire, ¿qué quieres estudiar? Todavía no sabes.",
+      "text_silver": "Y mire, ¿qué quieres estudiar? Todavía no sabes.",
+      "verified": false
+    },
+    {
+      "id": "u037",
+      "start": 53.77,
+      "end": 54.8,
+      "speaker": "B2",
+      "overlap": true,
+      "text": "No, todavía no sé.",
+      "text_silver": "No, todavía no sé.",
+      "verified": false
+    },
+    {
+      "id": "u038",
+      "start": 54.78,
+      "end": 55.71,
+      "speaker": "A",
+      "overlap": true,
+      "text": "Todavía no sabes.",
+      "text_silver": "Todavía no sabes.",
+      "verified": false
+    },
+    {
+      "id": "u039",
+      "start": 56.19,
+      "end": 56.53,
+      "speaker": "B2",
+      "overlap": true,
+      "text": "ah.",
+      "text_silver": "ah.",
+      "verified": false
+    },
+    {
+      "id": "u040",
+      "start": 56.26,
+      "end": 60.68,
+      "speaker": "A",
+      "overlap": true,
+      "text": "Ay, pero chévere. Ah, mira, aquí Gabriel te quiere saludar otra vez. Espera tu montico, ¿ok?",
+      "text_silver": "Ay, pero chévere. Ah, mira, aquí Gabriel te quiere saludar otra vez. Espera tu montico, ¿ok?",
+      "verified": false
+    },
+    {
+      "id": "u041",
+      "start": 60.55,
+      "end": 60.87,
+      "speaker": "B2",
+      "overlap": true,
+      "text": "¿Ok?",
+      "text_silver": "¿Ok?",
+      "verified": false
+    },
+    {
+      "id": "u042",
+      "start": 60.95,
+      "end": 61.6,
+      "speaker": "A2",
+      "overlap": false,
+      "text": "Hola, Samuel",
+      "text_silver": "Hola, Samuel",
+      "verified": false
+    },
+    {
+      "id": "u043",
+      "start": 61.72,
+      "end": 62.51,
+      "speaker": "A",
+      "overlap": true,
+      "text": "¡Papapá!",
+      "text_silver": "¡Papapá!",
+      "verified": false
+    },
+    {
+      "id": "u044",
+      "start": 61.85,
+      "end": 64.41,
+      "speaker": "B2",
+      "overlap": true,
+      "text": "Hola.",
+      "text_silver": "Hola.",
+      "verified": false
+    },
+    {
+      "id": "u045",
+      "start": 62.75,
+      "end": 64.87,
+      "speaker": "A2",
+      "overlap": true,
+      "text": "Hola, Sumoy. Hola.",
+      "text_silver": "Hola, Sumoy. Hola.",
+      "verified": false
+    },
+    {
+      "id": "u046",
+      "start": 65.12,
+      "end": 68.52,
+      "speaker": "A2",
+      "overlap": true,
+      "text": "Um, ¿yo puedo hablar con tu hermanita?",
+      "text_silver": "Um, ¿yo puedo hablar con tu hermanita?",
+      "verified": false
+    },
+    {
+      "id": "u047",
+      "start": 68.19,
+      "end": 69.4,
+      "speaker": "B2",
+      "overlap": true,
+      "text": "¿Qué?",
+      "text_silver": "¿Qué?",
+      "verified": false
+    },
+    {
+      "id": "u048",
+      "start": 70.15,
+      "end": 71.53,
+      "speaker": "A2",
+      "overlap": false,
+      "text": "¿Dónde está tu hermana?",
+      "text_silver": "¿Dónde está su hermana?",
+      "verified": false
+    },
+    {
+      "id": "u049",
+      "start": 72.26,
+      "end": 72.9,
+      "speaker": "B2",
+      "overlap": false,
+      "text": "¿Cómo?",
+      "text_silver": "¿Cómo?",
+      "verified": false
+    },
+    {
+      "id": "u050",
+      "start": 73.01,
+      "end": 74.55,
+      "speaker": "A2",
+      "overlap": false,
+      "text": "¿Dónde está su hermana?",
+      "text_silver": "¿Dónde está su hermana?",
+      "verified": false
+    },
+    {
+      "id": "u051",
+      "start": 75.18,
+      "end": 78.1,
+      "speaker": "B2",
+      "overlap": false,
+      "text": "Está en la casa. O sea, no está aquí.",
+      "text_silver": "Está en la casa. O sea, no está aquí.",
+      "verified": false
+    },
+    {
+      "id": "u052",
+      "start": 78.53,
+      "end": 79.79,
+      "speaker": "A2",
+      "overlap": false,
+      "text": "Está aquí, está alla.",
+      "text_silver": "Está aquí, está allá.",
+      "verified": false
+    },
+    {
+      "id": "u053",
+      "start": 80.1,
+      "end": 80.51,
+      "speaker": "B2",
+      "overlap": false,
+      "text": "Sí.",
+      "text_silver": "Sí.",
+      "verified": false
+    },
+    {
+      "id": "u054",
+      "start": 80.85,
+      "end": 85.86,
+      "speaker": "A2",
+      "overlap": false,
+      "text": "Entonces, ¿tú hablas inglés?",
+      "text_silver": "Entonces, ¿tú hablas inglés?",
+      "verified": false
+    },
+    {
+      "id": "u055",
+      "start": 86.71,
+      "end": 88.0,
+      "speaker": "B2",
+      "overlap": false,
+      "text": "¡Oh, Felipe!",
+      "text_silver": "¡Oh, Felipe!",
+      "verified": false
+    },
+    {
+      "id": "u056",
+      "start": 88.21,
+      "end": 89.96,
+      "speaker": "A2",
+      "overlap": true,
+      "text": "Ah",
+      "text_silver": "Ah",
+      "verified": false
+    },
+    {
+      "id": "u057",
+      "start": 89.61,
+      "end": 90.61,
+      "speaker": "B2",
+      "overlap": true,
+      "text": "mas o menos",
+      "text_silver": "mas o menos",
+      "verified": false
+    },
+    {
+      "id": "u058",
+      "start": 91.05,
+      "end": 91.67,
+      "speaker": "A2",
+      "overlap": false,
+      "text": "¿Qué sabes?",
+      "text_silver": "¿Qué sabes?",
+      "verified": false
+    },
+    {
+      "id": "u059",
+      "start": 92.78,
+      "end": 93.36,
+      "speaker": "B2",
+      "overlap": false,
+      "text": "¿Qué si se?",
+      "text_silver": "¿Qué si se?",
+      "verified": false
+    },
+    {
+      "id": "u060",
+      "start": 94.01,
+      "end": 94.68,
+      "speaker": "A2",
+      "overlap": false,
+      "text": "¿Sí sabes?",
+      "text_silver": "¿Sí sabes?",
+      "verified": false
+    },
+    {
+      "id": "u061",
+      "start": 95.57,
+      "end": 98.22,
+      "speaker": "B2",
+      "overlap": true,
+      "text": "Bueno, dale, sí.",
+      "text_silver": "Bueno, dale, sí.",
+      "verified": false
+    },
+    {
+      "id": "u062",
+      "start": 98.14,
+      "end": 99.43,
+      "speaker": "A2",
+      "overlap": true,
+      "text": "Sí, bueno, vale.",
+      "text_silver": "Sí, bueno, vale.",
+      "verified": false
+    },
+    {
+      "id": "u063",
+      "start": 99.75,
+      "end": 100.67,
+      "speaker": "B2",
+      "overlap": false,
+      "text": "Dale, háblame algo.",
+      "text_silver": "Dale, háblame algo.",
+      "verified": false
+    },
+    {
+      "id": "u064",
+      "start": 100.96,
+      "end": 101.73,
+      "speaker": "A2",
+      "overlap": false,
+      "text": "Si sabes?",
+      "text_silver": "Si sabes?",
+      "verified": false
+    },
+    {
+      "id": "u065",
+      "start": 102.19,
+      "end": 102.6,
+      "speaker": "B2",
+      "overlap": true,
+      "text": "¿Qué?",
+      "text_silver": "¿Qué?",
+      "verified": false
+    },
+    {
+      "id": "u066",
+      "start": 102.48,
+      "end": 103.73,
+      "speaker": "A1",
+      "overlap": true,
+      "text": "Sí, sabe algo, papá.",
+      "text_silver": "Sí, sabe algo, papá.",
+      "verified": false
+    },
+    {
+      "id": "u067",
+      "start": 104.15,
+      "end": 105.94,
+      "speaker": "B2",
+      "overlap": true,
+      "text": "Yo no sé.",
+      "text_silver": "Yo no sé.",
+      "verified": false
+    },
+    {
+      "id": "u068",
+      "start": 104.44,
+      "end": 110.279,
+      "speaker": "A2",
+      "overlap": true,
+      "text": "Ah, ok. Cuando vaya a Colombia, yo te enseño, ¿ok?",
+      "text_silver": "Ah, ok. Cuando vaya a Colombia, yo te enseño, ¿ok?",
+      "verified": false
+    },
+    {
+      "id": "u069",
+      "start": 110.7,
+      "end": 111.36,
+      "speaker": "B2",
+      "overlap": false,
+      "text": "Ok.",
+      "text_silver": "Ok.",
+      "verified": false
+    },
+    {
+      "id": "u070",
+      "start": 112.3,
+      "end": 112.719,
+      "speaker": "A2",
+      "overlap": false,
+      "text": "¡Chau!",
+      "text_silver": "¡Chau!",
+      "verified": false
+    },
+    {
+      "id": "u071",
+      "start": 113.64,
+      "end": 115.7,
+      "speaker": "B2",
+      "overlap": true,
+      "text": "¿Ya? ¿Cómo?",
+      "text_silver": "¿Ya? ¿Cómo?",
+      "verified": false
+    },
+    {
+      "id": "u072",
+      "start": 113.8,
+      "end": 114.51,
+      "speaker": "A2",
+      "overlap": true,
+      "text": "Chao.",
+      "text_silver": "Chao.",
+      "verified": false
+    },
+    {
+      "id": "u073",
+      "start": 116.75,
+      "end": 117.62,
+      "speaker": "A",
+      "overlap": false,
+      "text": "Bueno, mi vida.",
+      "text_silver": "Bueno, mi vida.",
+      "verified": false
+    },
+    {
+      "id": "u074",
+      "start": 118.02,
+      "end": 118.5,
+      "speaker": "B2",
+      "overlap": false,
+      "text": "Bueno.",
+      "text_silver": "Bueno.",
+      "verified": false
+    },
+    {
+      "id": "u075",
+      "start": 118.5,
+      "end": 120.0,
+      "speaker": "A",
+      "overlap": false,
+      "text": "Entonces me le mando un beso a...",
+      "text_silver": "Entonces me le mando un beso a...",
+      "verified": false
+    }
+  ]
+}

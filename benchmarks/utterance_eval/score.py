@@ -18,13 +18,13 @@ Writes results/<stem>.json, results/REPORT.md and results/report.html.
 
     python3 score.py            # every stem with gt + hyp
     python3 score.py wer_es__es_es_weather_wer
+    python3 score.py --hyp-dir hyp_android --out-dir results_android --test-md TEST_android.md A B C
 """
 from __future__ import annotations
 
 import html
 import json
 import re
-import sys
 import unicodedata
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -34,7 +34,13 @@ import numpy as np
 ROOT = Path(__file__).resolve().parent
 UNKNOWN = {"", "unknown"}
 SILENCE_GATE_SEC = 0.25  # asr min_silence_duration: speech ended this long before the transcript was made
-DER_COLLAR = 0.25
+LONG_MORE_THAN = 6  # "WER long" scores only GT utterances with more than this many (normalised) words
+
+# Matches ~/aimara-bench/benchmarks/scoring/metrics.py exactly, so numbers are comparable:
+#   der_fair   collar 0.25s, overlap skipped   - the permissive setting published CALLHOME/AMI numbers use
+#   der_strict collar 0.0s,  overlap scored    - what matters for a turn-taking agent: missing the
+#                                                 overlapping talker is exactly the failure that makes it interrupt
+DER_VARIANTS = {"fair": {"collar": 0.25, "skip_overlap": True}, "strict": {"collar": 0.0, "skip_overlap": False}}
 
 
 # ----------------------------------------------------------------------------
@@ -111,6 +117,7 @@ def hyp_segments_from_activity(activity: list[dict], duration: float) -> list[di
 
 
 def der(gt_utts: list[dict], hyp_segs: list[dict], duration: float) -> dict | None:
+    """{"fair": {...}, "strict": {...}} — see DER_VARIANTS for what each means."""
     try:
         from pyannote.core import Annotation, Segment, Timeline
         from pyannote.metrics.diarization import DiarizationErrorRate
@@ -122,21 +129,25 @@ def der(gt_utts: list[dict], hyp_segs: list[dict], duration: float) -> dict | No
     for k, s in enumerate(hyp_segs):
         if s["end"] > s["start"]:
             hyp[Segment(s["start"], s["end"]), k] = s["speaker"]
-    metric = DiarizationErrorRate(collar=DER_COLLAR, skip_overlap=False)
-    detail = metric(ref, hyp, uem=Timeline([Segment(0, duration)]), detailed=True)
-    total = detail["total"] or 1.0
-    return {
-        "der": round(detail["diarization error rate"], 4),
-        "missed": round(detail["missed detection"] / total, 4),
-        "false_alarm": round(detail["false alarm"] / total, 4),
-        "confusion": round(detail["confusion"] / total, 4),
-        "collar": DER_COLLAR,
-    }
+    uem = Timeline([Segment(0, duration)])
+    out = {}
+    for name, params in DER_VARIANTS.items():
+        metric = DiarizationErrorRate(**params)
+        detail = metric(ref, hyp, uem=uem, detailed=True)
+        total = detail["total"] or 1.0
+        out[name] = {
+            "der": round(detail["diarization error rate"], 4),
+            "missed": round(detail["missed detection"] / total, 4),
+            "false_alarm": round(detail["false alarm"] / total, 4),
+            "confusion": round(detail["confusion"] / total, 4),
+            **params,
+        }
+    return out
 
 
-def score_file(stem: str) -> dict:
+def score_file(stem: str, hyp_dir: Path) -> dict:
     gt = json.loads((ROOT / "gt" / f"{stem}.json").read_text())
-    hyp = json.loads((ROOT / "hyp" / f"{stem}.json").read_text())
+    hyp = json.loads((hyp_dir / f"{stem}.json").read_text())
     lang = gt.get("language", "es")
     utts = sorted(gt["utterances"], key=lambda u: (u["start"], u["end"]))
     results = hyp["results"]
@@ -202,15 +213,20 @@ def score_file(stem: str) -> dict:
             "hyp_text": " ".join(hyp_words[j] for _, _, j in uops if j is not None),
             "hyp_speaker_raw": raw, "hyp_speaker": mapped, "speaker_status": status,
             "hyp_result_ids": res_ids,
-            "words_ref": n_ref, "sub": c["sub"], "del": c["del"], "ins": c["ins"],
+            "words_ref": n_ref, "long": n_ref > LONG_MORE_THAN,
+            "sub": c["sub"], "del": c["del"], "ins": c["ins"],
             "wer": round(errs / n_ref, 4) if n_ref else None,
             "diff": [[op, ref_words[i] if i is not None else "", hyp_words[j] if j is not None else ""]
                      for op, i, j in uops],
         })
 
     n_ref = tot["ok"] + tot["sub"] + tot["del"]
+    long_rows = [r for r in rows if r["long"]]
+    long_ref = sum(r["words_ref"] for r in long_rows)
+    long_err = sum(r["sub"] + r["del"] + r["ins"] for r in long_rows)
     status = Counter(r["speaker_status"] for r in rows)
     scored = [r for r in rows if r["speaker_status"] != "missed"]
+    long_scored = [r for r in long_rows if r["speaker_status"] != "missed"]
     word_ok = sum(v for (g, h), v in pair.items() if mapping.get(h) == g)
     word_all = sum(v for (g, h), v in pair.items())
 
@@ -222,6 +238,7 @@ def score_file(stem: str) -> dict:
     duration = gt["duration_sec"]
     return {
         "stem": stem,
+        "hyp_source": hyp.get("device", "") or str(hyp_dir.name),
         "audio": gt["audio"],
         "duration_sec": duration,
         "gt_text_source": gt.get("text_source", ""),
@@ -234,6 +251,10 @@ def score_file(stem: str) -> dict:
             "hyp_utterances": len(results),
             "wer": round((tot["sub"] + tot["del"] + tot["ins"]) / n_ref, 4) if n_ref else None,
             "ref_words": n_ref, "sub": tot["sub"], "del": tot["del"], "ins": tot["ins"],
+            "wer_long": round(long_err / long_ref, 4) if long_ref else None,
+            "long_utterances": len(long_rows), "long_ref_words": long_ref, "long_errors": long_err,
+            "speaker_acc_long": (round(sum(r["speaker_status"] == "ok" for r in long_scored) / len(long_scored), 4)
+                                 if long_scored else None),
             "speaker_ok_utt": status["ok"], "speaker_wrong_utt": status["wrong"],
             "speaker_unknown_utt": status["unknown"], "missed_utt": status["missed"],
             "speaker_acc_utt": round(status["ok"] / len(scored), 4) if scored else None,
@@ -254,22 +275,32 @@ def pct(v) -> str:
     return "—" if v is None else f"{100 * v:.1f}%"
 
 
-def der_str(d) -> str:
-    return "—" if not d else f"{pct(d['der'])} (miss {pct(d['missed'])}, FA {pct(d['false_alarm'])}, conf {pct(d['confusion'])})"
+def der_val(d, variant: str = "fair"):
+    """d is the {"fair": {...}, "strict": {...}} dict der() returns (or None)."""
+    return (d or {}).get(variant, {}).get("der")
+
+
+def der_str(d, variant: str = "fair") -> str:
+    v = (d or {}).get(variant)
+    return "—" if not v else f"{pct(v['der'])} (miss {pct(v['missed'])}, FA {pct(v['false_alarm'])}, conf {pct(v['confusion'])})"
 
 
 def write_markdown(reports: list[dict], path: Path) -> None:
     out = ["# Utterance benchmark: WER + speaker attribution", "",
            "GT text is **silver** (offline Whisper per GT turn) until `verified` is true in `gt/*.json`.",
-           "Speaker ids are mapped to GT labels by Hungarian matching on aligned words.", "",
-           "| file | GT verified | WER | speaker acc (utt) | speaker acc (words) | ok / wrong / unknown / missed | DER activity | DER ASR utt |",
-           "|---|---|---|---|---|---|---|---|"]
+           "Speaker ids are mapped to GT labels by Hungarian matching on aligned words. DER fair/strict match "
+           "`~/aimara-bench/benchmarks/scoring/metrics.py` (fair: collar 0.25s, overlap skipped; "
+           "strict: collar 0s, overlap scored).", "",
+           "| file | GT verified | WER all | WER long | speaker acc (utt) | speaker acc (words) | ok / wrong / unknown / missed "
+           "| DER fair (activity) | DER strict (activity) | DER fair (ASR utt) | DER strict (ASR utt) |",
+           "|---|---|---|---|---|---|---|---|---|---|---|"]
     for r in reports:
         s = r["summary"]
-        out.append(f"| {r['stem']} | {r['gt_verified']} | {pct(s['wer'])} | {pct(s['speaker_acc_utt'])} | "
+        out.append(f"| {r['stem']} | {r['gt_verified']} | {pct(s['wer'])} | {pct(s.get('wer_long'))} | {pct(s['speaker_acc_utt'])} | "
                    f"{pct(s['speaker_acc_words'])} | {s['speaker_ok_utt']} / {s['speaker_wrong_utt']} / "
-                   f"{s['speaker_unknown_utt']} / {s['missed_utt']} | {der_str(s['der_activity'])} | "
-                   f"{der_str(s['der_asr_utterances'])} |")
+                   f"{s['speaker_unknown_utt']} / {s['missed_utt']} | {der_str(s['der_activity'], 'fair')} | "
+                   f"{der_str(s['der_activity'], 'strict')} | {der_str(s['der_asr_utterances'], 'fair')} | "
+                   f"{der_str(s['der_asr_utterances'], 'strict')} |")
     for r in reports:
         out += ["", f"## {r['stem']}", "",
                 f"Mapping: `{json.dumps(r['speaker_mapping'])}`  ", f"GT text: {r['gt_text_source']}", "",
@@ -307,7 +338,8 @@ select{font:inherit;padding:4px}
 const R = __DATA__;
 const pct = v => v == null ? "—" : (100 * v).toFixed(1) + "%";
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const derS = d => d ? pct(d.der) + ` <span class=mut>(miss ${pct(d.missed)}, FA ${pct(d.false_alarm)}, conf ${pct(d.confusion)})</span>` : "—";
+const der1 = v => v ? pct(v.der) + ` <span class=mut>(miss ${pct(v.missed)}, FA ${pct(v.false_alarm)}, conf ${pct(v.confusion)})</span>` : "—";
+const derS = d => d ? `fair ${der1(d.fair)} <span class=mut>·</span> strict ${der1(d.strict)}` : "—";
 const sel = document.getElementById("f"), bad = document.getElementById("bad");
 R.forEach((r, i) => sel.add(new Option(r.stem, i)));
 function diff(u) {
@@ -316,7 +348,7 @@ function diff(u) {
 }
 function draw() {
   const r = R[sel.value], s = r.summary;
-  const tiles = [["WER", pct(s.wer)], ["Speaker acc (utt)", pct(s.speaker_acc_utt)], ["Speaker acc (words)", pct(s.speaker_acc_words)],
+  const tiles = [["WER all", pct(s.wer)], [`WER long (${s.long_utterances} utt)`, pct(s.wer_long)], ["Speaker acc (utt)", pct(s.speaker_acc_utt)], ["Speaker acc (words)", pct(s.speaker_acc_words)],
     ["ok / wrong / unknown / missed", `${s.speaker_ok_utt} / ${s.speaker_wrong_utt} / ${s.speaker_unknown_utt} / ${s.missed_utt}`],
     ["GT / ASR utterances", `${s.gt_utterances} / ${s.hyp_utterances}`], ["GT verified", r.gt_verified],
     ["DER activity", derS(s.der_activity)], ["DER ASR utt", derS(s.der_asr_utterances)]];
@@ -336,21 +368,91 @@ sel.onchange = bad.onchange = draw; draw();
 """
 
 
+def write_test_report(reports: list[dict], path: Path, title: str) -> None:
+    """One markdown test report: WER all, WER long, per-utterance speaker check, for a fixed set of files."""
+    def pooled(key_err, key_ref, rows):
+        ref = sum(r[key_ref] for r in rows)
+        return sum(r[key_err] for r in rows) / ref if ref else None
+
+    sums = [r["summary"] for r in reports]
+    for s in sums:
+        s["errors"] = s["sub"] + s["del"] + s["ins"]
+    tot_status = Counter()
+    for s in sums:
+        tot_status.update({"ok": s["speaker_ok_utt"], "wrong": s["speaker_wrong_utt"],
+                           "unknown": s["speaker_unknown_utt"], "missed": s["missed_utt"]})
+    scored = tot_status["ok"] + tot_status["wrong"] + tot_status["unknown"]
+    long_rows = [u for r in reports for u in r["utterances"] if u["long"] and u["speaker_status"] != "missed"]
+
+    def der_pooled(variant: str):
+        weighted = [(der_val(s["der_activity"], variant), r["duration_sec"]) for r, s in zip(reports, sums)
+                    if der_val(s["der_activity"], variant) is not None]
+        dur = sum(w for _, w in weighted)
+        return sum(v * w for v, w in weighted) / dur if dur else None
+
+    out = [f"# {title}", "",
+           f"Hypothesis source: {', '.join(sorted({r['hyp_source'] for r in reports}))}  ",
+           f"WER long = only GT utterances with more than {LONG_MORE_THAN} normalised words. "
+           "Speaker: pipeline ids mapped to GT labels by Hungarian matching; accuracy excludes missed utterances. "
+           "DER fair/strict match `~/aimara-bench/benchmarks/scoring/metrics.py` "
+           "(fair: collar 0.25s, overlap skipped — comparable to published CALLHOME/AMI numbers; "
+           "strict: collar 0s, overlap scored — misses the overlapping talker, the failure that makes an agent interrupt).", "",
+           "| file | GT verified | utt GT / ASR | WER all | WER long (utt) | speaker ok / wrong / unknown / missed "
+           "| speaker acc | speaker acc long | DER fair | DER strict |",
+           "|---|---|---|---|---|---|---|---|---|---|"]
+    for r, s in zip(reports, sums):
+        out.append(f"| {r['stem']} | {r['gt_verified']} | {s['gt_utterances']} / {s['hyp_utterances']} | {pct(s['wer'])} | "
+                   f"{pct(s['wer_long'])} ({s['long_utterances']}) | {s['speaker_ok_utt']} / {s['speaker_wrong_utt']} / "
+                   f"{s['speaker_unknown_utt']} / {s['missed_utt']} | {pct(s['speaker_acc_utt'])} | "
+                   f"{pct(s['speaker_acc_long'])} | {pct(der_val(s['der_activity'], 'fair'))} | "
+                   f"{pct(der_val(s['der_activity'], 'strict'))} |")
+    out.append(f"| **all (pooled)** | | {sum(s['gt_utterances'] for s in sums)} / {sum(s['hyp_utterances'] for s in sums)} | "
+               f"**{pct(pooled('errors', 'ref_words', sums))}** | **{pct(pooled('long_errors', 'long_ref_words', sums))}** "
+               f"({sum(s['long_utterances'] for s in sums)}) | {tot_status['ok']} / {tot_status['wrong']} / "
+               f"{tot_status['unknown']} / {tot_status['missed']} | **{pct(tot_status['ok'] / scored if scored else None)}** | "
+               f"{pct(sum(u['speaker_status'] == 'ok' for u in long_rows) / len(long_rows) if long_rows else None)} | "
+               f"**{pct(der_pooled('fair'))}** | **{pct(der_pooled('strict'))}** |")
+    for r in reports:
+        out += ["", f"## {r['stem']}", "", f"Speaker mapping: `{json.dumps(r['speaker_mapping'])}`", "",
+                "| id | time | long | GT spk | pred spk | speaker | WER | GT text | ASR text |",
+                "|---|---|---|---|---|---|---|---|---|"]
+        for u in r["utterances"]:
+            mark = {"ok": "✅", "wrong": "❌ wrong", "unknown": "❔ unknown", "missed": "∅ missed"}[u["speaker_status"]]
+            pred = u["hyp_speaker"] + (f" ({u['hyp_speaker_raw']})" if u["hyp_speaker_raw"] else "")
+            out.append(f"| {u['id']} | {u['start']:.1f}-{u['end']:.1f} | {'✔' if u['long'] else ''} | {u['gt_speaker']} | "
+                       f"{pred} | {mark} | {pct(u['wer'])} | {u['gt_text'].replace('|', '/')} | {u['hyp_text']} |")
+    path.write_text("\n".join(out) + "\n")
+
+
 def main() -> None:
-    stems = sys.argv[1:] or sorted(p.stem for p in (ROOT / "hyp").glob("*.json") if (ROOT / "gt" / p.name).exists())
+    import argparse
+
+    ap = argparse.ArgumentParser(description="Score hyp/<stem>.json against gt/<stem>.json")
+    ap.add_argument("stems", nargs="*", help="default: every stem with both gt and hyp")
+    ap.add_argument("--hyp-dir", type=Path, default=ROOT / "hyp", help="captured output (e.g. hyp_android/)")
+    ap.add_argument("--out-dir", type=Path, default=ROOT / "results")
+    ap.add_argument("--test-md", type=Path, help="also write one test report for exactly these stems")
+    ap.add_argument("--title", default="Utterance test")
+    args = ap.parse_args()
+
+    hyp_dir = args.hyp_dir.resolve()
+    stems = args.stems or sorted(p.stem for p in hyp_dir.glob("*.json") if (ROOT / "gt" / p.name).exists())
     if not stems:
-        raise SystemExit("no stem has both gt/<stem>.json and hyp/<stem>.json")
-    res_dir = ROOT / "results"
-    res_dir.mkdir(exist_ok=True)
+        raise SystemExit(f"no stem has both gt/<stem>.json and {hyp_dir}/<stem>.json")
+    res_dir = args.out_dir.resolve()
+    res_dir.mkdir(parents=True, exist_ok=True)
     reports = []
     for stem in stems:
-        rep = score_file(stem)
+        rep = score_file(stem, hyp_dir)
         (res_dir / f"{stem}.json").write_text(json.dumps(rep, indent=2, ensure_ascii=False) + "\n")
         s = rep["summary"]
-        print(f"{stem}: WER {pct(s['wer'])}, speaker acc {pct(s['speaker_acc_utt'])} "
-              f"(ok {s['speaker_ok_utt']} wrong {s['speaker_wrong_utt']} unknown {s['speaker_unknown_utt']} "
-              f"missed {s['missed_utt']}), DER activity {der_str(s['der_activity'])}")
+        print(f"{stem}: WER all {pct(s['wer'])}, WER long {pct(s['wer_long'])} ({s['long_utterances']} utt), "
+              f"speaker acc {pct(s['speaker_acc_utt'])} (ok {s['speaker_ok_utt']} wrong {s['speaker_wrong_utt']} "
+              f"unknown {s['speaker_unknown_utt']} missed {s['missed_utt']}), DER activity {der_str(s['der_activity'])}")
         reports.append(rep)
+    if args.test_md:
+        write_test_report(reports, args.test_md, args.title)
+        print(f"wrote {args.test_md}")
     # Reports always cover every scored file, not only the ones passed on the command line.
     all_reports = [json.loads(p.read_text()) for p in sorted(res_dir.glob("*.json"))]
     write_markdown(all_reports, res_dir / "REPORT.md")

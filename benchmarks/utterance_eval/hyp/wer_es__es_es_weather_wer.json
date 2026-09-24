@@ -1,107 +1,102 @@
 {
   "schema_version": 1,
   "device": "file:wer_es__es_es_weather_wer.wav",
-  "captured_unix": 1790170695,
+  "captured_unix": 1790172886,
   "results": [
     {
-      "t_pub": 3.15,
+      "t_pub": 3.151,
       "text": "Hay diecisiete grados con sol.",
       "speaker": "speaker1",
       "speaker_conf": -1.0,
       "language": "es",
       "audio_ms": 2000,
-      "proc_ms": 143
+      "proc_ms": 144
     },
     {
-      "t_pub": 7.03,
+      "t_pub": 7.024,
       "text": "Hay catorce grados y está nublado.",
       "speaker": "speaker2",
       "speaker_conf": -1.0,
       "language": "es",
       "audio_ms": 2080,
-      "proc_ms": 119
+      "proc_ms": 113
     },
     {
-      "t_pub": 10.101,
+      "t_pub": 10.089,
       "text": "Hay quince grados y llueve.",
       "speaker": "speaker2",
       "speaker_conf": 0.413,
       "language": "es",
       "audio_ms": 1680,
-      "proc_ms": 118
+      "proc_ms": 107
     },
     {
-      "t_pub": 13.62,
+      "t_pub": 13.611,
       "text": "Hay veintiún grados con sol.",
       "speaker": "unknown",
       "speaker_conf": -1.0,
       "language": "es",
       "audio_ms": 1520,
-      "proc_ms": 125
+      "proc_ms": 117
     },
     {
-      "t_pub": 16.189,
+      "t_pub": 16.193,
       "text": "Hay once grados con sol.",
       "speaker": "speaker3",
       "speaker_conf": -1.0,
       "language": "es",
       "audio_ms": 1360,
-      "proc_ms": 122
+      "proc_ms": 125
     },
     {
-      "t_pub": 19.287,
+      "t_pub": 19.284,
       "text": "Hay quince grados con sol.",
       "speaker": "speaker2",
-      "speaker_conf": 0.534,
+      "speaker_conf": 0.533,
       "language": "es",
       "audio_ms": 1440,
-      "proc_ms": 121
+      "proc_ms": 118
     },
     {
-      "t_pub": 23.286,
+      "t_pub": 23.277,
       "text": "Hay diecinueve grados y está nublado.",
       "speaker": "speaker1",
       "speaker_conf": 0.48,
       "language": "es",
       "audio_ms": 2400,
-      "proc_ms": 120
+      "proc_ms": 112
     },
     {
-      "t_pub": 26.997,
+      "t_pub": 27.001,
       "text": "Hay veinte grados con sol.",
       "speaker": "speaker3",
-      "speaker_conf": 0.499,
+      "speaker_conf": 0.5,
       "language": "es",
       "audio_ms": 1360,
-      "proc_ms": 118
+      "proc_ms": 122
     },
     {
-      "t_pub": 30.577,
+      "t_pub": 30.573,
       "text": "Hay 11 grados y está nublado.",
       "speaker": "speaker2",
       "speaker_conf": 0.386,
       "language": "es",
       "audio_ms": 1920,
-      "proc_ms": 113
+      "proc_ms": 111
     },
     {
-      "t_pub": 34.603,
+      "t_pub": 34.611,
       "text": "Hay dieciocho grados y está nublado.",
       "speaker": "speaker1",
-      "speaker_conf": 0.483,
+      "speaker_conf": 0.482,
       "language": "es",
       "audio_ms": 2480,
-      "proc_ms": 108
+      "proc_ms": 116
     }
   ],
   "activity": [
     {
       "t": 0.737,
-      "speaker": "speaker1",
-      "active": true
-    },
-    {
-      "t": 2.627,
       "speaker": "speaker1",
       "active": true
     },
@@ -136,12 +131,12 @@
       "active": false
     },
     {
-      "t": 8.32,
+      "t": 8.321,
       "speaker": "speaker2",
       "active": true
     },
     {
-      "t": 9.186,
+      "t": 9.187,
       "speaker": "speaker2",
       "active": true
     },
@@ -156,7 +151,7 @@
       "active": true
     },
     {
-      "t": 9.282,
+      "t": 9.283,
       "speaker": "speaker2",
       "active": true
     },
@@ -171,17 +166,17 @@
       "active": true
     },
     {
-      "t": 9.378,
+      "t": 9.379,
       "speaker": "speaker2",
       "active": true
     },
     {
-      "t": 9.41,
+      "t": 9.411,
       "speaker": "speaker2",
       "active": true
     },
     {
-      "t": 9.442,
+      "t": 9.443,
       "speaker": "speaker2",
       "active": true
     },
@@ -206,12 +201,12 @@
       "active": true
     },
     {
-      "t": 9.602,
+      "t": 9.603,
       "speaker": "speaker2",
       "active": true
     },
     {
-      "t": 9.634,
+      "t": 9.635,
       "speaker": "speaker2",
       "active": true
     },
@@ -236,37 +231,37 @@
       "active": true
     },
     {
-      "t": 15.682,
+      "t": 15.684,
       "speaker": "speaker3",
       "active": false
     },
     {
-      "t": 17.473,
+      "t": 17.472,
       "speaker": "speaker2",
       "active": true
     },
     {
-      "t": 18.339,
+      "t": 18.341,
       "speaker": "speaker2",
       "active": true
     },
     {
-      "t": 18.37,
+      "t": 18.373,
       "speaker": "speaker2",
       "active": true
     },
     {
-      "t": 18.403,
+      "t": 18.404,
       "speaker": "speaker2",
       "active": true
     },
     {
-      "t": 18.434,
+      "t": 18.436,
       "speaker": "speaker2",
       "active": true
     },
     {
-      "t": 18.467,
+      "t": 18.468,
       "speaker": "speaker2",
       "active": true
     },
@@ -276,17 +271,17 @@
       "active": true
     },
     {
-      "t": 18.531,
+      "t": 18.53,
       "speaker": "speaker2",
       "active": true
     },
     {
-      "t": 18.562,
+      "t": 18.563,
       "speaker": "speaker2",
       "active": true
     },
     {
-      "t": 18.594,
+      "t": 18.595,
       "speaker": "speaker2",
       "active": true
     },
@@ -311,17 +306,17 @@
       "active": true
     },
     {
-      "t": 18.754,
+      "t": 18.756,
       "speaker": "speaker2",
       "active": true
     },
     {
-      "t": 18.786,
+      "t": 18.787,
       "speaker": "speaker2",
       "active": true
     },
     {
-      "t": 18.819,
+      "t": 18.824,
       "speaker": "speaker2",
       "active": true
     },
@@ -346,12 +341,12 @@
       "active": true
     },
     {
-      "t": 21.539,
+      "t": 21.54,
       "speaker": "speaker1",
       "active": true
     },
     {
-      "t": 21.57,
+      "t": 21.571,
       "speaker": "speaker1",
       "active": true
     },
@@ -361,12 +356,12 @@
       "active": true
     },
     {
-      "t": 21.634,
+      "t": 21.636,
       "speaker": "speaker1",
       "active": true
     },
     {
-      "t": 21.667,
+      "t": 21.668,
       "speaker": "speaker1",
       "active": true
     },
@@ -381,22 +376,22 @@
       "active": true
     },
     {
-      "t": 21.762,
+      "t": 21.764,
       "speaker": "speaker1",
       "active": true
     },
     {
-      "t": 21.794,
+      "t": 21.795,
       "speaker": "speaker1",
       "active": true
     },
     {
-      "t": 21.827,
+      "t": 21.828,
       "speaker": "speaker1",
       "active": true
     },
     {
-      "t": 21.858,
+      "t": 21.86,
       "speaker": "speaker1",
       "active": true
     },
@@ -406,32 +401,32 @@
       "active": true
     },
     {
-      "t": 21.922,
+      "t": 21.923,
       "speaker": "speaker1",
       "active": true
     },
     {
-      "t": 21.955,
+      "t": 21.956,
       "speaker": "speaker1",
       "active": true
     },
     {
-      "t": 21.987,
+      "t": 21.99,
       "speaker": "speaker1",
       "active": true
     },
     {
-      "t": 22.019,
+      "t": 22.022,
       "speaker": "speaker1",
       "active": true
     },
     {
-      "t": 22.05,
+      "t": 22.051,
       "speaker": "speaker1",
       "active": true
     },
     {
-      "t": 22.082,
+      "t": 22.083,
       "speaker": "speaker1",
       "active": true
     },
@@ -456,7 +451,7 @@
       "active": true
     },
     {
-      "t": 22.243,
+      "t": 22.242,
       "speaker": "speaker1",
       "active": true
     },
@@ -481,32 +476,32 @@
       "active": true
     },
     {
-      "t": 22.403,
+      "t": 22.402,
       "speaker": "speaker1",
       "active": true
     },
     {
-      "t": 22.434,
+      "t": 22.435,
       "speaker": "speaker1",
       "active": true
     },
     {
-      "t": 22.466,
+      "t": 22.467,
       "speaker": "speaker1",
       "active": true
     },
     {
-      "t": 22.499,
+      "t": 22.498,
       "speaker": "speaker1",
       "active": true
     },
     {
-      "t": 22.531,
+      "t": 22.53,
       "speaker": "speaker1",
       "active": true
     },
     {
-      "t": 22.564,
+      "t": 22.562,
       "speaker": "speaker1",
       "active": true
     },
@@ -516,17 +511,17 @@
       "active": true
     },
     {
-      "t": 22.627,
+      "t": 22.626,
       "speaker": "speaker1",
       "active": true
     },
     {
-      "t": 22.659,
+      "t": 22.658,
       "speaker": "speaker1",
       "active": true
     },
     {
-      "t": 22.69,
+      "t": 22.691,
       "speaker": "speaker1",
       "active": true
     },
@@ -541,7 +536,7 @@
       "active": true
     },
     {
-      "t": 22.787,
+      "t": 22.786,
       "speaker": "speaker1",
       "active": true
     },
@@ -551,7 +546,7 @@
       "active": true
     },
     {
-      "t": 22.851,
+      "t": 22.85,
       "speaker": "speaker1",
       "active": true
     },
@@ -561,7 +556,7 @@
       "active": true
     },
     {
-      "t": 22.883,
+      "t": 22.882,
       "speaker": "speaker1",
       "active": false
     },
@@ -571,12 +566,12 @@
       "active": true
     },
     {
-      "t": 26.243,
+      "t": 26.242,
       "speaker": "speaker3",
       "active": true
     },
     {
-      "t": 26.275,
+      "t": 26.274,
       "speaker": "speaker3",
       "active": true
     },
@@ -591,7 +586,7 @@
       "active": true
     },
     {
-      "t": 26.371,
+      "t": 26.37,
       "speaker": "speaker3",
       "active": true
     },
@@ -611,7 +606,7 @@
       "active": true
     },
     {
-      "t": 26.499,
+      "t": 26.498,
       "speaker": "speaker3",
       "active": true
     },
@@ -621,22 +616,22 @@
       "active": true
     },
     {
-      "t": 26.562,
+      "t": 26.563,
       "speaker": "speaker3",
       "active": true
     },
     {
-      "t": 26.594,
+      "t": 26.595,
       "speaker": "speaker3",
       "active": true
     },
     {
-      "t": 26.594,
+      "t": 26.595,
       "speaker": "speaker3",
       "active": false
     },
     {
-      "t": 28.544,
+      "t": 28.545,
       "speaker": "speaker2",
       "active": true
     },
@@ -671,7 +666,7 @@
       "active": true
     },
     {
-      "t": 29.602,
+      "t": 29.603,
       "speaker": "speaker2",
       "active": true
     },
@@ -696,7 +691,7 @@
       "active": true
     },
     {
-      "t": 29.762,
+      "t": 29.763,
       "speaker": "speaker2",
       "active": true
     },
@@ -721,12 +716,12 @@
       "active": true
     },
     {
-      "t": 29.923,
+      "t": 29.922,
       "speaker": "speaker2",
       "active": true
     },
     {
-      "t": 29.955,
+      "t": 29.954,
       "speaker": "speaker2",
       "active": true
     },
@@ -741,17 +736,17 @@
       "active": true
     },
     {
-      "t": 30.05,
+      "t": 30.051,
       "speaker": "speaker2",
       "active": true
     },
     {
-      "t": 30.082,
+      "t": 30.084,
       "speaker": "speaker2",
       "active": true
     },
     {
-      "t": 30.114,
+      "t": 30.115,
       "speaker": "speaker2",
       "active": true
     },
@@ -776,12 +771,12 @@
       "active": true
     },
     {
-      "t": 32.802,
+      "t": 32.803,
       "speaker": "speaker1",
       "active": true
     },
     {
-      "t": 32.834,
+      "t": 32.835,
       "speaker": "speaker1",
       "active": true
     },
@@ -801,7 +796,7 @@
       "active": true
     },
     {
-      "t": 32.963,
+      "t": 32.962,
       "speaker": "speaker1",
       "active": true
     },
@@ -816,7 +811,7 @@
       "active": true
     },
     {
-      "t": 33.06,
+      "t": 33.059,
       "speaker": "speaker1",
       "active": true
     },
@@ -826,12 +821,12 @@
       "active": true
     },
     {
-      "t": 33.122,
+      "t": 33.123,
       "speaker": "speaker1",
       "active": true
     },
     {
-      "t": 33.155,
+      "t": 33.154,
       "speaker": "speaker1",
       "active": true
     },
@@ -846,17 +841,17 @@
       "active": true
     },
     {
-      "t": 33.25,
+      "t": 33.251,
       "speaker": "speaker1",
       "active": true
     },
     {
-      "t": 33.282,
+      "t": 33.284,
       "speaker": "speaker1",
       "active": true
     },
     {
-      "t": 33.314,
+      "t": 33.315,
       "speaker": "speaker1",
       "active": true
     },
@@ -871,12 +866,12 @@
       "active": true
     },
     {
-      "t": 33.41,
+      "t": 33.412,
       "speaker": "speaker1",
       "active": true
     },
     {
-      "t": 33.443,
+      "t": 33.444,
       "speaker": "speaker1",
       "active": true
     },
@@ -886,7 +881,7 @@
       "active": true
     },
     {
-      "t": 33.507,
+      "t": 33.508,
       "speaker": "speaker1",
       "active": true
     },
@@ -911,12 +906,12 @@
       "active": true
     },
     {
-      "t": 33.667,
+      "t": 33.668,
       "speaker": "speaker1",
       "active": true
     },
     {
-      "t": 33.699,
+      "t": 33.7,
       "speaker": "speaker1",
       "active": true
     },
@@ -936,7 +931,7 @@
       "active": true
     },
     {
-      "t": 33.827,
+      "t": 33.828,
       "speaker": "speaker1",
       "active": true
     },
@@ -946,7 +941,7 @@
       "active": true
     },
     {
-      "t": 33.891,
+      "t": 33.89,
       "speaker": "speaker1",
       "active": true
     },
@@ -976,7 +971,7 @@
       "active": true
     },
     {
-      "t": 34.084,
+      "t": 34.083,
       "speaker": "speaker1",
       "active": true
     },
@@ -1001,7 +996,7 @@
       "active": true
     },
     {
-      "t": 34.211,
+      "t": 34.21,
       "speaker": "speaker1",
       "active": false
     }

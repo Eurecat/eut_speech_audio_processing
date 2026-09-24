@@ -37,6 +37,30 @@ cd benchmarks/utterance_eval
 
 `run_one.sh` uses `ROS_DOMAIN_ID=77` and compose project `utterance_eval`. It refuses to start if `speech_recognition`, `mongodb` or `mp3_audio_source` is already running.
 
+### Test of the 3 reviewed files
+
+`./run_test_mp3.sh` replays the weather file and the two CallHome snr20 files, then writes [TEST_compose_mp3.md](TEST_compose_mp3.md). The report has WER all, WER long, and the speaker check for each utterance. Add `--score` to rescore the existing captures without replaying the audio.
+
+For a visual page of just this test (no snr20-vs-clean comparison), run `python3 test_report.py` -> [TEST_compose_mp3.html](TEST_compose_mp3.html): a metrics table with bars, a stacked ok/wrong/unknown/missed bar per file, and a per-utterance table with the word diff highlighted.
+
+### Noise comparison (snr20 vs clean)
+
+`gt/callhome_spa_clean__*.json` are copies of the reviewed snr20 GT. They use the same excerpt window and the same turns, with only the audio field changed. After you edit a snr20 GT file, apply the same edit to its clean copy.
+
+```bash
+./run_one.sh callhome_spa_clean__spa_0019_4spk_clean
+./run_one.sh callhome_spa_clean__spa_0018_2spk_clean
+python3 compare.py            # writes COMPARE.md and compare.html (--a snr10 --b clean for other pairs)
+```
+
+### Other hypothesis sources (e.g. the Android app)
+
+Put the captured JSON files in their own folder, one file per stem, then score that folder:
+
+```bash
+python3 score.py --hyp-dir hyp_android --out-dir results_android --test-md TEST_android.md <stems>
+```
+
 After editing a GT file, rescore without replaying the audio:
 
 ```bash
@@ -48,6 +72,7 @@ To add a new file, generate its silver GT inside the image with `--rttm` or `--s
 ## How it scores
 
 - **WER**: all GT words (in time order) are aligned against all published words with one alignment. Each GT utterance gets the hypothesis words that landed on it, so the ASR can split sentences differently from the GT without being penalised. Text is lowercased, and punctuation and accents are removed. Digits become words (`17` = `diecisiete`).
+- **WER long**: the same alignment, counted only on GT utterances with more than 6 normalised words. Backchannels such as "sí" and "ya" are excluded. The weather file has none.
 - **Speaker**: pipeline ids (`speaker1`, ...) are mapped one-to-one onto GT labels by Hungarian matching on aligned word counts. Each utterance gets one status:
   - `ok`: its majority mapped speaker is the GT speaker.
   - `wrong`: the pipeline assigned it to another speaker.
@@ -55,4 +80,6 @@ To add a new file, generate its silver GT inside the image with `--rttm` or `--s
   - `missed`: no word of it was transcribed.
   
   Accuracy excludes `missed` utterances.
-- **DER** (pyannote.metrics, 0.25 s collar) is computed two ways. *activity* uses the diarization `/speech_activity_detection` labels. *ASR utt* uses the published utterances, placed in time using `audio_ms`, `proc_ms` and the 0.25 s silence gate.
+- **DER** (pyannote.metrics) is computed two ways for source (*activity*: the diarization `/speech_activity_detection` labels; *ASR utt*: the published utterances, placed in time using `audio_ms`, `proc_ms` and the 0.25 s silence gate) and two ways for scoring policy, matching `~/aimara-bench/benchmarks/scoring/metrics.py` exactly so the numbers are comparable:
+  - **fair**: 0.25 s collar, overlap skipped. The permissive setting published CALLHOME/AMI numbers use.
+  - **strict**: 0 s collar, overlap scored. What matters for a turn-taking agent — missing the overlapping talker is exactly the failure that makes it interrupt.
