@@ -189,7 +189,10 @@ The profile starts two TCP bridges in host network mode:
   - Accepts NDJSON messages and publishes `audio_and_device_info` (`AudioAndDeviceInfo.msg`)
 - edge -> Android transcript egress (`speech_recognition/android_transcript_bridge.py`)
   - Binds on `0.0.0.0:${ANDROID_TRANSCRIPT_PORT:-17001}`
-  - Subscribes to `speech_result` (`SpeechResult.msg`) and streams NDJSON to connected clients
+  - Subscribes to `speech_result` (`SpeechResult.msg`) and `speech_result_timing`
+    (`std_msgs/String`, a JSON side-channel for processing/audio/realtime timing
+    that has no field of its own on `SpeechResult`; paired by matching
+    `header.stamp`) and streams NDJSON to connected clients
 
 #### Android -> edge NDJSON payloads
 
@@ -215,10 +218,23 @@ One JSON object per line over TCP:
   "speaker_id": "speaker_1",
   "speaker_id_confidence": 0.0,
   "language_code": "es",
-  "locale": "",
+  "locale": "es",
+  "processing_ms": 340,
+  "audio_duration_ms": 1200,
+  "realtime_factor": 0.28,
   "stamp": {"sec": 1, "nanosec": 2000000}
 }
 ```
+
+`transcript_confidence` is the backend's own confidence in the transcript, `[0, 1]`:
+0.0 on `asr_backend: whisper` (faster-whisper reports no calibrated per-word
+score), the NeMo confidence estimator's mean word score on `asr_backend:
+parakeet`. `locale` is the bare ISO 639-1 code neither backend can add a region
+to (empty if the backend published without a language). `processing_ms`,
+`audio_duration_ms` and `realtime_factor` come from `speech_result_timing`,
+already merged in by the bridge; if that message hasn't arrived yet
+`processing_ms` falls back to wall-clock time since `stamp` and the other two
+are `null`.
 
 #### Notes
 

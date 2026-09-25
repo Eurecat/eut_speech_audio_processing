@@ -3,12 +3,14 @@ import queue
 import socket
 import threading
 import time
+from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 import rclpy
 from hri_msgs.msg import SpeechResult
 from rclpy.node import Node
+from std_msgs.msg import String
 
 
 @dataclass
@@ -46,6 +48,27 @@ class AndroidTranscriptBridge(Node):
         self._messages_sent = 0
         self._dropped_messages = 0
 
+        # SpeechResult has no field for edge timing diagnostics (processing_ms,
+        # audio_duration_ms, realtime_factor); asr.py publishes them on a sibling
+        # topic, stamped identically, just ahead of the SpeechResult they belong
+        # with. Buffered here keyed by that stamp so the SpeechResult callback can
+        # pick up its match regardless of which of the two topics is delivered
+        # first. Bounded so an unmatched timing message (SpeechResult lost, or
+        # no subscriber ever pairs it) cannot grow this without limit.
+        self._pending_timing: "OrderedDict[Tuple[int, int], dict]" = OrderedDict()
+        self._pending_timing_lock = threading.Lock()
+        self._max_pending_timing = 64
+
+        # Registered before the SpeechResult subscription: asr.py publishes
+        # timing microseconds ahead of the SpeechResult it pairs with, but
+        # rclpy's SingleThreadedExecutor dispatches ready callbacks in
+        # subscription-registration order when both arrive within the same
+        # wait_for_ready_callbacks() wake, not delivery order — verified on
+        # the Jetson that publish-order alone left SpeechResult consistently
+        # processed first (timing dict empty every time) and swapping the
+        # registration order fixed it. _take_timing()'s fallback still covers
+        # a genuine miss (message loss, a slower callback dispatcher).
+        self.create_subscription(String, f"{self._topic_name}_timing", self._timing_callback, 10)
         self.create_subscription(SpeechResult, self._topic_name, self._speech_result_callback, 10)
         self._server_thread.start()
 
@@ -54,32 +77,36 @@ class AndroidTranscriptBridge(Node):
             f"subscribed to '{self._topic_name}'"
         )
 
+    def _timing_callback(self, msg: String) -> None:
+        try:
+            timing = json.loads(msg.data)
+            stamp = timing["stamp"]
+            key = (int(stamp["sec"]), int(stamp["nanosec"]))
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+            self.get_logger().warn(f"Malformed speech_result_timing payload: {msg.data!r}")
+            return
+
+        with self._pending_timing_lock:
+            self._pending_timing[key] = timing
+            while len(self._pending_timing) > self._max_pending_timing:
+                self._pending_timing.popitem(last=False)
+
+    def _take_timing(self, msg: SpeechResult) -> Optional[dict]:
+        key = (int(msg.header.stamp.sec), int(msg.header.stamp.nanosec))
+        with self._pending_timing_lock:
+            return self._pending_timing.pop(key, None)
+
     def _speech_result_to_bytes(self, msg: SpeechResult) -> bytes:
-        processing_ms = int(msg.transcript_confidence)
-        audio_duration_ms = None
-        realtime_factor = None
-
-        if msg.locale:
-            parts = [p.strip() for p in msg.locale.split(";") if p.strip()]
-            kv = {}
-            for part in parts:
-                if "=" not in part:
-                    continue
-                k, v = part.split("=", 1)
-                kv[k.strip()] = v.strip()
-
-            if "audio_ms" in kv:
-                try:
-                    audio_duration_ms = int(kv["audio_ms"])
-                except ValueError:
-                    audio_duration_ms = None
-            if "rtf" in kv:
-                try:
-                    realtime_factor = float(kv["rtf"])
-                except ValueError:
-                    realtime_factor = None
+        timing = self._take_timing(msg)
+        processing_ms = int(timing["processing_ms"]) if timing else 0
+        audio_duration_ms = int(timing["audio_duration_ms"]) if timing else None
+        realtime_factor = float(timing["realtime_factor"]) if timing else None
 
         if processing_ms <= 0:
+            # The speech_result_timing message for this stamp has not arrived
+            # yet (published just ahead of SpeechResult, but delivery order
+            # across two topics is not guaranteed). Approximate with wall time
+            # instead of blocking the live transcript on it.
             now_ms = int(time.time() * 1000)
             stamp_ms = (int(msg.header.stamp.sec) * 1000) + (int(msg.header.stamp.nanosec) // 1_000_000)
             processing_ms = max(0, now_ms - stamp_ms)
@@ -87,7 +114,7 @@ class AndroidTranscriptBridge(Node):
         payload = {
             "type": "speech_result",
             "transcript": msg.transcript,
-            "transcript_confidence": 0.0,
+            "transcript_confidence": float(msg.transcript_confidence),
             "speaker_id": msg.speaker_id,
             "speaker_id_confidence": float(msg.speaker_id_confidence),
             "language_code": msg.language_code,

@@ -201,15 +201,25 @@ class ParakeetASREngine(ASREngine):
 
     @staticmethod
     def _configure_decoding(model) -> None:
-        """Enable timestamps once instead of on every transcribe() call.
+        """Enable timestamps and word confidence once instead of on every
+        transcribe() call.
 
         transcribe(timestamps=True) rebuilds the decoding strategy per call.
         Word timings are required to split a chunk across speakers.
+        preserve_word_confidence turns on NeMo's confidence estimator (mean
+        entropy over the RNNT/TDT frames of each word); it only adds a score
+        to the hypothesis, it does not change decoding or the transcribed
+        text. See ParakeetASREngine._to_segments for how it is read back.
         """
         from omegaconf import open_dict
 
         with open_dict(model.cfg.decoding):
             model.cfg.decoding.compute_timestamps = True
+            # NeMo requires this whenever preserve_word_confidence (which implies
+            # preserve_frame_confidence) is set, or change_decoding_strategy()
+            # raises ValueError. Verified empirically against nemo_toolkit 2.3.0rc0.
+            model.cfg.decoding.preserve_alignments = True
+            model.cfg.decoding.confidence_cfg = {"preserve_word_confidence": True}
         model.change_decoding_strategy(model.cfg.decoding, verbose=False)
 
     def _warm_up(self) -> None:
@@ -350,11 +360,22 @@ class ParakeetASREngine(ASREngine):
         if not isinstance(stamps, dict):
             stamps = {}
         words = self._words_from(stamps)
+        confidence = self._hypothesis_confidence(hypothesis)
         segments = self._segments_from(stamps, words)
+        for segment in segments:
+            segment["confidence"] = confidence
         if segments:
             return segments
         if words:
-            return [{"start": words[0][0], "end": words[-1][1], "text": text, "words": words}]
+            return [
+                {
+                    "start": words[0][0],
+                    "end": words[-1][1],
+                    "text": text,
+                    "words": words,
+                    "confidence": confidence,
+                }
+            ]
 
         # No usable timestamps: one segment for the whole chunk. The speaker
         # grouping then attributes all of it to a single speaker, as it does for
@@ -362,7 +383,22 @@ class ParakeetASREngine(ASREngine):
         self._logger.warn(
             "Parakeet returned no timestamps; publishing the chunk as one segment."
         )
-        return [{"start": 0.0, "end": 0.0, "text": text, "words": []}]
+        return [{"start": 0.0, "end": 0.0, "text": text, "words": [], "confidence": confidence}]
+
+    @staticmethod
+    def _hypothesis_confidence(hypothesis) -> Optional[float]:
+        """Mean per-word confidence for one hypothesis, or None if unavailable.
+
+        preserve_word_confidence (set in _configure_decoding) makes NeMo attach
+        a 0-1 score per word to hyp.word_confidence. Averaged here into one
+        utterance-level number: ASREngine._chunk_confidence() republishes it
+        unchanged for every speaker group split out of this chunk, since the
+        estimator scores the whole decode, not sub-spans of it.
+        """
+        scores = getattr(hypothesis, "word_confidence", None)
+        if not scores:
+            return None
+        return float(sum(scores) / len(scores))
 
     @staticmethod
     def _words_from(stamps: dict) -> List[tuple]:

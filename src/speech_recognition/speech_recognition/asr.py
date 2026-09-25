@@ -1,3 +1,4 @@
+import json
 import time
 from typing import Dict
 
@@ -12,6 +13,7 @@ from hri_msgs.msg import (
 )
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
+from std_msgs.msg import String
 
 from speech_recognition.asr_engine import ASREngine
 from speech_recognition.model_weights import weights_dir
@@ -168,6 +170,13 @@ class ASRNode(Node):
         # Publishers
         # ------------------------------------------------------------------
         self.asr_pub = self.create_publisher(SpeechResult, "speech_result", 10)
+        # SpeechResult (hri_msgs) has no field for edge timing diagnostics: its
+        # only string/float slots are transcript_confidence and locale, and both
+        # are now used for what they actually mean. Processing/audio/realtime
+        # timing rides a sibling std_msgs/String topic instead, stamped
+        # identically to the SpeechResult it belongs with so a subscriber (the
+        # Android bridge, capture_hyp.py) can pair the two by header.stamp.
+        self.asr_timing_pub = self.create_publisher(String, "speech_result_timing", 10)
 
         # ------------------------------------------------------------------
         # Subscribers
@@ -237,6 +246,7 @@ class ASRNode(Node):
         transcript: str,
         speaker_id: str,
         language_code: str,
+        transcript_confidence: float,
         processing_ms: int,
         silence_ms: int,
         audio_duration_ms: int,
@@ -249,19 +259,38 @@ class ASRNode(Node):
         msg.transcript = transcript
         msg.speaker_id = speaker_id
         msg.language_code = language_code
-        # Keep confidence channel as optional edge metric carrier for Android bridge.
-        msg.transcript_confidence = float(processing_ms)
+        # Real ASR confidence in [0, 1] (per hri_msgs/SpeechResult.msg): 0.0 for
+        # Whisper, which has no well-calibrated per-word score to report; the
+        # NeMo confidence estimator's mean word score for Parakeet. See
+        # ASREngine._chunk_confidence / ParakeetASREngine._hypothesis_confidence.
+        msg.transcript_confidence = float(transcript_confidence)
         # How much this attribution is worth: the identity match score weighted by
         # how much of the utterance that speaker actually held. -1.0 means the
         # backend reported no score, which downstream must read as "unavailable",
         # never as "low" — EutPersonManager weighs a voice link by this value.
         msg.speaker_id_confidence = float(speaker_confidence)
-        msg.locale = f"audio_ms={audio_duration_ms};rtf={realtime_factor:.4f}"
+        # Bare ISO 639-1 code (no region: neither backend detects one). Empty
+        # when the backend published without a language at all.
+        msg.locale = language_code or ""
+
+        # Published just ahead of SpeechResult (same stamp, so a subscriber can
+        # pair them) to bias delivery order in the common case; a subscriber
+        # still can't assume the pairing message has landed yet.
+        timing = String()
+        timing.data = json.dumps(
+            {
+                "stamp": {"sec": int(msg.header.stamp.sec), "nanosec": int(msg.header.stamp.nanosec)},
+                "processing_ms": int(processing_ms),
+                "audio_duration_ms": int(audio_duration_ms),
+                "realtime_factor": float(realtime_factor),
+            }
+        )
+        self.asr_timing_pub.publish(timing)
         self.asr_pub.publish(msg)
 
         self.get_logger().info(
             f"Published transcript: '{transcript}' (lang: {language_code}, speaker: {speaker_id}"
-            f"@{speaker_confidence:.2f}, "
+            f"@{speaker_confidence:.2f}, transcript_conf={transcript_confidence:.2f}, "
             f"proc={processing_ms}ms, silence={silence_ms}ms, audio={audio_duration_ms}ms, x{realtime_factor:.2f})"
         )
 

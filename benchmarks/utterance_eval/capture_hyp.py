@@ -22,6 +22,7 @@ from pathlib import Path
 import rclpy
 from hri_msgs.msg import AudioAndDeviceInfo, SpeechActivityDetection, SpeechResult
 from rclpy.node import Node
+from std_msgs.msg import String
 
 
 def stamp_sec(msg) -> float:
@@ -37,7 +38,13 @@ class Capture(Node):
         self.last_event = time.monotonic()
         self.results: list[dict] = []
         self.activity: list[dict] = []
+        self.pending_timing: dict[tuple[int, int], dict] = {}
         self.create_subscription(AudioAndDeviceInfo, "/audio_and_device_info", self._on_audio, 50)
+        # Registered before /speech_result so the single-threaded executor
+        # dispatches it first when both arrive in the same wait-set wake
+        # (verified on the Jetson: publish order alone did not guarantee
+        # this, subscription order did). See android_transcript_bridge.py.
+        self.create_subscription(String, "/speech_result_timing", self._on_timing, 50)
         self.create_subscription(SpeechResult, "/speech_result", self._on_result, 50)
         self.create_subscription(SpeechActivityDetection, "/speech_activity_detection", self._on_activity, 50)
         self.get_logger().info("waiting for /audio_and_device_info ...")
@@ -52,17 +59,29 @@ class Capture(Node):
             self.get_logger().info(f"audio started: {self.device}")
         self.last_event = time.monotonic()
 
+    def _on_timing(self, msg: String) -> None:
+        # asr.py publishes this just ahead of the SpeechResult it belongs with,
+        # same header.stamp, since SpeechResult (hri_msgs) has no field of its
+        # own for edge processing/audio/realtime timing.
+        try:
+            timing = json.loads(msg.data)
+            stamp = timing["stamp"]
+            self.pending_timing[(int(stamp["sec"]), int(stamp["nanosec"]))] = timing
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+            pass
+
     def _on_result(self, msg: SpeechResult) -> None:
-        # locale carries "audio_ms=<n>;rtf=<x>", transcript_confidence carries processing ms (asr.py)
-        extra = dict(kv.split("=", 1) for kv in msg.locale.split(";") if "=" in kv)
+        key = (int(msg.header.stamp.sec), int(msg.header.stamp.nanosec))
+        timing = self.pending_timing.pop(key, {})
         self.results.append({
             "t_pub": self._rel(stamp_sec(msg)),
             "text": msg.transcript,
             "speaker": msg.speaker_id,
             "speaker_conf": round(msg.speaker_id_confidence, 3),
             "language": msg.language_code,
-            "audio_ms": int(float(extra.get("audio_ms", 0))),
-            "proc_ms": int(msg.transcript_confidence),
+            "transcript_conf": round(msg.transcript_confidence, 3),
+            "audio_ms": int(timing.get("audio_duration_ms", 0)),
+            "proc_ms": int(timing.get("processing_ms", 0)),
         })
         self.last_event = time.monotonic()
         self.get_logger().info(f"[{self.results[-1]['t_pub']:7.2f}] {msg.speaker_id}: {msg.transcript}")

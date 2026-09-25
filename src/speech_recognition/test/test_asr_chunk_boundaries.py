@@ -101,3 +101,15 @@ def test_pre_buffer_still_applies_at_a_genuine_speech_onset():
         audio, start, _ = engine._extract_audio_data(t0 + 1.0)
     assert start == t0 - 0.5, "word onsets before VAD fired must still be captured"
     assert len(audio) >= int(round(1.5 / CHUNK_SECONDS)) * 512
+
+
+def test_chunk_confidence_defaults_to_zero_when_backend_reports_nothing():
+    """Whisper's _collect_segments() never sets "confidence", so this is what
+    keeps SpeechResult.transcript_confidence at 0.0 for that backend."""
+    segments = [{"text": "hello"}, {"text": "world"}]
+    assert ASREngine._chunk_confidence(segments) == 0.0
+
+
+def test_chunk_confidence_averages_present_values_and_ignores_missing_ones():
+    segments = [{"confidence": 0.8}, {"confidence": None}, {"confidence": 0.4}]
+    assert round(ASREngine._chunk_confidence(segments), 6) == 0.6

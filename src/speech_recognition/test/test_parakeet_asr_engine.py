@@ -110,6 +110,30 @@ def test_segments_keep_whisper_word_format():
     assert [w[2] for w in segments[1]["words"]] == [" Look,", " Celia."]
 
 
+def test_to_segments_attaches_the_same_chunk_confidence_to_every_segment():
+    """The NeMo confidence estimator scores the whole decode, not sub-spans of
+    it, so every segment split out of one hypothesis gets the same number."""
+    hypothesis = types.SimpleNamespace(
+        text=_HYPOTHESIS.text,
+        timestamp=_HYPOTHESIS.timestamp,
+        word_confidence=[0.9, 0.8, 0.2, 0.5, 0.7, 0.3],  # mean = 0.5666...
+    )
+    segments = _engine()._to_segments(hypothesis)
+    assert [s["confidence"] for s in segments] == [
+        segments[0]["confidence"],
+        segments[0]["confidence"],
+    ]
+    assert round(segments[0]["confidence"], 4) == round(sum(hypothesis.word_confidence) / 6, 4)
+
+
+def test_hypothesis_confidence_is_none_without_word_confidence():
+    """Whisper's shared ASREngine._chunk_confidence() reads this as 0.0: see
+    test_chunk_confidence_defaults_to_zero_when_backend_reports_nothing in
+    test_asr_chunk_boundaries.py."""
+    segments = _engine()._to_segments(_HYPOTHESIS)  # no word_confidence attribute at all
+    assert all(s["confidence"] is None for s in segments)
+
+
 def test_speaker_change_inside_chunk_splits_sentences():
     engine = _engine()
     t0 = 1000.0
@@ -134,7 +158,9 @@ def test_empty_hypothesis_publishes_nothing():
 
 def test_text_without_timestamps_is_one_segment():
     segments = _engine()._to_segments(types.SimpleNamespace(text="Hello.", timestamp=None))
-    assert segments == [{"start": 0.0, "end": 0.0, "text": "Hello.", "words": []}]
+    assert segments == [
+        {"start": 0.0, "end": 0.0, "text": "Hello.", "words": [], "confidence": None}
+    ]
 
 
 def test_confident_detection_is_published_and_remembered():

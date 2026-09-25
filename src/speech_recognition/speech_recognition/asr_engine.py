@@ -59,7 +59,7 @@ class ASREngine:
     (see parakeet_asr_engine.ParakeetASREngine).
 
     Communicates outward via one callback:
-      - on_transcript_ready(transcript, speaker_id, language_code):
+      - on_transcript_ready(transcript, speaker_id, language_code, transcript_confidence, ...):
           Called after a successful transcription. The node stamps and
           publishes the result.
     """
@@ -92,7 +92,7 @@ class ASREngine:
         min_speaker_chunk_duration: float = 0.3,
         unknown_speaker_grace: float = 0.5,
         weights_dir: str,
-        on_transcript_ready: Callable[[str, str, str, int, int, int, float, float], None],
+        on_transcript_ready: Callable[[str, str, str, float, int, int, int, float, float], None],
         logger,
     ):
         self._logger = logger
@@ -946,6 +946,8 @@ class ASREngine:
                 f"{getattr(self, '_last_sentence_labels', [])}"
             )
 
+        transcript_confidence = self._chunk_confidence(collected)
+
         for group in groups:
             group_text = group["text"]
             if not group_text:
@@ -959,7 +961,7 @@ class ASREngine:
                 f"speaker: {group['speaker']}, "
                 f"seg={group['start_offset']:.2f}-{group['end_offset']:.2f}s, "
                 f"proc={processing_ms}ms, silence={silence_ms}ms, model={model_processing_ms}ms, "
-                f"audio={group_audio_ms}ms, x{realtime_factor:.2f})"
+                f"audio={group_audio_ms}ms, x{realtime_factor:.2f}, conf={transcript_confidence:.2f})"
             )
             speaker_confidence = self.speaker_confidence_for_interval(
                 None if start_time is None else start_time + group["start_offset"],
@@ -970,12 +972,27 @@ class ASREngine:
                 group_text,
                 group["speaker"],
                 detected_language,
+                transcript_confidence,
                 processing_ms,
                 silence_ms,
                 group_audio_ms,
                 realtime_factor,
                 speaker_confidence,
             )
+
+    @staticmethod
+    def _chunk_confidence(segments: List[dict]) -> float:
+        """Backend-reported ASR confidence for a transcribed chunk, in [0, 1].
+
+        Whisper segments never carry a "confidence" key, so this is 0.0 for
+        that backend (there is no cheap, well-calibrated per-word score in
+        faster-whisper's output). Parakeet attaches its NeMo confidence
+        estimator score to every segment (see ParakeetASREngine._to_segments);
+        averaging over the whole chunk gives one utterance-level number,
+        published unchanged for every speaker group split out of it.
+        """
+        values = [s["confidence"] for s in segments if s.get("confidence") is not None]
+        return sum(values) / len(values) if values else 0.0
 
     def _transcribe_with_data(
         self,
