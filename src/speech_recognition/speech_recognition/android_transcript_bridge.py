@@ -98,7 +98,12 @@ class AndroidTranscriptBridge(Node):
 
     def _speech_result_to_bytes(self, msg: SpeechResult) -> bytes:
         timing = self._take_timing(msg)
+        # processing_ms: pure model compute time. vad_wait_ms: how long the
+        # engine sat on the VAD silence timer before that started (0 for a
+        # forced max-duration split or a speaker-change flush). Kept as two
+        # fields end to end rather than one blended number — see asr.py.
         processing_ms = int(timing["processing_ms"]) if timing else 0
+        vad_wait_ms = int(timing["vad_wait_ms"]) if timing else None
         audio_duration_ms = int(timing["audio_duration_ms"]) if timing else None
         realtime_factor = float(timing["realtime_factor"]) if timing else None
 
@@ -120,6 +125,7 @@ class AndroidTranscriptBridge(Node):
             "language_code": msg.language_code,
             "locale": msg.locale,
             "processing_ms": processing_ms,
+            "vad_wait_ms": vad_wait_ms,
             "audio_duration_ms": audio_duration_ms,
             "realtime_factor": realtime_factor,
             "stamp": {

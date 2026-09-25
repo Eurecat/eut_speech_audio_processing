@@ -33,7 +33,8 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parent
 UNKNOWN = {"", "unknown"}
-SILENCE_GATE_SEC = 0.25  # asr min_silence_duration: speech ended this long before the transcript was made
+SILENCE_GATE_SEC = 0.25  # asr min_silence_duration: fallback for hyp files captured before capture_hyp.py
+                          # recorded the real per-utterance vad_wait_ms (see hyp_segments_from_results)
 LONG_MORE_THAN = 6  # "WER long" scores only GT utterances with more than this many (normalised) words
 
 # Matches ~/aimara-bench/benchmarks/scoring/metrics.py exactly, so numbers are comparable:
@@ -100,7 +101,9 @@ def align(ref: list[str], hyp: list[str]) -> list[tuple[str, int | None, int | N
 def hyp_segments_from_results(results: list[dict]) -> list[dict]:
     segs = []
     for r in results:
-        end = r["t_pub"] - r["proc_ms"] / 1000.0 - SILENCE_GATE_SEC
+        vad_wait = r.get("vad_wait_ms")
+        vad_wait_sec = vad_wait / 1000.0 if vad_wait is not None else SILENCE_GATE_SEC
+        end = r["t_pub"] - r["proc_ms"] / 1000.0 - vad_wait_sec
         segs.append({"start": max(0.0, end - r["audio_ms"] / 1000.0), "end": max(0.0, end), "speaker": r["speaker"]})
     return segs
 

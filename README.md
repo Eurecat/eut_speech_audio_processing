@@ -220,6 +220,7 @@ One JSON object per line over TCP:
   "language_code": "es",
   "locale": "es",
   "processing_ms": 340,
+  "vad_wait_ms": 260,
   "audio_duration_ms": 1200,
   "realtime_factor": 0.28,
   "stamp": {"sec": 1, "nanosec": 2000000}
@@ -231,10 +232,14 @@ One JSON object per line over TCP:
 score), the NeMo confidence estimator's mean word score on `asr_backend:
 parakeet`. `locale` is the bare ISO 639-1 code neither backend can add a region
 to (empty if the backend published without a language). `processing_ms`,
-`audio_duration_ms` and `realtime_factor` come from `speech_result_timing`,
-already merged in by the bridge; if that message hasn't arrived yet
-`processing_ms` falls back to wall-clock time since `stamp` and the other two
-are `null`.
+`vad_wait_ms`, `audio_duration_ms` and `realtime_factor` come from
+`speech_result_timing`, already merged in by the bridge. `processing_ms` is
+pure model compute time; `vad_wait_ms` is how long the engine sat on the VAD
+silence timer before transcribing started (0 for a forced max-duration split
+or a speaker-change flush, neither of which waits on VAD) — the two are never
+blended into one number. If the timing message hasn't arrived yet,
+`processing_ms` falls back to wall-clock time since `stamp` and the other
+three are `null`.
 
 #### Notes
 

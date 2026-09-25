@@ -80,6 +80,6 @@ To add a new file, generate its silver GT inside the image with `--rttm` or `--s
   - `missed`: no word of it was transcribed.
   
   Accuracy excludes `missed` utterances.
-- **DER** (pyannote.metrics) is computed two ways for source (*activity*: the diarization `/speech_activity_detection` labels; *ASR utt*: the published utterances, placed in time using `audio_ms`, `proc_ms` and the 0.25 s silence gate) and two ways for scoring policy, matching `~/aimara-bench/benchmarks/scoring/metrics.py` exactly so the numbers are comparable:
+- **DER** (pyannote.metrics) is computed two ways for source (*activity*: the diarization `/speech_activity_detection` labels; *ASR utt*: the published utterances, placed in time using `audio_ms`, `proc_ms` and `vad_wait_ms` — the 0.25 s silence gate is only a fallback for hyp files captured before `vad_wait_ms` existed) and two ways for scoring policy, matching `~/aimara-bench/benchmarks/scoring/metrics.py` exactly so the numbers are comparable:
   - **fair**: 0.25 s collar, overlap skipped. The permissive setting published CALLHOME/AMI numbers use.
   - **strict**: 0 s collar, overlap scored. What matters for a turn-taking agent — missing the overlapping talker is exactly the failure that makes it interrupt.

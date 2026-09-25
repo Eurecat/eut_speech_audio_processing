@@ -602,9 +602,14 @@ class ASREngine:
         if not self.vad_state and self.last_silence_time > 0:
             self._logger.debug("Silence timeout reached — transcribing.")
             expected_start_time = self.speech_start_time
+            # Real elapsed time since the VAD actually went quiet, not just the
+            # configured min_silence_duration: also covers thread-wake jitter.
+            vad_wait_ms = max(0, int((time.time() - self.last_silence_time) * 1000))
             with self._segment_lock:
                 self._segment_dispatched = True
-            self._transcribe_speech_chunk(expected_start_time=expected_start_time)
+            self._transcribe_speech_chunk(
+                expected_start_time=expected_start_time, vad_wait_ms=vad_wait_ms
+            )
             self.speech_interrupted = False
         else:
             self._logger.debug("VAD state changed before processing — skipping.")
@@ -647,7 +652,10 @@ class ASREngine:
             self._segment_has_onset = False
 
     def _transcribe_speech_chunk(
-        self, end_time: Optional[float] = None, expected_start_time: Optional[float] = None
+        self,
+        end_time: Optional[float] = None,
+        expected_start_time: Optional[float] = None,
+        vad_wait_ms: int = 0,
     ) -> None:
         """Extract audio from the buffer then transcribe."""
         if end_time is None:
@@ -656,7 +664,11 @@ class ASREngine:
             audio_data, start_time, stop_time = self._extract_audio_data(end_time)
         if audio_data is not None:
             self._transcribe_with_data(
-                audio_data, start_time, stop_time, expected_start_time=expected_start_time
+                audio_data,
+                start_time,
+                stop_time,
+                expected_start_time=expected_start_time,
+                vad_wait_ms=vad_wait_ms,
             )
 
     def _extract_audio_data(
@@ -909,8 +921,7 @@ class ASREngine:
         duration: float,
         detected_language: str,
         processing_ms: int,
-        silence_ms: int,
-        model_processing_ms: int,
+        vad_wait_ms: int,
     ) -> None:
         """Attribute the transcribed words to speakers and publish one result per run.
 
@@ -960,7 +971,7 @@ class ASREngine:
                 f"Transcript: '{group_text}' (lang: {detected_language}, "
                 f"speaker: {group['speaker']}, "
                 f"seg={group['start_offset']:.2f}-{group['end_offset']:.2f}s, "
-                f"proc={processing_ms}ms, silence={silence_ms}ms, model={model_processing_ms}ms, "
+                f"proc={processing_ms}ms, vad_wait={vad_wait_ms}ms, "
                 f"audio={group_audio_ms}ms, x{realtime_factor:.2f}, conf={transcript_confidence:.2f})"
             )
             speaker_confidence = self.speaker_confidence_for_interval(
@@ -974,7 +985,7 @@ class ASREngine:
                 detected_language,
                 transcript_confidence,
                 processing_ms,
-                silence_ms,
+                vad_wait_ms,
                 group_audio_ms,
                 realtime_factor,
                 speaker_confidence,
@@ -1001,8 +1012,17 @@ class ASREngine:
         end_time: Optional[float] = None,
         reset_timing: bool = True,
         expected_start_time: Optional[float] = None,
+        vad_wait_ms: int = 0,
     ) -> None:
-        """Run the ASR backend on pre-extracted audio and fire on_transcript_ready."""
+        """Run the ASR backend on pre-extracted audio and fire on_transcript_ready.
+
+        vad_wait_ms is the time actually spent waiting on the VAD silence timer
+        before this call started (measured by the caller in _process_speech_end,
+        the only path where that wait happened); 0 for a forced max-duration
+        split or a speaker-change flush, both of which start transcribing
+        immediately with no VAD wait to report. Kept separate from the model's
+        own processing_ms below rather than folded into one blended number.
+        """
         if audio_data is None or len(audio_data) == 0:
             self._logger.warn("Empty audio data — skipping transcription.")
             return
@@ -1031,15 +1051,9 @@ class ASREngine:
             transcript = " ".join(seg["text"] for seg in collected).strip()
 
             if transcript:
-                model_processing_ms = int((time.time() - transcribe_start) * 1000)
-                # last_silence_time is stamped when the VAD silence timer STARTS, so the
-                # raw delta includes the min_silence_duration wait itself. Subtract it so
-                # processing_ms reflects actual work, not VAD's trailing-silence hold-off.
-                silence_ms = int(self.min_silence_duration * 1000)
-                if self.last_silence_time > 0:
-                    processing_ms = max(0, int((time.time() - self.last_silence_time) * 1000) - silence_ms)
-                else:
-                    processing_ms = model_processing_ms
+                # Pure model compute time; vad_wait_ms (the caller's measured VAD
+                # hold-off) travels separately instead of being blended into this.
+                processing_ms = int((time.time() - transcribe_start) * 1000)
                 with self._publish_lock:
                     self._attribute_and_publish(
                         collected,
@@ -1048,8 +1062,7 @@ class ASREngine:
                         duration,
                         detected_language,
                         processing_ms,
-                        silence_ms,
-                        model_processing_ms,
+                        vad_wait_ms,
                     )
             else:
                 self._logger.info("Empty transcript — not publishing.")

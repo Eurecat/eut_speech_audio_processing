@@ -248,7 +248,7 @@ class ASRNode(Node):
         language_code: str,
         transcript_confidence: float,
         processing_ms: int,
-        silence_ms: int,
+        vad_wait_ms: int,
         audio_duration_ms: int,
         realtime_factor: float,
         speaker_confidence: float = -1.0,
@@ -274,13 +274,19 @@ class ASRNode(Node):
         msg.locale = language_code or ""
 
         # Published just ahead of SpeechResult (same stamp, so a subscriber can
-        # pair them) to bias delivery order in the common case; a subscriber
-        # still can't assume the pairing message has landed yet.
+        # pair them). A subscriber must still not assume arrival order across
+        # the two topics — see android_transcript_bridge.py's _take_timing().
+        #
+        # processing_ms is pure model compute time; vad_wait_ms is how long the
+        # engine sat on the VAD silence timer before that started (0 for a
+        # forced max-duration split or a speaker-change flush, neither of which
+        # waits on VAD). Kept apart rather than blended into one number.
         timing = String()
         timing.data = json.dumps(
             {
                 "stamp": {"sec": int(msg.header.stamp.sec), "nanosec": int(msg.header.stamp.nanosec)},
                 "processing_ms": int(processing_ms),
+                "vad_wait_ms": int(vad_wait_ms),
                 "audio_duration_ms": int(audio_duration_ms),
                 "realtime_factor": float(realtime_factor),
             }
@@ -291,7 +297,7 @@ class ASRNode(Node):
         self.get_logger().info(
             f"Published transcript: '{transcript}' (lang: {language_code}, speaker: {speaker_id}"
             f"@{speaker_confidence:.2f}, transcript_conf={transcript_confidence:.2f}, "
-            f"proc={processing_ms}ms, silence={silence_ms}ms, audio={audio_duration_ms}ms, x{realtime_factor:.2f})"
+            f"proc={processing_ms}ms, vad_wait={vad_wait_ms}ms, audio={audio_duration_ms}ms, x{realtime_factor:.2f})"
         )
 
         if self.ros4hri_enabled and speaker_id and speaker_id != "unknown":

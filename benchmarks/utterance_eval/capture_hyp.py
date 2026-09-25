@@ -82,6 +82,7 @@ class Capture(Node):
             "transcript_conf": round(msg.transcript_confidence, 3),
             "audio_ms": int(timing.get("audio_duration_ms", 0)),
             "proc_ms": int(timing.get("processing_ms", 0)),
+            "vad_wait_ms": int(timing["vad_wait_ms"]) if timing.get("vad_wait_ms") is not None else None,
         })
         self.last_event = time.monotonic()
         self.get_logger().info(f"[{self.results[-1]['t_pub']:7.2f}] {msg.speaker_id}: {msg.transcript}")
